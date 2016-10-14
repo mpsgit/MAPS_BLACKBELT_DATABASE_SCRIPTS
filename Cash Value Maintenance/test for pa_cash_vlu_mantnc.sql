@@ -1,0 +1,18 @@
+set serveroutput on
+
+declare
+  a CASH_VLU_MANTNC.OBJ_CASH_VAL_MANTNC_TABLE;
+  res NUMBER;
+begin
+  a(1).PERD_ID := 20170304;
+  a(2).PERD_ID := 20170305;
+  a(3).PERD_ID := 20170306;
+  a(1).SCT_CASH_VAL := 2;
+  a(2).SCT_CASH_VAL := 5;
+  a(3).SCT_CASH_VAL := 8;
+  a(1).SCT_R_FACTOR := 3;
+  a(2).SCT_R_FACTOR := 66;
+  a(3).SCT_R_FACTOR := 9;
+  CASH_VLU_MANTNC.CASH_VLU_MANTNC_INSERT(68,a,res);
+  DBMS_OUTPUT.PUT_LINE(res);
+ END;
