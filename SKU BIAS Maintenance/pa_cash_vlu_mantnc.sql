@@ -19,12 +19,6 @@ END SKU_BIAS_MANTNC;
 
 CREATE OR REPLACE
 PACKAGE BODY SKU_BIAS_MANTNC AS
-  /*********************************************************
-  * History
-  * Created by   : Schiff Gy
-  * Date         : 20/10/2016
-  * Description  : First created 
-  ******************************************************/
 
   FUNCTION GET_SKU_BIAS(p_mrkt_id IN NUMBER,
                         p_sls_perd_id IN NUMBER
@@ -35,8 +29,25 @@ PACKAGE BODY SKU_BIAS_MANTNC AS
       FSC.PROD_DESC_TXT,
       S.SKU_ID,
       S.LCL_SKU_NM,
-	    'A',
-	    'P',
+      DECODE((SELECT 1 AA from dual 
+              WHERE EXISTS( SELECT SKU_PRC_AMT FROM MRKT_PERD_SKU_PRC MPSP
+                            WHERE MPSP.MRKT_ID=p_mrkt_id AND MPSP.OFFR_PERD_ID=p_sls_perd_id
+                              AND MPSP.SKU_ID=S.SKU_ID AND MPSP.PRC_LVL_TYP_CD='RP' )
+                AND EXISTS( SELECT * FROM SKU_COST SC 
+                            WHERE SC.MRKT_ID=p_mrkt_id AND SC.OFFR_PERD_ID=p_sls_perd_id
+                              AND SC.SKU_ID=S.SKU_ID AND COST_TYP='P')
+                AND (PA_MAPS_PUBLIC.get_sls_cls_cd(p_sls_perd_id, p_mrkt_id, s.avlbl_perd_id,
+                         s.intrdctn_perd_id, s.demo_ofs_nr, s.demo_durtn_nr, s.new_durtn_nr,
+                         s.stus_perd_id, s.dspostn_perd_id, s.on_stus_perd_id)!='-1')
+              ),1,'A','N'),
+	    DECODE((SELECT count(*) FROM OFFR_SKU_LINE OSL 
+              WHERE OSL.OFFR_ID in( SELECT OFFR_ID FROM OFFR O
+                                    WHERE O.MRKT_ID=p_mrkt_id
+                                     AND O.VER_ID = 0
+                                     AND O.OFFR_TYP='CMP'
+                                     AND O.OFFR_PERD_ID =p_sls_perd_id)
+               AND OSL.DLTD_IND NOT IN ('Y','y')
+               AND OSL.SKU_ID=S.SKU_ID),0,'N','P'),
       PSB.BIAS_PCT,
       PSB.CREAT_TS,
       PSB.CREAT_USER_ID,
@@ -57,7 +68,7 @@ PACKAGE BODY SKU_BIAS_MANTNC AS
       pipe row(rec.cline);
     END LOOP;
   END GET_SKU_BIAS;
-
+  
   PROCEDURE SET_SKU_BIAS(p_mrkt_id IN NUMBER,
                          p_sls_perd_id IN NUMBER,
                          p_new_sku_bias IN NUMBER,
