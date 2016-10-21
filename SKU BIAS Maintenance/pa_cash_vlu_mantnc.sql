@@ -61,7 +61,7 @@ PACKAGE BODY SKU_BIAS_MANTNC AS
       LEFT JOIN MRKT_FSC FSC
         ON FSC.MRKT_ID=p_mrkt_id AND FSC.SKU_ID=S.SKU_ID
     WHERE S.MRKT_ID=p_mrkt_id AND S.DLTD_IND NOT IN ('Y','y')    
-    ORDER BY PSB.SKU_ID;
+    ORDER BY S.MRKT_ID,S.SKU_ID;
   BEGIN
 
     FOR rec in cc LOOP
@@ -69,13 +69,3 @@ PACKAGE BODY SKU_BIAS_MANTNC AS
     END LOOP;
   END GET_SKU_BIAS;
   
-  PROCEDURE SET_SKU_BIAS(p_mrkt_id IN NUMBER,
-                         p_sls_perd_id IN NUMBER,
-                         p_new_sku_bias IN NUMBER,
-                         p_stus OUT NUMBER) AS
-  BEGIN
-    -- TODO: Implementation required for PROCEDURE SKU_BIAS_MANTNC.SET_SKU_BIAS
-    NULL;
-  END SET_SKU_BIAS;
-                                  
-END SKU_BIAS_MANTNC;
