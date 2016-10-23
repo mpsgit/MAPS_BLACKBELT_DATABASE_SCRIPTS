@@ -1,5 +1,4 @@
-create or replace 
-PACKAGE CASH_VLU_MANTNC IS
+create or replace PACKAGE BODY CASH_VLU_MANTNC AS
   /*********************************************************
   * History
   * Created by   : Schiff Gy
@@ -60,6 +59,7 @@ PROCEDURE SET_CASH_VAL_R_FACTOR(p_mrkt_id IN NUMBER,
   local_prcsng_dt DATE:=NULL;                                
   old_sct_cash_val MRKT_SLS_PERD.SCT_CASH_VAL%TYPE;
   old_sct_r_factor MRKT_SLS_PERD.SCT_R_FACTOR%TYPE;
+  OLD_LAST_UPDT_USER_ID MRKT_SLS_PERD.LAST_UPDT_USER_ID%TYPE;
   mrkt_perd_exists NUMBER;
   wtd CHAR(1):='N';
   ignore_r_factor BOOLEAN:=p_r_factor IS NULL;
@@ -67,19 +67,17 @@ BEGIN
   p_stus:=0;
   IF p_cash_val<0 THEN p_STUS:=1;
   ELSE
-    SELECT MAX(SLS_PERD_ID) INTO max_perd_id
-      FROM DLY_BILNG WHERE MRKT_ID=p_mrkt_id
-      GROUP BY MRKT_ID;
+    SELECT max(SLS_PERD_ID) into max_perd_id FROM DLY_BILNG WHERE MRKT_ID=p_mrkt_id;
     IF p_sls_perd_id > max_perd_id THEN
 -- Read current record for supplied market/campaign from MRKT_SLS_PERD
       SELECT count(*) INTO mrkt_perd_exists 
         FROM MRKT_SLS_PERD WHERE MRKT_ID=p_mrkt_id AND SLS_PERD_ID=p_sls_perd_id;
       IF mrkt_perd_exists=1 THEN
-        SELECT SCT_CASH_VAL,SCT_R_FACTOR 
-        INTO  old_sct_cash_val,old_sct_r_factor
+        SELECT SCT_CASH_VAL,SCT_R_FACTOR,LAST_UPDT_USER_ID 
+        INTO  old_sct_cash_val,old_sct_r_factor,OLD_LAST_UPDT_USER_ID
         FROM MRKT_SLS_PERD WHERE MRKT_ID=p_mrkt_id AND SLS_PERD_ID=p_sls_perd_id;
 -- If either the Cash Value or the R-Factor is different to current values
-        IF old_sct_cash_val=p_cash_val AND (ignore_r_factor OR old_sct_r_factor=p_r_factor)
+        IF old_sct_cash_val=p_cash_val AND OLD_LAST_UPDT_USER_ID = p_user_id AND (ignore_r_factor OR old_sct_r_factor=p_r_factor)
           THEN wtd:='N'; -- No changes, nothing to do
           ELSE wtd:='U'; -- previous value exists and different, so update
         END IF;
@@ -95,7 +93,7 @@ BEGIN
       ELSIF wtd = 'E' THEN p_stus:=4;
       ELSE
 -- Create the missing local processing date value
-        local_prcsng_dt:=CASH_VLU_MANTNC.get_local_prcsng_dt(p_mrkt_id, p_sls_perd_id);
+        local_prcsng_dt:=null;--CASH_VLU_MANTNC.get_local_prcsng_dt(p_mrkt_id, p_sls_perd_id);
         DECLARE
           r_factor_to_set NUMBER;
         BEGIN
@@ -173,4 +171,3 @@ EXCEPTION WHEN NO_DATA_FOUND THEN RETURN NULL;
 END;
 
 END CASH_VLU_MANTNC;
-
