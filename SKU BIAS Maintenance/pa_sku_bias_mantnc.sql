@@ -2,7 +2,7 @@ create or replace PACKAGE SKU_BIAS_MANTNC AS
   /*********************************************************
   * History
   * Created by   : Schiff Gy
-  * Date         : 20/10/2016
+  * Date         : 12/10/2016
   * Description  : First created 
   ******************************************************/
 
@@ -69,3 +69,13 @@ PACKAGE BODY SKU_BIAS_MANTNC AS
     END LOOP;
   END GET_SKU_BIAS;
   
+  PROCEDURE SET_SKU_BIAS(p_mrkt_id IN NUMBER,
+                         p_sls_perd_id IN NUMBER,
+                         p_new_sku_bias IN NUMBER,
+                         p_stus OUT NUMBER) AS
+  BEGIN
+    -- TODO: Implementation required for PROCEDURE SKU_BIAS_MANTNC.SET_SKU_BIAS
+    NULL;
+  END SET_SKU_BIAS;
+                                  
+END SKU_BIAS_MANTNC;
