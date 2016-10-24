@@ -25,6 +25,22 @@ create or replace TYPE OBJ_SKU_BIAS_MANTNC_LINE as object
 
 create or replace TYPE OBJ_SKU_BIAS_MANTNC_TABLE IS TABLE OF OBJ_SKU_BIAS_MANTNC_LINE;
 
+create or replace TYPE OBJ_DLY_BILNG_ADJSTMNT_LINE as object
+   ( DLY_BILNG_ID NUMBER,
+     FSC_CD number(8),
+     FSC_DESC varchar2(100),
+     SKU_ID number(8),
+     LOCAL_SKU_NM varchar2(150),
+     SLS_PRC_AMT number(16,8),
+     NR_FOR_QTY number(4,0),
+     UNT_PRC_AMT number(16,8),
+	   ACT_IND char(1),
+	   PLN_IND char(1),
+     BI24_UNT number(9,0)
+);
+
+CREATE OR REPLACE TYPE OBJ_DLY_BILNG_ADJSTMNT_TABLE AS TABLE OF OBJ_DLY_BILNG_ADJSTMNT_LINE
+
 create or replace TYPE T_FS_BNCHMRK AS OBJECT
     ( BNCHMRK_PRFL_CD number(7),
       DFALT_IND char(1)
