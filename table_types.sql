@@ -24,3 +24,22 @@ create or replace TYPE OBJ_SKU_BIAS_MANTNC_LINE as object
 );
 
 create or replace TYPE OBJ_SKU_BIAS_MANTNC_TABLE IS TABLE OF OBJ_SKU_BIAS_MANTNC_LINE;
+
+create or replace TYPE FS_MRKT_PRFL_BNCHMRK_DATA AS OBJECT
+    ( BNCHMRK_PRFL_CD number(7),
+      DFALT_IND char(1)
+    );
+/  
+create or replace TYPE FS_MRKT_PRFL_BNCHMRK_DTA_TABLE IS TABLE OF FS_MRKT_PRFL_BNCHMRK_DATA;
+/
+create or replace TYPE FS_MRKT_PRFL_BNCHMRK_LINE AS object
+   ( MRKT_ID number,
+     PRFL_CD number(7,0),
+     EFF_PERD_ID number,
+     BENCHMARK_DATA FS_MRKT_PRFL_BNCHMRK_DTA_TABLE,
+     CREAT_USR_ID varchar2(35),
+     CREAT_TS date,
+     LAST_UPDT_USR_ID varchar2(35),
+     LAST_UPDT_TS date
+     );
+/
