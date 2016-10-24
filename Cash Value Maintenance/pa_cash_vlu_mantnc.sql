@@ -50,7 +50,7 @@ PROCEDURE SET_CASH_VAL_R_FACTOR(p_mrkt_id IN NUMBER,
   *
   * Possible OUT Values
   * 0 - success
-  * 1 - New CASH_VAL value is negative
+  * 1 - New CASH_VAL value is invalid (negative or NULL)
   * 2 - database error in UPDATE MRKT_SLS_PERD or INSERT INTO CASH_VAL_RF_HIST statements
   * 3 - record to update in table MRKT_SLS_PERD is readonly (has records in DLY_BILNG)
   * 4 - period to update is not defined yet in table MRKT_PERD
@@ -65,7 +65,7 @@ PROCEDURE SET_CASH_VAL_R_FACTOR(p_mrkt_id IN NUMBER,
   ignore_r_factor BOOLEAN:=p_r_factor IS NULL;
 BEGIN
   p_stus:=0;
-  IF p_cash_val<0 THEN p_STUS:=1;
+    IF nvl(p_cash_val,-1)<0 THEN p_STUS:=1;
   ELSE
     SELECT max(SLS_PERD_ID) into max_perd_id FROM DLY_BILNG WHERE MRKT_ID=p_mrkt_id;
     IF p_sls_perd_id > max_perd_id THEN
