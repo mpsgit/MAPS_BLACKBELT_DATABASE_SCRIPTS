@@ -36,10 +36,6 @@ create or replace TYPE FS_MRKT_PRFL_BNCHMRK_LINE AS object
    ( MRKT_ID number,
      PRFL_CD number(7,0),
      EFF_PERD_ID number,
-     BENCHMARK_DATA FS_MRKT_PRFL_BNCHMRK_DTA_TABLE,
-     CREAT_USR_ID varchar2(35),
-     CREAT_TS date,
-     LAST_UPDT_USR_ID varchar2(35),
-     LAST_UPDT_TS date
+     BENCHMARK_DATA FS_MRKT_PRFL_BNCHMRK_DTA_TABLE
      );
 /
