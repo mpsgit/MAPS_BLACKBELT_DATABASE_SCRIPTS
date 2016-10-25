@@ -2,14 +2,11 @@ create or replace PACKAGE PA_DLY_BILNG_ADJSTMNT AS
   /*********************************************************
   * History
   * Created by   : Schiff Gy
-  * Date         : 12/10/2016
+  * Date         : 25/10/2016
   * Description  : First created 
   ******************************************************/
 
-  PROCEDURE SET_DLY_BILNG_ADJSTMNT(p_mrkt_id IN NUMBER,
-                         p_sls_perd_id IN NUMBER,
-                         p_offr_perd_id IN NUMBER,
-                         p_prcsng_dt IN DATE,
+  PROCEDURE SET_DLY_BILNG_ADJSTMNT(p_dly_bilng_id IN NUMBER,
                          p_new_bi24_units IN NUMBER,
                          p_user_id IN VARCHAR2,
                          p_stus OUT NUMBER);
@@ -29,6 +26,7 @@ create or replace PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
                         p_offr_perd_id IN NUMBER,
                         p_prcsng_dt IN DATE
                         ) RETURN OBJ_DLY_BILNG_ADJSTMNT_TABLE PIPELINED AS
+-- TODO add optional input DLY_BILNG_ID_List as NUMBER_ARRAY and filtering by IN(DLY_BILNG_ID_List)                        
   CURSOR cc IS
     SELECT OBJ_DLY_BILNG_ADJSTMNT_LINE(
       DB.DLY_BILNG_ID,
@@ -78,61 +76,46 @@ create or replace PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
     END LOOP; 
   END GET_DLY_BILNG_ADJSTMNT;
   
-  PROCEDURE SET_DLY_BILNG_ADJSTMNT(p_mrkt_id IN NUMBER,
-                         p_sls_perd_id IN NUMBER,
-                         p_offr_perd_id IN NUMBER,
-                         p_prcsng_dt IN DATE,
+  PROCEDURE SET_DLY_BILNG_ADJSTMNT(p_dly_bilng_id IN NUMBER,
                          p_new_bi24_units IN NUMBER,
                          p_user_id IN VARCHAR2,
                          p_stus OUT NUMBER) AS
   /*********************************************************
-  * INPUT p_new_sku_bias IS NULL handled as p_new_sku_bias=100
+  * INPUT p_new_bi24_units IS NULL handled as record has to be deleted
   *
   * Possible OUT Values
   * 0 - success
-  * 1 - New BIAS_PCT value is out of range 0 to 1000
   * 2 - database error in DELETE, UPDATE or INSERT statements
-  * 3 - Obligatory foreign keys (MRKT_SKU and MRKT_PERD) not found
+  * 3 - Obligatory foreign keys (DLY_BILNG) not found
   ******************************************************/
-/*  c_new_sku_bias NUMBER;
-  counter1 NUMBER;
-  counter2 NUMBER;
+    counter1 NUMBER;
   BEGIN
-    -- p_new_sku_bias IS NULL replace with 100.
-    c_new_sku_bias:=nvl(p_new_sku_bias,100);
-    -- c_new_sku_bias must be between 0 and 1000
-    IF c_new_sku_bias between 0 AND 1000 THEN
-    -- c_new_sku_bias=100 means delete, the record if exists
-      IF c_new_sku_bias=100 THEN
-	     BEGIN
+    SELECT count(*) INTO counter1 FROM DLY_BILNG WHERE DLY_BILNG_ID=p_dly_bilng_id;
+    IF counter1>0 THEN
+    -- p_new_bi24_units IS NULL, the record if exists
+      IF p_new_bi24_units IS NULL THEN
+        BEGIN
         SAVEPOINT before_delete;
-        DELETE FROM MRKT_PERD_SKU_BIAS
-          WHERE MRKT_ID=p_mrkt_id AND SLS_PERD_ID=p_sls_perd_id AND SKU_ID=p_sku_id;
-       EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_delete; p_stus:=2;
-	   END;
-    -- otherwise upsert using p_new_bias
+          DELETE FROM DLY_BILNG_ADJSTMNT WHERE DLY_BILNG_ID=p_dly_bilng_id;
+        EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_delete; p_stus:=2;
+        END;
+    -- otherwise upsert using p_new_bi24_units
       ELSE
-        SELECT count(*) INTO counter1 FROM MRKT_PERD WHERE MRKT_ID=p_mrkt_id AND PERD_ID=p_sls_perd_id;
-        SELECT count(*) INTO counter2 FROM MRKT_SKU WHERE MRKT_ID=p_mrkt_id AND SKU_ID=p_sku_id;
-        IF counter1+counter2=2 THEN
-         BEGIN
-          SAVEPOINT before_upsert; 		 
-          MERGE INTO MRKT_PERD_SKU_BIAS trgt
-            USING (SELECT p_mrkt_id t1,p_sls_perd_id t2,p_sku_id t3 FROM dual) src
-              ON (trgt.MRKT_ID=src.t1 AND trgt.SLS_PERD_ID=src.t2 AND trgt.SKU_ID=src.t3)
+        BEGIN
+        SAVEPOINT before_upsert; 		 
+          MERGE INTO DLY_BILNG_ADJSTMNT trgt
+            USING (SELECT p_dly_bilng_id t1 FROM dual) src
+              ON (trgt.DLY_BILNG_ID=src.t1)
             WHEN MATCHED THEN
-              UPDATE SET trgt.BIAS_PCT = c_new_sku_bias, trgt.LAST_UPDT_USER_ID=p_user_id
+              UPDATE SET trgt.UNIT_QTY = p_new_bi24_units, trgt.LAST_UPDT_USER_ID=p_user_id
             WHEN NOT MATCHED THEN
-              INSERT (MRKT_ID,SLS_PERD_ID,SKU_ID,BIAS_PCT,LAST_UPDT_USER_ID)
-                VALUES (p_mrkt_id,p_sls_perd_id,p_sku_id,c_new_sku_bias,p_user_id);
+              INSERT (DLY_BILNG_ID,UNIT_QTY,LAST_UPDT_USER_ID)
+                VALUES (p_dly_bilng_id,p_new_bi24_units,p_user_id);
 	       EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;
 		     END;	
-        ELSE p_STUS:=3;
-        END IF;
       END IF;
-    ELSE p_STUS:=1;  
+    ELSE p_STUS:=3;  
     END IF;
-    EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;*/BEGIN NULL;
   END SET_DLY_BILNG_ADJSTMNT;
                                   
 END PA_DLY_BILNG_ADJSTMNT;
