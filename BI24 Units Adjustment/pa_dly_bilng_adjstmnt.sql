@@ -33,7 +33,7 @@ create or replace PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
     SELECT OBJ_DLY_BILNG_ADJSTMNT_LINE(
       DB.DLY_BILNG_ID,
       DB.FSC_CD,
-      FSC.PROD_DESC_TXT,
+      PA_MAPS_PUBLIC.get_fsc_desc(p_mrkt_id,p_offr_perd_id,DB.FSC_CD),
       DB.SKU_ID,
       S.LCL_SKU_NM,
       DB.SLS_PRC_AMT,
@@ -44,10 +44,10 @@ create or replace PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
                 EXISTS( SELECT SKU_PRC_AMT FROM MRKT_PERD_SKU_PRC MPSP
                    WHERE MPSP.MRKT_ID=p_mrkt_id AND MPSP.OFFR_PERD_ID=p_sls_perd_id
                     AND MPSP.SKU_ID=S.SKU_ID AND MPSP.PRC_LVL_TYP_CD='RP' )
-                AND EXISTS( SELECT * FROM SKU_COST SC 
+                AND EXISTS( SELECT HOLD_COSTS_IND FROM SKU_COST SC 
                    WHERE SC.MRKT_ID=p_mrkt_id AND SC.OFFR_PERD_ID=p_offr_perd_id
                     AND SC.SKU_ID=S.SKU_ID AND COST_TYP='P')
-                AND (PA_MAPS_PUBLIC.get_sls_cls_cd(p_sls_perd_id, p_mrkt_id, s.avlbl_perd_id,
+                AND (PA_MAPS_PUBLIC.get_sls_cls_cd(p_offr_perd_id, p_mrkt_id, s.avlbl_perd_id,
                          s.intrdctn_perd_id, s.demo_ofs_nr, s.demo_durtn_nr, s.new_durtn_nr,
                          s.stus_perd_id, s.dspostn_perd_id, s.on_stus_perd_id)!='-1')),'1','A','N'),
 	    DECODE((SELECT count(*) FROM OFFR_SKU_LINE OSL 
@@ -58,12 +58,15 @@ create or replace PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
                                      AND O.OFFR_PERD_ID =p_offr_perd_id)
                AND OSL.DLTD_IND NOT IN ('Y','y')
                AND OSL.SKU_ID=S.SKU_ID),0,'N','P'),
-      DB.UNIT_QTY) cline
+      DB.UNIT_QTY,
+      DBAT.UNIT_QTY,
+      DBAT.LAST_UPDT_USER_ID,
+      DBAT.LAST_UPDT_TS) cline
     FROM DLY_BILNG DB
-      LEFT JOIN MRKT_FSC FSC
-        ON FSC.MRKT_ID=p_mrkt_id AND FSC.FSC_CD=DB.FSC_CD 
       LEFT JOIN MRKT_SKU S
         ON S.MRKT_ID=p_mrkt_id AND S.SKU_ID=DB.SKU_ID
+      LEFT JOIN DLY_BILNG_ADJSTMNT DBAT
+        ON DBAT.DLY_BILNG_ID=DB.DLY_BILNG_ID
     WHERE DB.MRKT_ID=p_mrkt_id AND DB.SLS_PERD_ID=p_sls_perd_id
       AND DB.OFFR_PERD_ID=p_offr_perd_id AND trunc(DB.PRCSNG_DT)=trunc(p_prcsng_dt)
 --    ORDER BY DB.DLY_BILNG_ID,db.SKU_ID

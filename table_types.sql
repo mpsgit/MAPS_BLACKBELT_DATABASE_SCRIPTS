@@ -36,7 +36,10 @@ create or replace TYPE OBJ_DLY_BILNG_ADJSTMNT_LINE as object
      UNT_PRC_AMT number(16,8),
 	   ACT_IND char(1),
 	   PLN_IND char(1),
-     BI24_UNT number(9,0)
+     BI24_UNT number(9,0),,
+     ADJ_BI24_UNT number(9,0)
+     LAST_UPDT_TS date,
+     LAST_UPDT_USER_ID varchar2(35)
 );
 
 CREATE OR REPLACE TYPE OBJ_DLY_BILNG_ADJSTMNT_TABLE AS TABLE OF OBJ_DLY_BILNG_ADJSTMNT_LINE
