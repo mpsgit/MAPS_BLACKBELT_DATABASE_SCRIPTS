@@ -44,6 +44,15 @@ create or replace TYPE OBJ_DLY_BILNG_ADJSTMNT_LINE as object
 
 CREATE OR REPLACE TYPE OBJ_DLY_BILNG_ADJSTMNT_TABLE AS TABLE OF OBJ_DLY_BILNG_ADJSTMNT_LINE
 
+create or replace TYPE OBJ_TREND_TYPE_LINE AS OBJECT
+    ( SLS_TYP_ID number,
+      SLS_TYP_NM varchar2(100)
+    );
+ 
+create or replace TYPE OBJ_TREND_TYPE_TABLE IS TABLE OF OBJ_TREND_TYPE_LINE;
+
+------------------------------------------------
+
 create or replace TYPE T_FS_BNCHMRK AS OBJECT
     ( BNCHMRK_PRFL_CD number(7),
       DFALT_IND char(1)
