@@ -102,6 +102,7 @@ WITH ACT_FSC AS
   counter1 NUMBER;
   counter2 NUMBER;
   BEGIN
+    p_STUS:=0;
     -- p_new_sku_bias IS NULL replace with 100.
     c_new_sku_bias:=nvl(p_new_sku_bias,100);
     -- c_new_sku_bias must be between 0 and 1000

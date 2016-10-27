@@ -90,6 +90,7 @@ create or replace PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
   ******************************************************/
     counter1 NUMBER;
   BEGIN
+    p_STUS:=0;
     SELECT count(*) INTO counter1 FROM DLY_BILNG WHERE DLY_BILNG_ID=p_dly_bilng_id;
     IF counter1>0 THEN
     -- p_new_bi24_units IS NULL, the record if exists

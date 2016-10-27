@@ -27,8 +27,7 @@ PACKAGE PA_MANL_TREND_ADJSTMNT AS
 
 END PA_MANL_TREND_ADJSTMNT;
 
-CREATE OR REPLACE
-PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
+create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
   /*********************************************************
   * History
   * Created by   : Schiff Gy
@@ -173,6 +172,7 @@ PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
     counter1 NUMBER;
     counter2 NUMBER;
   BEGIN
+    p_STUS:=0;
     -- precheck constraints
     SELECT count(*) INTO counter1 FROM SLS_TYP WHERE SLS_TYP_ID=p_sls_typ_id;
     SELECT count(*) INTO counter2 FROM MRKT_PERD WHERE MRKT_ID=p_mrkt_id AND PERD_ID=p_sls_perd_id;
@@ -209,7 +209,6 @@ PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
       END IF;
     ELSE p_STUS:=3;  
     END IF;
-    NULL;
   END SET_MANL_TREND_ADJSTMNT;
 
 END PA_MANL_TREND_ADJSTMNT;
