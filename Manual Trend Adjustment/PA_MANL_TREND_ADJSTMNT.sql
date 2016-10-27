@@ -21,9 +21,9 @@ PACKAGE PA_MANL_TREND_ADJSTMNT AS
                                   p_stus OUT NUMBER);
                                   
   FUNCTION GET_MANL_TREND_ADJSTMNT(p_mrkt_id IN NUMBER,
-                        p_sls_perd_id IN NUMBER
-                        ) RETURN OBJ_MANL_TREND_ADJSTMNT_TABLE PIPELINED; -- todo create the object first
-  
+                        p_sls_perd_id IN NUMBER,
+                        p_sls_typ_id IN NUMBER
+                        ) RETURN OBJ_MANL_TREND_ADJSTMNT_TABLE PIPELINED;  
 
 END PA_MANL_TREND_ADJSTMNT;
 
@@ -96,7 +96,8 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
   END GET_TARGET_CAMPAIGN;
 
   FUNCTION GET_MANL_TREND_ADJSTMNT(p_mrkt_id IN NUMBER,
-                        p_sls_perd_id IN NUMBER
+                        p_sls_perd_id IN NUMBER,
+                        p_sls_typ_id IN NUMBER
                         ) RETURN OBJ_MANL_TREND_ADJSTMNT_TABLE PIPELINED AS
     CURSOR cc IS
       WITH  ACT_FSC AS
@@ -144,7 +145,7 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
           ON MS.MRKT_ID=DB.MRKT_ID AND MS.SKU_ID=FSC.SKU_ID
         LEFT JOIN SCT_FSC_OVRRD SFO
           ON SFO.MRKT_ID=DB.MRKT_ID AND SFO.SLS_PERD_ID=DB.SLS_PERD_ID
-            AND SFO.SLS_TYP_ID=DBC.SLS_TYP_ID AND SFO.FSC_CD=DB.FSC_CD
+            AND SFO.SLS_TYP_ID=p_sls_typ_id AND SFO.FSC_CD=DB.FSC_CD
       WHERE DB.MRKT_ID = p_mrkt_id
         AND DB.SLS_PERD_ID = p_sls_perd_id
       GROUP BY DB.FSC_CD;
@@ -152,8 +153,7 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
     FOR rec in cc LOOP
       pipe row(rec.cline);
     END LOOP;
-  END GET_MANL_TREND_ADJSTMNT;
-  
+  END GET_MANL_TREND_ADJSTMNT;  
   PROCEDURE SET_MANL_TREND_ADJSTMNT(p_mrkt_id IN NUMBER,
                                   p_sls_perd_id IN NUMBER,
                                   p_sls_typ_id IN NUMBER,
