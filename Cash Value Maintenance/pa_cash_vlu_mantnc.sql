@@ -112,8 +112,8 @@ BEGIN
                 MRKT_SLS_PERD.LAST_UPDT_USER_ID=p_user_id
               WHERE MRKT_ID=p_mrkt_id AND SLS_PERD_ID=p_sls_perd_id;
           ELSE
-            INSERT INTO MRKT_SLS_PERD(MRKT_ID,SLS_PERD_ID,SCT_CASH_VAL,SCT_R_FACTOR,SCT_PRCSNG_DT,LAST_UPDT_USER_ID)
-              VALUES (p_mrkt_id,p_sls_perd_id,p_cash_val,r_factor_to_set,local_prcsng_dt,p_user_id);
+            INSERT INTO MRKT_SLS_PERD(MRKT_ID,SLS_PERD_ID,SCT_CASH_VAL,SCT_R_FACTOR,SCT_PRCSNG_DT,CREAT_USER_ID,LAST_UPDT_USER_ID)
+              VALUES (p_mrkt_id,p_sls_perd_id,p_cash_val,r_factor_to_set,local_prcsng_dt,p_user_id,p_user_id);
           END IF;
 -- Insert a record into CASH_VAL_RF_HIST to record the previous values
           INSERT INTO CASH_VAL_RF_HIST(MRKT_ID,SLS_PERD_ID,CASH_VAL,R_FACTOR,PRCSNG_DT,LAST_UPDT_USER_ID)
