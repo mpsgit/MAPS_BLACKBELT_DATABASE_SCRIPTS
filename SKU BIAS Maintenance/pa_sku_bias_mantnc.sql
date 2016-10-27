@@ -24,7 +24,34 @@ create or replace PACKAGE BODY PA_SKU_BIAS AS
   FUNCTION GET_SKU_BIAS(p_mrkt_id IN NUMBER,
                         p_sls_perd_id IN NUMBER
                         ) RETURN OBJ_SKU_BIAS_MANTNC_TABLE PIPELINED AS
+-- TODO add optional input SKU_ID_List as NUMBER_ARRAY and filtering by IN(SKU_ID_List)                        
   CURSOR cc IS
+WITH ACT_FSC AS
+      (SELECT MRKT_ID, SKU_ID, MAX(STRT_PERD_ID) MAX_PERD_ID 
+                 FROM MRKT_FSC 
+                 WHERE MRKT_ID=p_mrkt_id AND STRT_PERD_ID<=p_sls_perd_id
+                 GROUP BY MRKT_ID,SKU_ID),
+    MPSB AS           
+      (SELECT * FROM MRKT_PERD_SKU_BIAS
+                    WHERE MRKT_ID=p_mrkt_id AND SLS_PERD_ID=p_sls_perd_id
+      ),
+    SMS AS
+      (SELECT S.MRKT_ID,S.SKU_ID
+      from MRKT_SKU S
+      JOIN MRKT_PERD_SKU_PRC MPSP
+        ON MPSP.MRKT_ID=p_mrkt_id AND MPSP.OFFR_PERD_ID=p_sls_perd_id
+          AND MPSP.SKU_ID=S.SKU_ID AND MPSP.PRC_LVL_TYP_CD='RP'
+      JOIN SKU_COST SC 
+        ON SC.MRKT_ID=p_mrkt_id AND SC.OFFR_PERD_ID=p_sls_perd_id
+          AND SC.SKU_ID=S.SKU_ID AND COST_TYP='P'
+        WHERE S.MRKT_ID=p_mrkt_id AND S.DLTD_IND NOT IN('Y','y')
+        AND (PA_MAPS_PUBLIC.get_sls_cls_cd(p_sls_perd_id, p_mrkt_id, s.avlbl_perd_id,
+                         s.intrdctn_perd_id, s.demo_ofs_nr, s.demo_durtn_nr, s.new_durtn_nr,
+                         s.stus_perd_id, s.dspostn_perd_id, s.on_stus_perd_id)!='-1')),
+    CMP_OFFER AS
+      (SELECT OFFR_ID FROM OFFR
+         WHERE MRKT_ID=p_mrkt_id AND VER_ID = 0 AND OFFR_TYP='CMP'
+           AND OFFR_PERD_ID =p_sls_perd_id)
     SELECT OBJ_SKU_BIAS_MANTNC_LINE(
       FSC.FSC_CD,
       FSC.PROD_DESC_TXT,
@@ -32,11 +59,7 @@ create or replace PACKAGE BODY PA_SKU_BIAS AS
       S.LCL_SKU_NM,
       'A',
 	    DECODE((SELECT count(*) FROM OFFR_SKU_LINE OSL 
-              WHERE OSL.OFFR_ID in( SELECT OFFR_ID FROM OFFR O
-                                    WHERE O.MRKT_ID=p_mrkt_id
-                                     AND O.VER_ID = 0
-                                     AND O.OFFR_TYP='CMP'
-                                     AND O.OFFR_PERD_ID =p_sls_perd_id)
+              WHERE OSL.OFFR_ID in( SELECT OFFR_ID FROM CMP_OFFER)
                AND OSL.DLTD_IND NOT IN ('Y','y')
                AND OSL.SKU_ID=S.SKU_ID),0,'N','P'),
       PSB.BIAS_PCT,
@@ -44,24 +67,15 @@ create or replace PACKAGE BODY PA_SKU_BIAS AS
       PSB.CREAT_USER_ID,
       PSB.LAST_UPDT_TS,
       PSB.LAST_UPDT_USER_ID) cline
-    FROM MRKT_SKU S
-      LEFT JOIN ( SELECT * FROM MRKT_PERD_SKU_BIAS
-                    WHERE MRKT_ID=p_mrkt_id AND SLS_PERD_ID=p_sls_perd_id         
-        ) PSB
+    FROM SMS
+      JOIN MRKT_SKU S ON S.MRKT_ID=SMS.MRKT_ID AND S.SKU_ID=SMS.SKU_ID
+      LEFT JOIN MPSB PSB
         ON PSB.MRKT_ID=S.MRKT_ID AND PSB.SKU_ID=S.SKU_ID
-      LEFT JOIN MRKT_FSC FSC
-        ON FSC.MRKT_ID=p_mrkt_id AND FSC.SKU_ID=S.SKU_ID
-    WHERE S.MRKT_ID=p_mrkt_id AND S.DLTD_IND NOT IN ('Y','y')
-      AND EXISTS( SELECT SKU_PRC_AMT FROM MRKT_PERD_SKU_PRC MPSP
-                   WHERE MPSP.MRKT_ID=p_mrkt_id AND MPSP.OFFR_PERD_ID=p_sls_perd_id
-                    AND MPSP.SKU_ID=S.SKU_ID AND MPSP.PRC_LVL_TYP_CD='RP' )
-      AND EXISTS( SELECT * FROM SKU_COST SC 
-                   WHERE SC.MRKT_ID=p_mrkt_id AND SC.OFFR_PERD_ID=p_sls_perd_id
-                    AND SC.SKU_ID=S.SKU_ID AND COST_TYP='P')
-      AND (PA_MAPS_PUBLIC.get_sls_cls_cd(p_sls_perd_id, p_mrkt_id, s.avlbl_perd_id,
-                         s.intrdctn_perd_id, s.demo_ofs_nr, s.demo_durtn_nr, s.new_durtn_nr,
-                         s.stus_perd_id, s.dspostn_perd_id, s.on_stus_perd_id)!='-1')
-    ORDER BY S.MRKT_ID,S.SKU_ID;
+      LEFT JOIN ACT_FSC ACT
+        ON ACT.MRKT_ID=p_mrkt_id AND ACT.SKU_ID=S.SKU_ID
+      JOIN MRKT_FSC FSC
+        ON FSC.MRKT_ID=p_mrkt_id AND FSC.SKU_ID=S.SKU_ID AND FSC.STRT_PERD_ID=ACT.MAX_PERD_ID
+    ;
   BEGIN
 
     FOR rec in cc LOOP
@@ -94,7 +108,7 @@ create or replace PACKAGE BODY PA_SKU_BIAS AS
     IF c_new_sku_bias between 0 AND 1000 THEN
     -- c_new_sku_bias=100 means delete, the record if exists
       IF c_new_sku_bias=100 THEN
-	   BEGIN
+	     BEGIN
         SAVEPOINT before_delete;
         DELETE FROM MRKT_PERD_SKU_BIAS
           WHERE MRKT_ID=p_mrkt_id AND SLS_PERD_ID=p_sls_perd_id AND SKU_ID=p_sku_id;
@@ -115,14 +129,13 @@ create or replace PACKAGE BODY PA_SKU_BIAS AS
             WHEN NOT MATCHED THEN
               INSERT (MRKT_ID,SLS_PERD_ID,SKU_ID,BIAS_PCT,LAST_UPDT_USER_ID)
                 VALUES (p_mrkt_id,p_sls_perd_id,p_sku_id,c_new_sku_bias,p_user_id);
-	     EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;
-		 END;	
+	       EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;
+		     END;	
         ELSE p_STUS:=3;
         END IF;
       END IF;
     ELSE p_STUS:=1;  
     END IF;
-    EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;
   END SET_SKU_BIAS;
                                   
 END PA_SKU_BIAS;
