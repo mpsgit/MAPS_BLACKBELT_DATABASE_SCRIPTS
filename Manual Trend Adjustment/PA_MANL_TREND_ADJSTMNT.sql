@@ -155,15 +155,60 @@ PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
     END LOOP;
   END GET_MANL_TREND_ADJSTMNT;
   
-    PROCEDURE SET_MANL_TREND_ADJSTMNT(p_mrkt_id IN NUMBER,
+  PROCEDURE SET_MANL_TREND_ADJSTMNT(p_mrkt_id IN NUMBER,
                                   p_sls_perd_id IN NUMBER,
                                   p_sls_typ_id IN NUMBER,
                                   p_fsc_cd IN NUMBER,
                                   p_sct_unit_qty IN NUMBER,
                                   p_user_id IN VARCHAR2,
                                   p_stus OUT NUMBER) AS
+  /*********************************************************
+  * INPUT p_sct_unit_qty IS NULL handled as record has to be deleted
+  *
+  * Possible OUT Values
+  * 0 - success
+  * 2 - database error in DELETE, UPDATE or INSERT statements
+  * 3 - Obligatory foreign keys (SLS_TYP,MRKT_PERD) not found
+  ******************************************************/
+    counter1 NUMBER;
+    counter2 NUMBER;
   BEGIN
-    -- TODO: Implementation required for PROCEDURE PA_MANL_TREND_ADJSTMNT.SET_MANL_TREND_ADJSTMNT
+    -- precheck constraints
+    SELECT count(*) INTO counter1 FROM SLS_TYP WHERE SLS_TYP_ID=p_sls_typ_id;
+    SELECT count(*) INTO counter2 FROM MRKT_PERD WHERE MRKT_ID=p_mrkt_id AND PERD_ID=p_sls_perd_id;
+    IF counter1+counter2=2 THEN
+    -- p_new_bi24_units IS NULL, the record if exists
+      IF p_sct_unit_qty IS NULL THEN
+        BEGIN
+        SAVEPOINT before_delete;
+          DELETE FROM SCT_FSC_OVRRD 
+            WHERE MRKT_ID=p_mrkt_id
+              AND SLS_PERD_ID=p_sls_perd_id
+              AND SLS_TYP_ID=p_sls_typ_id
+              AND FSC_CD=p_fsc_cd;
+        EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_delete; p_stus:=2;
+        END;
+    -- otherwise upsert using p_new_bi24_units
+      ELSE
+        BEGIN
+        SAVEPOINT before_upsert; 		 
+          MERGE INTO SCT_FSC_OVRRD trgt
+            USING (SELECT p_mrkt_id t1, p_sls_perd_id t2,
+                          p_sls_typ_id t3, p_fsc_cd t4 FROM dual) src
+              ON (trgt.MRKT_ID=src.t1 AND trgt.SLS_PERD_ID=src.t2 
+                  AND trgt.SLS_TYP_ID=src.t3 AND trgt.FSC_CD=src.t4)
+            WHEN MATCHED THEN
+              UPDATE SET trgt.SCT_UNIT_QTY = p_sct_unit_qty, trgt.LAST_UPDT_USER_ID=p_user_id
+            WHEN NOT MATCHED THEN
+              INSERT (MRKT_ID, SLS_PERD_ID, SLS_TYP_ID,
+                        FSC_CD, SCT_UNIT_QTY, LAST_UPDT_USER_ID)
+                VALUES (p_mrkt_id, p_sls_perd_id, p_sls_typ_id,
+                        p_fsc_cd,p_sct_unit_qty,p_user_id);
+	       EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;
+		     END;	
+      END IF;
+    ELSE p_STUS:=3;  
+    END IF;
     NULL;
   END SET_MANL_TREND_ADJSTMNT;
 
