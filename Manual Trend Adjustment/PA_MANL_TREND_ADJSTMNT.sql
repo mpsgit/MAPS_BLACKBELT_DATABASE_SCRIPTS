@@ -4,12 +4,19 @@ create or replace PACKAGE PA_MANL_TREND_ADJSTMNT AS
   * Created by   : Schiff Gy
   * Date         : 26/10/2016
   * Description  : First created 
+  ******************************************************
+  * Modified by  : Schiff Gy
+  * Date         : 02/11/2016
+  * Description  : GET_SALES_CAMPAIGN added 
   ******************************************************/
+
   PROCEDURE INITIATE_TREND_OFFSET_TABLE (p_eff_sls_perd_id IN NUMBER);
   
   FUNCTION GET_TREND_TYPE_LIST RETURN OBJ_TREND_TYPE_TABLE PIPELINED;
   
   FUNCTION GET_TARGET_CAMPAIGN(p_mrkt_id IN NUMBER, p_sls_perd_id IN NUMBER, p_sls_typ_id IN NUMBER) RETURN NUMBER;
+  
+  FUNCTION GET_SALES_CAMPAIGN(p_mrkt_id IN NUMBER, p_trgt_perd_id IN NUMBER, p_sls_typ_id IN NUMBER) RETURN NUMBER;
   
   PROCEDURE SET_MANL_TREND_ADJSTMNT(p_mrkt_id IN NUMBER,
                                   p_sls_perd_id IN NUMBER,
@@ -38,6 +45,10 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
   * Created by   : Schiff Gy
   * Date         : 26/10/2016
   * Description  : First created 
+  ******************************************************
+  * Modified by  : Schiff Gy
+  * Date         : 02/11/2016
+  * Description  : GET_SALES_CAMPAIGN added 
   ******************************************************/
 
   PROCEDURE INITIATE_TREND_OFFSET_TABLE(p_eff_sls_perd_id IN NUMBER) AS
@@ -99,6 +110,30 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
       JOIN TREND_OFFST USING(MRKT_ID,EFF_SLS_PERD_ID,SLS_TYP_ID);
     RETURN res;
   END GET_TARGET_CAMPAIGN;
+
+  FUNCTION GET_SALES_CAMPAIGN(p_mrkt_id IN NUMBER, p_trgt_perd_id IN NUMBER, p_sls_typ_id IN NUMBER) RETURN NUMBER AS
+    res NUMBER;
+  BEGIN
+    BEGIN
+      WITH MP AS (SELECT MRKT_ID,PERD_ID FROM MRKT_PERD WHERE MRKT_ID=68),
+         MTO AS (SELECT MAX(MP.PERD_ID) perd_id, MAX(TOF.EFF_SLS_PERD_ID) eff_sls_perd_id
+                   FROM MP 
+		                 LEFT JOIN TREND_OFFST TOF ON TOF.MRKT_ID=MP.MRKT_ID 
+                       AND TOF.EFF_SLS_PERD_ID<=MP.PERD_ID AND TOF.SLS_TYP_ID=4
+        GROUP BY MP.PERD_ID
+		    ),
+        TT AS (SELECT MP.MRKT_ID,MP.PERD_ID SALES_PERD,
+                      PA_MAPS_PUBLIC.perd_plus(MP.MRKT_ID,MP.PERD_ID,TOF.OFFST) TARGET_PERD
+           FROM MP
+             JOIN MTO ON MTO.PERD_ID=MP.PERD_ID
+             JOIN TREND_OFFST TOF ON TOF.MRKT_ID=68 AND TOF.SLS_TYP_ID=4 
+                                    AND TOF.EFF_SLS_PERD_ID=MTO.EFF_SLS_PERD_ID)
+      SELECT SALES_PERD INTO res FROM (SELECT SALES_PERD FROM TT WHERE TARGET_PERD=20170305
+                              ORDER BY SALES_PERD DESC) WHERE rownum=1;
+    EXCEPTION WHEN NO_DATA_FOUND THEN res:=NULL;
+	  END;
+    RETURN res;
+  END GET_SALES_CAMPAIGN;
 
   FUNCTION GET_MANL_TREND_ADJSTMNT(p_mrkt_id IN NUMBER,
                         p_sls_perd_id IN NUMBER,
@@ -163,10 +198,17 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
       WHERE DB.MRKT_ID = p_mrkt_id
         AND DB.SLS_PERD_ID = p_sls_perd_id
       GROUP BY DB.FSC_CD;
+      g_run_id NUMBER       := APP_PLSQL_OUTPUT.generate_new_run_id;
+      g_user_id VARCHAR(35) := 'PA_MANL_TREND_ADJSTMNT';
   BEGIN
+    APP_PLSQL_LOG.register(g_user_id);
+    APP_PLSQL_OUTPUT.set_run_id(g_run_id);
+    APP_PLSQL_LOG.set_context(g_user_id, 'PA_MANL_TREND_ADJSTMNT', g_run_id);
+    APP_PLSQL_LOG.info('GET_MANL_TREND_ADJSTMNT'||' start');
     FOR rec in cc LOOP
       pipe row(rec.cline);
     END LOOP;
+    APP_PLSQL_LOG.info('GET_MANL_TREND_ADJSTMNT'||' stop');
   END GET_MANL_TREND_ADJSTMNT;
   
   FUNCTION GET_MANL_TREND_ADJSTMNT2(p_mrkt_id IN NUMBER,
@@ -251,6 +293,7 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
   *
   * Possible OUT Values
   * 0 - success
+  * 1 - New BIAS_PCT value is negative (not allowed)
   * 2 - database error in DELETE, UPDATE or INSERT statements
   * 3 - Obligatory foreign keys (SLS_TYP,MRKT_PERD) not found
   ******************************************************/
@@ -258,41 +301,45 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
     counter2 NUMBER;
   BEGIN
     p_STUS:=0;
+	  -- check if calue to set is not negative
+	  IF NVL(p_sct_unit_qty,0)>=0 THEN
     -- precheck constraints
-    SELECT count(*) INTO counter1 FROM SLS_TYP WHERE SLS_TYP_ID=p_sls_typ_id;
-    SELECT count(*) INTO counter2 FROM MRKT_PERD WHERE MRKT_ID=p_mrkt_id AND PERD_ID=p_sls_perd_id;
-    IF counter1+counter2=2 THEN
+      SELECT count(*) INTO counter1 FROM SLS_TYP WHERE SLS_TYP_ID=p_sls_typ_id;
+      SELECT count(*) INTO counter2 FROM MRKT_PERD WHERE MRKT_ID=p_mrkt_id AND PERD_ID=p_sls_perd_id;
+      IF counter1+counter2=2 THEN
     -- p_new_bi24_units IS NULL, the record if exists
-      IF p_sct_unit_qty IS NULL THEN
-        BEGIN
-        SAVEPOINT before_delete;
-          DELETE FROM SCT_FSC_OVRRD 
-            WHERE MRKT_ID=p_mrkt_id
-              AND SLS_PERD_ID=p_sls_perd_id
-              AND SLS_TYP_ID=p_sls_typ_id
-              AND FSC_CD=p_fsc_cd;
-        EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_delete; p_stus:=2;
-        END;
+        IF p_sct_unit_qty IS NULL THEN
+          BEGIN
+          SAVEPOINT before_delete;
+            DELETE FROM SCT_FSC_OVRRD 
+              WHERE MRKT_ID=p_mrkt_id
+                AND SLS_PERD_ID=p_sls_perd_id
+                AND SLS_TYP_ID=p_sls_typ_id
+                AND FSC_CD=p_fsc_cd;
+         EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_delete; p_stus:=2;
+          END;
     -- otherwise upsert using p_new_bi24_units
-      ELSE
-        BEGIN
-        SAVEPOINT before_upsert; 		 
-          MERGE INTO SCT_FSC_OVRRD trgt
-            USING (SELECT p_mrkt_id t1, p_sls_perd_id t2,
-                          p_sls_typ_id t3, p_fsc_cd t4 FROM dual) src
-              ON (trgt.MRKT_ID=src.t1 AND trgt.SLS_PERD_ID=src.t2 
-                  AND trgt.SLS_TYP_ID=src.t3 AND trgt.FSC_CD=src.t4)
-            WHEN MATCHED THEN
-              UPDATE SET trgt.SCT_UNIT_QTY = p_sct_unit_qty, trgt.LAST_UPDT_USER_ID=p_user_id
-            WHEN NOT MATCHED THEN
-              INSERT (MRKT_ID, SLS_PERD_ID, SLS_TYP_ID,
-                        FSC_CD, SCT_UNIT_QTY, LAST_UPDT_USER_ID)
-                VALUES (p_mrkt_id, p_sls_perd_id, p_sls_typ_id,
-                        p_fsc_cd,p_sct_unit_qty,p_user_id);
-	       EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;
-		     END;	
+        ELSE
+          BEGIN
+          SAVEPOINT before_upsert; 		 
+            MERGE INTO SCT_FSC_OVRRD trgt
+              USING (SELECT p_mrkt_id t1, p_sls_perd_id t2,
+                            p_sls_typ_id t3, p_fsc_cd t4 FROM dual) src
+                ON (trgt.MRKT_ID=src.t1 AND trgt.SLS_PERD_ID=src.t2 
+                    AND trgt.SLS_TYP_ID=src.t3 AND trgt.FSC_CD=src.t4)
+              WHEN MATCHED THEN
+                UPDATE SET trgt.SCT_UNIT_QTY = p_sct_unit_qty, trgt.LAST_UPDT_USER_ID=p_user_id
+              WHEN NOT MATCHED THEN
+                INSERT (MRKT_ID, SLS_PERD_ID, SLS_TYP_ID,
+                          FSC_CD, SCT_UNIT_QTY, LAST_UPDT_USER_ID)
+                  VALUES (p_mrkt_id, p_sls_perd_id, p_sls_typ_id,
+                          p_fsc_cd,p_sct_unit_qty,p_user_id);
+          EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;
+          END;
+        END IF;
+      ELSE p_STUS:=3;
       END IF;
-    ELSE p_STUS:=3;  
+    ELSE p_STUS:=1;  
     END IF;
   END SET_MANL_TREND_ADJSTMNT;
 
