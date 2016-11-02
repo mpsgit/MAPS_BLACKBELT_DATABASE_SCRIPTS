@@ -85,37 +85,41 @@ create or replace PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
   *
   * Possible OUT Values
   * 0 - success
+  * 1 - New BI24 Units value is negative (not allowed)
   * 2 - database error in DELETE, UPDATE or INSERT statements
   * 3 - Obligatory foreign keys (DLY_BILNG) not found
   ******************************************************/
     counter1 NUMBER;
   BEGIN
     p_STUS:=0;
-    SELECT count(*) INTO counter1 FROM DLY_BILNG WHERE DLY_BILNG_ID=p_dly_bilng_id;
-    IF counter1>0 THEN
+    IF NVL(p_new_bi24_units,0)>=0 THEN
+      SELECT count(*) INTO counter1 FROM DLY_BILNG WHERE DLY_BILNG_ID=p_dly_bilng_id;
+      IF counter1>0 THEN
     -- p_new_bi24_units IS NULL, the record if exists
-      IF p_new_bi24_units IS NULL THEN
-        BEGIN
-        SAVEPOINT before_delete;
-          DELETE FROM DLY_BILNG_ADJSTMNT WHERE DLY_BILNG_ID=p_dly_bilng_id;
-        EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_delete; p_stus:=2;
-        END;
+        IF p_new_bi24_units IS NULL THEN
+          BEGIN
+          SAVEPOINT before_delete;
+            DELETE FROM DLY_BILNG_ADJSTMNT WHERE DLY_BILNG_ID=p_dly_bilng_id;
+          EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_delete; p_stus:=2;
+          END;
     -- otherwise upsert using p_new_bi24_units
-      ELSE
-        BEGIN
-        SAVEPOINT before_upsert; 		 
-          MERGE INTO DLY_BILNG_ADJSTMNT trgt
-            USING (SELECT p_dly_bilng_id t1 FROM dual) src
-              ON (trgt.DLY_BILNG_ID=src.t1)
-            WHEN MATCHED THEN
-              UPDATE SET trgt.UNIT_QTY = p_new_bi24_units, trgt.LAST_UPDT_USER_ID=p_user_id
-            WHEN NOT MATCHED THEN
-              INSERT (DLY_BILNG_ID,UNIT_QTY,LAST_UPDT_USER_ID)
-                VALUES (p_dly_bilng_id,p_new_bi24_units,p_user_id);
-	       EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;
-		     END;	
+        ELSE
+          BEGIN
+          SAVEPOINT before_upsert; 		 
+            MERGE INTO DLY_BILNG_ADJSTMNT trgt
+              USING (SELECT p_dly_bilng_id t1 FROM dual) src
+                ON (trgt.DLY_BILNG_ID=src.t1)
+              WHEN MATCHED THEN
+                UPDATE SET trgt.UNIT_QTY = p_new_bi24_units, trgt.LAST_UPDT_USER_ID=p_user_id
+              WHEN NOT MATCHED THEN
+                INSERT (DLY_BILNG_ID,UNIT_QTY,LAST_UPDT_USER_ID)
+                  VALUES (p_dly_bilng_id,p_new_bi24_units,p_user_id);
+  	       EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;
+  		     END;	
+        END IF;
+      ELSE p_STUS:=3;  
       END IF;
-    ELSE p_STUS:=3;  
+    ELSE p_STUS:=1;
     END IF;
   END SET_DLY_BILNG_ADJSTMNT;
                                   
