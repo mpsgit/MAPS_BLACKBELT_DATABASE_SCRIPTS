@@ -32,7 +32,7 @@ END PA_SKU_BIAS;
       (SELECT SKU_ID, MAX(STRT_PERD_ID) MAX_PERD_ID 
          FROM MRKT_FSC 
          WHERE MRKT_ID=p_mrkt_id AND STRT_PERD_ID<=p_sls_perd_id
-         GROUP BY SKU_ID),
+         GROUP BY SKU_ID), 
     MPSB AS           
       (SELECT PSB.SKU_ID,PSB.BIAS_PCT,PSB.LAST_UPDT_TS,
          U.USER_FRST_NM || ' ' || U.USER_LAST_NM LAST_UPDT_NM
@@ -42,11 +42,7 @@ END PA_SKU_BIAS;
            WHERE PSB.MRKT_ID=p_mrkt_id AND PSB.SLS_PERD_ID=p_sls_perd_id
       ),
     SMS AS
-      (SELECT S.SKU_ID,
-        CASE when PA_MAPS_PUBLIC.get_sls_cls_cd(p_sls_perd_id, p_mrkt_id, s.avlbl_perd_id,
-                         s.intrdctn_perd_id, s.demo_ofs_nr, s.demo_durtn_nr, s.new_durtn_nr,
-                         s.stus_perd_id, s.dspostn_perd_id, s.on_stus_perd_id)!='-1' then 'A'
-             else 'N' end as act_IND
+      (SELECT S.SKU_ID            
       from MRKT_SKU S
       JOIN MRKT_PERD_SKU_PRC MPSP
         ON MPSP.MRKT_ID=p_mrkt_id AND MPSP.OFFR_PERD_ID=p_sls_perd_id
@@ -54,25 +50,23 @@ END PA_SKU_BIAS;
       JOIN SKU_COST SC 
         ON SC.MRKT_ID=p_mrkt_id AND SC.OFFR_PERD_ID=p_sls_perd_id
           AND SC.SKU_ID=S.SKU_ID AND COST_TYP='P'
-        WHERE S.MRKT_ID=p_mrkt_id AND S.DLTD_IND NOT IN('Y','y')
-      ),
+      WHERE S.MRKT_ID=p_mrkt_id
+    ),
     CMP_OFFER AS
       (SELECT OFFR_ID FROM OFFR
-         WHERE MRKT_ID=68 AND VER_ID = 0 AND OFFR_TYP='CMP'
+         WHERE MRKT_ID=p_mrkt_id AND VER_ID = 0 AND OFFR_TYP='CMP'
            AND OFFR_PERD_ID =p_sls_perd_id),
-    MF AS
-      ( SELECT SKU_ID,FSC_CD,STRT_PERD_ID  FROM MRKT_FSC
-          WHERE MRKT_ID=p_mrkt_id)
+    PLANNED AS
+      (SELECT SKU_ID FROM OFFR_SKU_LINE OSL 
+              WHERE OSL.OFFR_ID in( SELECT OFFR_ID FROM CMP_OFFER)
+               AND OSL.DLTD_IND NOT IN ('Y','y'))
     SELECT OBJ_SKU_BIAS_MANTNC_LINE(
       FSC.FSC_CD,
       FSC.PROD_DESC_TXT,
       S.SKU_ID,
       S.LCL_SKU_NM,
-      SMS.ACT_IND,
-	    DECODE((SELECT count(*) FROM OFFR_SKU_LINE OSL 
-              WHERE OSL.OFFR_ID in( SELECT OFFR_ID FROM CMP_OFFER)
-               AND OSL.DLTD_IND NOT IN ('Y','y')
-               AND OSL.SKU_ID=S.SKU_ID),0,'N','P'),
+      'A',
+      NVL2(PLANNED.SKU_ID,'P','N'),
       PSB.BIAS_PCT,
       PSB.LAST_UPDT_TS,
       PSB.LAST_UPDT_NM
@@ -81,12 +75,16 @@ END PA_SKU_BIAS;
       JOIN MRKT_SKU S ON S.MRKT_ID=p_mrkt_id AND S.SKU_ID=SMS.SKU_ID
       LEFT JOIN MPSB PSB
         ON PSB.SKU_ID=S.SKU_ID
+      LEFT JOIN PLANNED ON PLANNED.sku_id=S.SKU_ID
       LEFT JOIN ACT_FSC ACT
         ON ACT.SKU_ID=S.SKU_ID
-      JOIN MF ON MF.SKU_ID=S.SKU_ID AND MF.STRT_PERD_ID=ACT.MAX_PERD_ID 
       JOIN MRKT_FSC FSC
-        ON FSC.FSC_CD=MF.FSC_CD AND FSC.MRKT_ID=p_mrkt_id AND FSC.STRT_PERD_ID=MF.STRT_PERD_ID
-    WHERE SMS.ACT_IND='A'  
+        ON FSC.SKU_ID=SMS.SKU_ID AND FSC.MRKT_ID=p_mrkt_id
+          AND FSC.STRT_PERD_ID=ACT.MAX_PERD_ID
+    WHERE p_sls_perd_id>=s.avlbl_perd_id
+      AND (s.dspostn_perd_id IS NULL OR p_sls_perd_id<=s.dspostn_perd_id)
+      AND PA_MAPS_PUBLIC.perd_diff(p_mrkt_id, s.intrdctn_perd_id, p_sls_perd_id)>=0
+      AND S.DLTD_IND NOT IN('Y','y')
     ;
   BEGIN
 
@@ -101,18 +99,22 @@ END PA_SKU_BIAS;
                         )  RETURN OBJ_SKU_BIAS_MANTNC_TABLE PIPELINED AS
   CURSOR cc IS
     WITH ACT_FSC AS
-      (SELECT MRKT_ID, SKU_ID, MAX(STRT_PERD_ID) MAX_PERD_ID 
+      (SELECT SKU_ID, MAX(STRT_PERD_ID) MAX_PERD_ID 
                  FROM MRKT_FSC 
                  WHERE MRKT_ID=p_mrkt_id AND STRT_PERD_ID<=p_sls_perd_id
                    AND SKU_ID in (select column_value from table( p_sku_id_array))
-                 GROUP BY MRKT_ID,SKU_ID),
+                 GROUP BY SKU_ID),
     MPSB AS           
-      (SELECT * FROM MRKT_PERD_SKU_BIAS
-                  WHERE MRKT_ID=p_mrkt_id AND SLS_PERD_ID=p_sls_perd_id
-                    AND SKU_ID in (select column_value from table( p_sku_id_array))
+      (SELECT PSB.SKU_ID,PSB.BIAS_PCT,PSB.LAST_UPDT_TS,
+         U.USER_FRST_NM || ' ' || U.USER_LAST_NM LAST_UPDT_NM
+         FROM MRKT_PERD_SKU_BIAS PSB
+           LEFT JOIN MPS_USER U
+             ON U.USER_NM=PSB.LAST_UPDT_USER_ID  
+           WHERE PSB.MRKT_ID=p_mrkt_id AND PSB.SLS_PERD_ID=p_sls_perd_id
+             AND SKU_ID in (select column_value from table( p_sku_id_array))
       ),
     SMS AS
-      (SELECT S.MRKT_ID,S.SKU_ID
+      (SELECT S.SKU_ID            
       from MRKT_SKU S
       JOIN MRKT_PERD_SKU_PRC MPSP
         ON MPSP.MRKT_ID=p_mrkt_id AND MPSP.OFFR_PERD_ID=p_sls_perd_id
@@ -120,41 +122,43 @@ END PA_SKU_BIAS;
       JOIN SKU_COST SC 
         ON SC.MRKT_ID=p_mrkt_id AND SC.OFFR_PERD_ID=p_sls_perd_id
           AND SC.SKU_ID=S.SKU_ID AND COST_TYP='P'
-        WHERE S.MRKT_ID=p_mrkt_id AND S.DLTD_IND NOT IN('Y','y')
-          AND S.SKU_ID in (select column_value from table( p_sku_id_array))
-          AND (PA_MAPS_PUBLIC.get_sls_cls_cd(p_sls_perd_id, p_mrkt_id, s.avlbl_perd_id,
-                         s.intrdctn_perd_id, s.demo_ofs_nr, s.demo_durtn_nr, s.new_durtn_nr,
-                         s.stus_perd_id, s.dspostn_perd_id, s.on_stus_perd_id)!='-1')),
+      WHERE S.MRKT_ID=p_mrkt_id
+        AND S.SKU_ID in (select column_value from table( p_sku_id_array))
+    ),
     CMP_OFFER AS
       (SELECT OFFR_ID FROM OFFR
          WHERE MRKT_ID=p_mrkt_id AND VER_ID = 0 AND OFFR_TYP='CMP'
-           AND OFFR_PERD_ID =p_sls_perd_id)
+           AND OFFR_PERD_ID =p_sls_perd_id),
+    PLANNED AS
+      (SELECT SKU_ID FROM OFFR_SKU_LINE OSL 
+              WHERE OSL.OFFR_ID in( SELECT OFFR_ID FROM CMP_OFFER)
+               AND OSL.DLTD_IND NOT IN ('Y','y')
+               AND OSL.SKU_ID in (select column_value from table( p_sku_id_array)))
     SELECT OBJ_SKU_BIAS_MANTNC_LINE(
       FSC.FSC_CD,
       FSC.PROD_DESC_TXT,
       S.SKU_ID,
       S.LCL_SKU_NM,
       'A',
-	    DECODE((SELECT count(*) FROM OFFR_SKU_LINE OSL 
-              WHERE OSL.OFFR_ID in( SELECT OFFR_ID FROM CMP_OFFER)
-               AND OSL.DLTD_IND NOT IN ('Y','y')
-               AND OSL.SKU_ID=S.SKU_ID),0,'N','P'),
+      NVL2(PLANNED.SKU_ID,'P','N'),
       PSB.BIAS_PCT,
-      PSB.CREAT_TS,
-      PSB.CREAT_USER_ID,
       PSB.LAST_UPDT_TS,
-      U.USER_FRST_NM || ' ' || U.USER_LAST_NM
+      PSB.LAST_UPDT_NM
       ) cline
     FROM SMS
-      JOIN MRKT_SKU S ON S.MRKT_ID=SMS.MRKT_ID AND S.SKU_ID=SMS.SKU_ID
+      JOIN MRKT_SKU S ON S.MRKT_ID=p_mrkt_id AND S.SKU_ID=SMS.SKU_ID
       LEFT JOIN MPSB PSB
-        ON PSB.MRKT_ID=S.MRKT_ID AND PSB.SKU_ID=S.SKU_ID
+        ON PSB.SKU_ID=S.SKU_ID
+      LEFT JOIN PLANNED ON PLANNED.sku_id=S.SKU_ID
       LEFT JOIN ACT_FSC ACT
-        ON ACT.MRKT_ID=p_mrkt_id AND ACT.SKU_ID=S.SKU_ID
+        ON ACT.SKU_ID=S.SKU_ID
       JOIN MRKT_FSC FSC
-        ON FSC.MRKT_ID=p_mrkt_id AND FSC.SKU_ID=S.SKU_ID AND FSC.STRT_PERD_ID=ACT.MAX_PERD_ID
-      LEFT JOIN MPS_USER U
-        ON U.USER_NM=PSB.LAST_UPDT_USER_ID  
+        ON FSC.SKU_ID=SMS.SKU_ID AND FSC.MRKT_ID=p_mrkt_id
+          AND FSC.STRT_PERD_ID=ACT.MAX_PERD_ID
+    WHERE p_sls_perd_id>=s.avlbl_perd_id
+      AND (s.dspostn_perd_id IS NULL OR p_sls_perd_id<=s.dspostn_perd_id)
+      AND PA_MAPS_PUBLIC.perd_diff(p_mrkt_id, s.intrdctn_perd_id, p_sls_perd_id)>=0
+      AND S.DLTD_IND NOT IN('Y','y') 
     ;
   BEGIN
 
