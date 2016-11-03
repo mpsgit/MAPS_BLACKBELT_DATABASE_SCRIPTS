@@ -17,8 +17,6 @@ create or replace TYPE OBJ_SKU_BIAS_MANTNC_LINE as object
 	 ACT_IND char(1),
 	 PLN_IND char(1),
      BIAS_PCT number(6,2),
-     CREAT_TS date,
-     CREAT_USER_ID varchar2(35),
      LAST_UPDT_TS date,
      LAST_UPDT_USER_ID varchar2(35)
 );
