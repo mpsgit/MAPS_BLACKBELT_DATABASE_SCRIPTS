@@ -140,64 +140,121 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
                         p_sls_typ_id IN NUMBER
                         ) RETURN OBJ_MANL_TREND_ADJSTMNT_TABLE PIPELINED AS
     CURSOR cc IS
-      WITH  ACT_FSC AS
-      (SELECT FSC_CD, MRKT_ID, MAX(STRT_PERD_ID) MAX_PERD_ID 
-                 FROM MRKT_FSC 
-                 WHERE MRKT_ID=p_mrkt_id AND STRT_PERD_ID<=p_sls_perd_id
-                 GROUP BY FSC_CD, MRKT_ID),
-      MESP AS
-        (SELECT DLY_BILNG_MTCH_ID
-           FROM MRKT_EFF_SLS_PERD
-           WHERE MRKT_ID       = p_mrkt_id
-             AND EFF_SLS_PERD_ID =
-               (SELECT MAX (MESP.EFF_SLS_PERD_ID)
-                  FROM MRKT_EFF_SLS_PERD MESP
-                  WHERE MESP.MRKT_ID = p_mrkt_id
-                    AND MESP.EFF_SLS_PERD_ID <= p_sls_perd_id
-                )
+      WITH
+        ACT_FSC AS
+        (
+          SELECT
+            FSC_CD,
+            MAX(STRT_PERD_ID) MAX_PERD_ID
+          FROM
+            MRKT_FSC
+          WHERE
+            MRKT_ID        =p_mrkt_id
+          AND STRT_PERD_ID<=p_sls_perd_id
+          AND dltd_ind    <>'Y'
+          AND dltd_ind    <>'y'
+          GROUP BY
+            FSC_CD
         )
         ,
-        SSFO AS
-        (SELECT 
-           SFO.FSC_CD, SFO.SCT_UNIT_QTY, SFO.CREAT_USER_ID,SFO.CREAT_TS,
-           SFO.LAST_UPDT_TS, (U.USER_FRST_NM || ' ' || U.USER_LAST_NM) USER_NM  
-           FROM SCT_FSC_OVRRD SFO
-             LEFT JOIN MPS_USER U ON U.USER_NM=SFO.LAST_UPDT_USER_ID
-           WHERE SFO.MRKT_ID=p_mrkt_id AND SFO.SLS_PERD_ID=p_sls_perd_id AND SFO.SLS_TYP_ID=p_sls_typ_id
+        ALL_FSC AS
+        (
+          SELECT
+            *
+          FROM
+            MRKT_FSC
+          WHERE
+            MRKT_ID        =p_mrkt_id
+          AND STRT_PERD_ID<=p_sls_perd_id
+          AND dltd_ind    <>'Y'
+          AND dltd_ind    <>'y'
         )
-      SELECT OBJ_MANL_TREND_ADJSTMNT_LINE(
+      select
+        OBJ_MANL_TREND_ADJSTMNT_LINE(
+              ALL_FSC.FSC_CD,
+              ALL_FSC.PROD_DESC_TXT,
+              ALL_FSC.SKU_ID,
+              mrkt_sku.LCL_SKU_NM,
+              DB.UNIT_QTY,
+              SCT_FSC_OVRRD.SCT_UNIT_QTY,
+              SCT_FSC_OVRRD.LAST_UPDT_TS,
+              SCT_FSC_OVRRD.USER_FRST_NM || ' ' || SCT_FSC_OVRRD.USER_LAST_NM
+              ) cline
+      from
+      (
+      with  MESP AS
+        (
+          SELECT
+            DLY_BILNG_MTCH_ID
+          FROM
+            MRKT_EFF_SLS_PERD
+          WHERE
+            MRKT_ID           = p_mrkt_id
+          AND EFF_SLS_PERD_ID =
+            (
+              SELECT
+                MAX (MESP.EFF_SLS_PERD_ID)
+              FROM
+                MRKT_EFF_SLS_PERD MESP
+              WHERE
+                MESP.MRKT_ID            = p_mrkt_id
+              AND MESP.EFF_SLS_PERD_ID <= p_sls_perd_id
+            )
+        )
+      SELECT
         DB.FSC_CD,
-        MAX(FSC.PROD_DESC_TXT),
-        MAX(FSC.SKU_ID),
-        MAX(MS.LCL_SKU_NM),
-        SUM(DB.UNIT_QTY),
-        MAX(SFO.SCT_UNIT_QTY),
-        MAX(SFO.LAST_UPDT_TS),
-        MAX(SFO.USER_NM)
-        ) cline
-      FROM   DLY_BILNG DB
-        JOIN DLY_BILNG_CNTRL DBC
-          ON NVL ( DBC.LCL_BILNG_ACTN_CD, DB.LCL_BILNG_ACTN_CD )   = DB.LCL_BILNG_ACTN_CD
-            AND NVL ( DBC.LCL_BILNG_TRAN_TYP, DB.LCL_BILNG_TRAN_TYP ) = DB.LCL_BILNG_TRAN_TYP
-            AND NVL ( DBC.LCL_BILNG_OFFR_TYP, DB.LCL_BILNG_OFFR_TYP ) = DB.LCL_BILNG_OFFR_TYP
-            AND NVL ( DBC.LCL_BILNG_DEFRD_CD, DB.LCL_BILNG_DEFRD_CD ) = DB.LCL_BILNG_DEFRD_CD
-            AND NVL ( DBC.LCL_BILNG_SHPNG_CD, DB.LCL_BILNG_SHPNG_CD ) = DB.LCL_BILNG_SHPNG_CD
-        JOIN MESP USING(DLY_BILNG_MTCH_ID)
-        JOIN MRKT_CONFIG_ITEM MCI
-          ON MCI.MRKT_ID=DB.MRKT_ID 
-            AND MCI.MRKT_CONFIG_ITEM_VAL_TXT=DBC.SLS_TYP_ID 
-            AND MCI.CONFIG_ITEM_ID=10000
-        LEFT JOIN ACT_FSC ACT
-          ON ACT.FSC_CD=DB.FSC_CD AND ACT.MRKT_ID=DB.MRKT_ID
-        JOIN MRKT_FSC FSC
-          ON FSC.MRKT_ID=DB.MRKT_ID AND FSC.FSC_CD=DB.FSC_CD AND FSC.STRT_PERD_ID=ACT.MAX_PERD_ID   
-        LEFT JOIN MRKT_SKU MS
-          ON MS.MRKT_ID=DB.MRKT_ID AND MS.SKU_ID=FSC.SKU_ID
-        LEFT JOIN SSFO SFO
-          ON SFO.FSC_CD=DB.FSC_CD
-      WHERE DB.MRKT_ID = p_mrkt_id
-        AND DB.SLS_PERD_ID = p_sls_perd_id
-      GROUP BY DB.FSC_CD;
+        SUM(DB.UNIT_QTY) UNIT_QTY,
+        DBC.SLS_TYP_ID
+      FROM
+        DLY_BILNG DB,
+        DLY_BILNG_CNTRL DBC,
+        MESP,
+        MRKT_CONFIG_ITEM MCI
+      WHERE
+        NVL ( DBC.LCL_BILNG_ACTN_CD, DB.LCL_BILNG_ACTN_CD )     = DB.LCL_BILNG_ACTN_CD
+      AND NVL ( DBC.LCL_BILNG_TRAN_TYP, DB.LCL_BILNG_TRAN_TYP ) =
+        DB.LCL_BILNG_TRAN_TYP
+      AND NVL ( DBC.LCL_BILNG_OFFR_TYP, DB.LCL_BILNG_OFFR_TYP ) =
+        DB.LCL_BILNG_OFFR_TYP
+      AND NVL ( DBC.LCL_BILNG_DEFRD_CD, DB.LCL_BILNG_DEFRD_CD ) =
+        DB.LCL_BILNG_DEFRD_CD
+      AND NVL ( DBC.LCL_BILNG_SHPNG_CD, DB.LCL_BILNG_SHPNG_CD ) =
+        DB.LCL_BILNG_SHPNG_CD
+      AND MESP.DLY_BILNG_MTCH_ID      =DBC.DLY_BILNG_MTCH_ID
+      AND MCI.MRKT_ID                 =DB.MRKT_ID
+      AND MCI.MRKT_CONFIG_ITEM_VAL_TXT=DBC.SLS_TYP_ID
+      AND MCI.CONFIG_ITEM_ID          =10000
+      AND DB.MRKT_ID                  = p_mrkt_id
+      AND DB.SLS_PERD_ID              = p_sls_perd_id
+      group by
+        DB.FSC_CD,DBC.SLS_TYP_ID
+      ) db,ACT_FSC,ALL_FSC,mrkt_sku,
+      (
+        select SCT_FSC_OVRRD.*,MPS_USER.USER_FRST_NM,MPS_USER.USER_LAST_NM from 
+        SCT_FSC_OVRRD,
+        (
+        select
+          user_nm,user_frst_nm,user_last_nm
+        from 
+        MPS_USER
+        union all
+        select
+          null user_nm,null user_frst_nm,null user_last_nm
+        from dual
+        ) MPS_USER
+        where nvl(MPS_USER.USER_NM,-1)=nvl(SCT_FSC_OVRRD.LAST_UPDT_USER_ID,-1)
+        and SCT_FSC_OVRRD.mrkt_id = p_mrkt_id
+        and SCT_FSC_OVRRD.sls_perd_id = p_sls_perd_id
+        and SCT_FSC_OVRRD.sls_typ_id = p_sls_typ_id
+      ) SCT_FSC_OVRRD
+      where
+      DB.FSC_CD = ACT_FSC.FSC_CD
+      AND ACT_FSC.FSC_CD = ALL_FSC.FSC_CD
+      AND ACT_FSC.MAX_PERD_ID = ALL_FSC.STRT_PERD_ID
+      AND ALL_FSC.sku_id = mrkt_sku.sku_id
+      AND mrkt_sku.mrkt_id = p_mrkt_id
+      and SCT_FSC_OVRRD.fsc_cd(+)*1 = db.fsc_cd*1;
+
       g_run_id NUMBER       := APP_PLSQL_OUTPUT.generate_new_run_id;
       g_user_id VARCHAR(35) := 'PA_MANL_TREND_ADJSTMNT';
   BEGIN
@@ -217,64 +274,123 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
                         p_fsc_cd_array IN NUMBER_ARRAY
                         ) RETURN OBJ_MANL_TREND_ADJSTMNT_TABLE PIPELINED AS
     CURSOR cc IS
-      WITH  ACT_FSC AS
-      (SELECT FSC_CD, MRKT_ID, MAX(STRT_PERD_ID) MAX_PERD_ID 
-                 FROM MRKT_FSC 
-                 WHERE MRKT_ID=p_mrkt_id AND STRT_PERD_ID<=p_sls_perd_id
-                 GROUP BY FSC_CD, MRKT_ID),
-      MESP AS
-        (SELECT DLY_BILNG_MTCH_ID
-           FROM MRKT_EFF_SLS_PERD
-           WHERE MRKT_ID       = p_mrkt_id
-             AND EFF_SLS_PERD_ID =
-               (SELECT MAX (MESP.EFF_SLS_PERD_ID)
-                  FROM MRKT_EFF_SLS_PERD MESP
-                  WHERE MESP.MRKT_ID = p_mrkt_id
-                    AND MESP.EFF_SLS_PERD_ID <= p_sls_perd_id
-                )
-        ),
-      SSFO AS
-        (SELECT 
-           SFO.FSC_CD, SFO.SCT_UNIT_QTY, SFO.CREAT_USER_ID,SFO.CREAT_TS,
-           SFO.LAST_UPDT_TS, (U.USER_FRST_NM || ' ' || U.USER_LAST_NM) USER_NM  
-           FROM SCT_FSC_OVRRD SFO
-             LEFT JOIN MPS_USER U ON U.USER_NM=SFO.LAST_UPDT_USER_ID
-           WHERE SFO.MRKT_ID=p_mrkt_id AND SFO.SLS_PERD_ID=p_sls_perd_id AND SFO.SLS_TYP_ID=p_sls_typ_id
+      WITH
+        ACT_FSC AS
+        (
+          SELECT
+            FSC_CD,
+            MAX(STRT_PERD_ID) MAX_PERD_ID
+          FROM
+            MRKT_FSC
+          WHERE
+            MRKT_ID        =p_mrkt_id
+          AND STRT_PERD_ID<=p_sls_perd_id
+          AND dltd_ind    <>'Y'
+          AND dltd_ind    <>'y'
+          AND MRKT_FSC.FSC_CD IN(select column_value from table( p_fsc_cd_array))
+          GROUP BY
+            FSC_CD
         )
-      SELECT OBJ_MANL_TREND_ADJSTMNT_LINE(
+        ,
+        ALL_FSC AS
+        (
+          SELECT
+            *
+          FROM
+            MRKT_FSC
+          WHERE
+            MRKT_ID        =p_mrkt_id
+          AND STRT_PERD_ID<=p_sls_perd_id
+          AND dltd_ind    <>'Y'
+          AND dltd_ind    <>'y'
+          AND MRKT_FSC.FSC_CD IN(select column_value from table( p_fsc_cd_array))
+        )
+      select
+        OBJ_MANL_TREND_ADJSTMNT_LINE(
+              ALL_FSC.FSC_CD,
+              ALL_FSC.PROD_DESC_TXT,
+              ALL_FSC.SKU_ID,
+              mrkt_sku.LCL_SKU_NM,
+              DB.UNIT_QTY,
+              SCT_FSC_OVRRD.SCT_UNIT_QTY,
+              SCT_FSC_OVRRD.LAST_UPDT_TS,
+              SCT_FSC_OVRRD.USER_FRST_NM || ' ' || SCT_FSC_OVRRD.USER_LAST_NM
+              ) cline
+      from
+      (
+      with  MESP AS
+        (
+          SELECT
+            DLY_BILNG_MTCH_ID
+          FROM
+            MRKT_EFF_SLS_PERD
+          WHERE
+            MRKT_ID           = p_mrkt_id
+          AND EFF_SLS_PERD_ID =
+            (
+              SELECT
+                MAX (MESP.EFF_SLS_PERD_ID)
+              FROM
+                MRKT_EFF_SLS_PERD MESP
+              WHERE
+                MESP.MRKT_ID            = p_mrkt_id
+              AND MESP.EFF_SLS_PERD_ID <= p_sls_perd_id
+            )
+        )
+      SELECT
         DB.FSC_CD,
-        MAX(FSC.PROD_DESC_TXT),
-        MAX(FSC.SKU_ID),
-        MAX(MS.LCL_SKU_NM),
-        SUM(DB.UNIT_QTY),
-        MAX(SFO.SCT_UNIT_QTY),
-        MAX(SFO.LAST_UPDT_TS),
-        MAX(SFO.USER_NM)
-        ) cline
-      FROM   DLY_BILNG DB
-        JOIN DLY_BILNG_CNTRL DBC
-          ON NVL ( DBC.LCL_BILNG_ACTN_CD, DB.LCL_BILNG_ACTN_CD )   = DB.LCL_BILNG_ACTN_CD
-            AND NVL ( DBC.LCL_BILNG_TRAN_TYP, DB.LCL_BILNG_TRAN_TYP ) = DB.LCL_BILNG_TRAN_TYP
-            AND NVL ( DBC.LCL_BILNG_OFFR_TYP, DB.LCL_BILNG_OFFR_TYP ) = DB.LCL_BILNG_OFFR_TYP
-            AND NVL ( DBC.LCL_BILNG_DEFRD_CD, DB.LCL_BILNG_DEFRD_CD ) = DB.LCL_BILNG_DEFRD_CD
-            AND NVL ( DBC.LCL_BILNG_SHPNG_CD, DB.LCL_BILNG_SHPNG_CD ) = DB.LCL_BILNG_SHPNG_CD
-        JOIN MESP USING(DLY_BILNG_MTCH_ID)
-        JOIN MRKT_CONFIG_ITEM MCI
-          ON MCI.MRKT_ID=p_mrkt_id 
-            AND MCI.MRKT_CONFIG_ITEM_VAL_TXT=DBC.SLS_TYP_ID 
-            AND MCI.CONFIG_ITEM_ID=10000
-        LEFT JOIN ACT_FSC ACT
-          ON ACT.FSC_CD=DB.FSC_CD AND ACT.MRKT_ID=DB.MRKT_ID
-        JOIN MRKT_FSC FSC
-          ON FSC.MRKT_ID=DB.MRKT_ID AND FSC.FSC_CD=DB.FSC_CD AND FSC.STRT_PERD_ID=ACT.MAX_PERD_ID   
-        LEFT JOIN MRKT_SKU MS
-          ON MS.MRKT_ID=DB.MRKT_ID AND MS.SKU_ID=FSC.SKU_ID
-        LEFT JOIN SSFO SFO
-          ON SFO.FSC_CD=DB.FSC_CD
-      WHERE DB.MRKT_ID = p_mrkt_id
-        AND DB.SLS_PERD_ID = p_sls_perd_id
-        AND DB.FSC_CD IN(select column_value from table( p_fsc_cd_array))
-      GROUP BY DB.FSC_CD;
+        SUM(DB.UNIT_QTY) UNIT_QTY,
+        DBC.SLS_TYP_ID
+      FROM
+        DLY_BILNG DB,
+        DLY_BILNG_CNTRL DBC,
+        MESP,
+        MRKT_CONFIG_ITEM MCI
+      WHERE
+        NVL ( DBC.LCL_BILNG_ACTN_CD, DB.LCL_BILNG_ACTN_CD )     = DB.LCL_BILNG_ACTN_CD
+      AND NVL ( DBC.LCL_BILNG_TRAN_TYP, DB.LCL_BILNG_TRAN_TYP ) =
+        DB.LCL_BILNG_TRAN_TYP
+      AND NVL ( DBC.LCL_BILNG_OFFR_TYP, DB.LCL_BILNG_OFFR_TYP ) =
+        DB.LCL_BILNG_OFFR_TYP
+      AND NVL ( DBC.LCL_BILNG_DEFRD_CD, DB.LCL_BILNG_DEFRD_CD ) =
+        DB.LCL_BILNG_DEFRD_CD
+      AND NVL ( DBC.LCL_BILNG_SHPNG_CD, DB.LCL_BILNG_SHPNG_CD ) =
+        DB.LCL_BILNG_SHPNG_CD
+      AND MESP.DLY_BILNG_MTCH_ID      =DBC.DLY_BILNG_MTCH_ID
+      AND MCI.MRKT_ID                 =DB.MRKT_ID
+      AND MCI.MRKT_CONFIG_ITEM_VAL_TXT=DBC.SLS_TYP_ID
+      AND MCI.CONFIG_ITEM_ID          =10000
+      AND DB.MRKT_ID                  = p_mrkt_id
+      AND DB.SLS_PERD_ID              = p_sls_perd_id
+      group by
+        DB.FSC_CD,DBC.SLS_TYP_ID
+      ) db,ACT_FSC,ALL_FSC,mrkt_sku,
+      (
+        select SCT_FSC_OVRRD.*,MPS_USER.USER_FRST_NM,MPS_USER.USER_LAST_NM from 
+        SCT_FSC_OVRRD,
+        (
+        select
+          user_nm,user_frst_nm,user_last_nm
+        from 
+        MPS_USER
+        union all
+        select
+          null user_nm,null user_frst_nm,null user_last_nm
+        from dual
+        ) MPS_USER
+        where nvl(MPS_USER.USER_NM,-1)=nvl(SCT_FSC_OVRRD.LAST_UPDT_USER_ID,-1)
+        and SCT_FSC_OVRRD.mrkt_id = p_mrkt_id
+        and SCT_FSC_OVRRD.sls_perd_id = p_sls_perd_id
+        and SCT_FSC_OVRRD.sls_typ_id = p_sls_typ_id
+      ) SCT_FSC_OVRRD
+      where
+      DB.FSC_CD = ACT_FSC.FSC_CD
+      AND ACT_FSC.FSC_CD = ALL_FSC.FSC_CD
+      AND ACT_FSC.MAX_PERD_ID = ALL_FSC.STRT_PERD_ID
+      AND ALL_FSC.sku_id = mrkt_sku.sku_id
+      AND mrkt_sku.mrkt_id = p_mrkt_id
+      and SCT_FSC_OVRRD.fsc_cd(+)*1 = db.fsc_cd*1
+      AND DB.FSC_CD IN(select column_value from table( p_fsc_cd_array));
   BEGIN
     FOR rec in cc LOOP
       pipe row(rec.cline);
