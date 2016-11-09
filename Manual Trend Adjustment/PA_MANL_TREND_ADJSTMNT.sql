@@ -71,7 +71,7 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
   END INITIATE_TREND_OFFSET_TABLE;
   
   PROCEDURE CREATE_SLS_TYPE_CONFG(p_config_item_id IN NUMBER, p_seq_nr NUMBER, p_config_item_val NUMBER) AS
--- Not for regular use, just for initiating the if no config item defined at all
+-- Not for regular use, just for initiating if no config item defined at all
 --  with rules defined at definition of OFFST column
     BEGIN
     INSERT INTO CONFIG_ITEM(CONFIG_ITEM_ID,CONFIG_ITEM_DESC_TXT,CONFIG_ITEM_LABL_TXT,SEQ_NR)
@@ -253,7 +253,8 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
       AND ACT_FSC.MAX_PERD_ID = ALL_FSC.STRT_PERD_ID
       AND ALL_FSC.sku_id = mrkt_sku.sku_id
       AND mrkt_sku.mrkt_id = p_mrkt_id
-      and SCT_FSC_OVRRD.fsc_cd(+)*1 = db.fsc_cd*1;
+      and SCT_FSC_OVRRD.fsc_cd(+)*1 = db.fsc_cd*1
+      order by db.fsc_cd*1;
 
       g_run_id NUMBER       := APP_PLSQL_OUTPUT.generate_new_run_id;
       g_user_id VARCHAR(35) := 'PA_MANL_TREND_ADJSTMNT';
@@ -390,7 +391,8 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
       AND ALL_FSC.sku_id = mrkt_sku.sku_id
       AND mrkt_sku.mrkt_id = p_mrkt_id
       and SCT_FSC_OVRRD.fsc_cd(+)*1 = db.fsc_cd*1
-      AND DB.FSC_CD IN(select column_value from table( p_fsc_cd_array));
+      AND DB.FSC_CD IN(select column_value from table( p_fsc_cd_array))
+    order by DB.FSC_CD*1;
   BEGIN
     FOR rec in cc LOOP
       pipe row(rec.cline);
@@ -447,9 +449,9 @@ create or replace PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
                 UPDATE SET trgt.SCT_UNIT_QTY = p_sct_unit_qty, trgt.LAST_UPDT_USER_ID=p_user_id
               WHEN NOT MATCHED THEN
                 INSERT (MRKT_ID, SLS_PERD_ID, SLS_TYP_ID,
-                          FSC_CD, SCT_UNIT_QTY, LAST_UPDT_USER_ID)
+                          FSC_CD, SCT_UNIT_QTY, CREAT_USER_ID, LAST_UPDT_USER_ID)
                   VALUES (p_mrkt_id, p_sls_perd_id, p_sls_typ_id,
-                          p_fsc_cd,p_sct_unit_qty,p_user_id);
+                          p_fsc_cd,p_sct_unit_qty,p_user_id,p_user_id);
           EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;
           END;
         END IF;

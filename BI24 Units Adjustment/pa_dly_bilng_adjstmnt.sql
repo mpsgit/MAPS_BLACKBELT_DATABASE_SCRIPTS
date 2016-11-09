@@ -109,6 +109,8 @@ create or replace PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
         and dly_bilng.sku_id = mrkt_sku.sku_id
         and dly_bilng.sku_id = offr_sku_line.sku_id(+)
         and dly_bilng.dly_bilng_id = DLY_BILNG_ADJSTMNT.dly_bilng_id(+)
+      order by
+        dly_bilng.fsc_cd*1
     ;        
   BEGIN
     FOR rec in cc LOOP
@@ -200,6 +202,7 @@ create or replace PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
       AND DB.MRKT_ID       = FSCD.MRKT_ID(+)
       AND DB.FSC_CD       = FSCD.FSC_CD(+)
       AND DB.DLY_BILNG_ID       = DBAT.DLY_BILNG_ID(+)
+    order by db.fsc_cd*1
     ;
   BEGIN
 
@@ -244,8 +247,8 @@ END GET_DLY_BILNG_ADJSTMNT2;
               WHEN MATCHED THEN
                 UPDATE SET trgt.UNIT_QTY = p_new_bi24_units, trgt.LAST_UPDT_USER_ID=p_user_id
               WHEN NOT MATCHED THEN
-                INSERT (DLY_BILNG_ID,UNIT_QTY,LAST_UPDT_USER_ID)
-                  VALUES (p_dly_bilng_id,p_new_bi24_units,p_user_id);
+                INSERT (DLY_BILNG_ID,UNIT_QTY,CREAT_USER_ID,LAST_UPDT_USER_ID)
+                  VALUES (p_dly_bilng_id,p_new_bi24_units,p_user_id,p_user_id);
   	       EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;
   		     END;	
         END IF;
