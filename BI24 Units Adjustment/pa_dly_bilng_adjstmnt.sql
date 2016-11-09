@@ -218,7 +218,7 @@ create or replace PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
     g_user_id VARCHAR(35) := USER;
     first_id NUMBER:=p_dly_bilng_id_list(1);
     last_id NUMBER:=p_dly_bilng_id_list(p_dly_bilng_id_list.LAST);
-    signature VARCHAR(200) := 'After SET_DLY_BILNG_ADJSTMNT(' ;
+    signature VARCHAR(200) := 'After SET, GET_DLY_BILNG_ADJSTMNT2(' ;
   BEGIN
     signature := signature || 'p_dly_bilng_id_list: '|| first_id || '~' || last_id || ')';
     APP_PLSQL_LOG.register(g_user_id);
@@ -372,7 +372,7 @@ END GET_DLY_BILNG_ADJSTMNT2;
     g_user_id VARCHAR(35) := USER;
     first_id NUMBER:=p_dly_bilng_id_list(1);
     last_id NUMBER:=p_dly_bilng_id_list(p_dly_bilng_id_list.LAST);
-    signature VARCHAR(200) := 'After SET_DLY_BILNG_ADJSTMNT3(p_mrkt_id: ' || p_mrkt_id ||
+    signature VARCHAR(200) := 'After SET, GET_DLY_BILNG_ADJSTMNT3(p_mrkt_id: ' || p_mrkt_id ||
       ', p_sls_perd_id: ' || p_sls_perd_id || ', p_offr_perd_id: ' || p_offr_perd_id ||
       ',  p_prcsng_dt: ' || p_prcsng_dt;
   BEGIN
