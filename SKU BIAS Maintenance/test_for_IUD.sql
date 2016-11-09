@@ -1,6 +1,8 @@
 set serveroutput on;
 
 -- select * from table(pa_sku_bias.get_sku_bias(68,20170305));
+-- select * from table(pa_sku_bias.get_sku_bias2(68,20170305,(NUMBER_ARRAY(2139005)));
+
 declare
   P_MRKT_ID NUMBER:=68;
   P_SLS_PERD_ID NUMBER:=20170305;
