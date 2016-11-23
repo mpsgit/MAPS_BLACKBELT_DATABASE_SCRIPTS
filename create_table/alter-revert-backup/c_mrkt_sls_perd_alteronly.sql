@@ -19,6 +19,16 @@ ADD (SCT_ALOCTN_STRT_TS DATE );
 ALTER TABLE MRKT_SLS_PERD 
 ADD (SCT_ALOCTN_END_TS DATE );
 
+ALTER TABLE MRKT_SLS_PERD 
+ADD (SCT_ONSCH_EST_BI24_IND CHAR(1) );
+
+ALTER TABLE MRKT_SLS_PERD 
+ADD (SCT_OFFSCH_EST_BI24_IND CHAR(1) );
+
+COMMENT ON COLUMN MRKT_SLS_PERD.SCT_ONSCH_EST_BI24_IND IS 'Use estimate in trend allocation if BI24 data is missing for on schedule';
+
+COMMENT ON COLUMN MRKT_SLS_PERD.SCT_OFFSCH_EST_BI24_IND IS 'Use estimate in trend allocation if BI24 data is missing for off schedule';
+
 COMMENT ON COLUMN MRKT_SLS_PERD.SCT_CASH_VAL IS 'Cash Value entered in advance by the user, or updated via the MAPS Supply Chain Trends screen';
 
 COMMENT ON COLUMN MRKT_SLS_PERD.SCT_R_FACTOR IS 'Derived number used to multiply units/sales at the current stage of a sales campaign to project final units/sales at the end of the target campaign';

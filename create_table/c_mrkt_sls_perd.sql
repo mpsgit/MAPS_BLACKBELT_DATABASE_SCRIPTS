@@ -11,6 +11,8 @@ CREATE TABLE MRKT_SLS_PERD
 , SCT_ALOCTN_USER_ID VARCHAR2(35 BYTE) NOT NULL
 , SCT_ALOCTN_STRT_TS DATE
 , SCT_ALOCTN_END_TS DATE
+, SCT_ONSCH_EST_BI24_IND CHAR(1) 
+, SCT_OFFSCH_EST_BI24_IND CHAR(1)
 , CREAT_USER_ID VARCHAR2(35 BYTE) DEFAULT USER NOT NULL 
 , CREAT_TS DATE DEFAULT SYSDATE NOT NULL 
 , LAST_UPDT_USER_ID VARCHAR2(35 BYTE) DEFAULT USER NOT NULL 
@@ -45,4 +47,8 @@ COMMENT ON COLUMN MRKT_SLS_PERD.SCT_R_FACTOR IS 'Derived number used to multiply
 COMMENT ON COLUMN MRKT_SLS_PERD.SCT_PRCSNG_DT IS 'The ‘billing day’ or latest processing date of the billing data so far at the point the Cash Value and/or R-Factor was changed';
 
 COMMENT ON COLUMN MRKT_SLS_PERD.SCT_ALOCTN_USER_ID_DT IS 'User who last ran Supply Chain Trend Allocation – usually this will be ‘oracle’ indicating the automated daily job, but this may have an actual MAPS user id if the process is re-run from the Supply Chain Trend screen';
+
+COMMENT ON COLUMN MRKT_SLS_PERD.SCT_ONSCH_EST_BI24_IND IS 'Use estimate in trend allocation if BI24 data is missing for on schedule';
+
+COMMENT ON COLUMN MRKT_SLS_PERD.SCT_OFFSCH_EST_BI24_IND IS 'Use estimate in trend allocation if BI24 data is missing for off schedule';
 
