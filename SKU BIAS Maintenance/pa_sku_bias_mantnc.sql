@@ -253,8 +253,9 @@ create or replace PACKAGE BODY PA_SKU_BIAS AS
                          p_new_sku_bias IN NUMBER,
                          p_user_id      IN VARCHAR2,
                          p_stus         OUT NUMBER) AS
+    -- TODO - check if the sku is active, if not refuse handling the record                       
     /*********************************************************
-    * INPUT p_new_sku_bias IS NULL handled as p_new_sku_bias=100
+    * INPUT p_new_sku_bias IS NULL means do nothing
     *
     * Possible OUT Values
     * 0 - success
@@ -263,17 +264,17 @@ create or replace PACKAGE BODY PA_SKU_BIAS AS
     * 3 - Obligatory foreign keys (MRKT_SKU and MRKT_PERD) not found
     * 4 - Inactive SKU, change refused 
     ******************************************************/
-    c_new_sku_bias NUMBER;
     counter1       NUMBER;
     counter2       NUMBER;
     counter3       NUMBER;
     PHcounter      NUMBER;
   BEGIN
     p_STUS := 0;
-    -- p_new_sku_bias IS NULL replace with 100.
-    c_new_sku_bias := nvl(p_new_sku_bias, 100);
-    -- c_new_sku_bias must be between 0 and 1000
-    IF c_new_sku_bias between 0 AND 1000 THEN
+    -- p_new_sku_bias IS NULL means do nothing
+    IF p_new_sku_bias IS NULL THEN
+      NULL;
+    -- p_new_sku_bias must be between 0 and 1000
+    ELSIF p_new_sku_bias between 0 AND 1000 THEN
       SELECT count(*)
         INTO counter1
         FROM MRKT_PERD_SKU_PRC MPSP
@@ -311,72 +312,57 @@ create or replace PACKAGE BODY PA_SKU_BIAS AS
          AND S.SKU_ID = p_sku_id;
       IF counter1 + counter2 + counter3 = 3 THEN
         -- active SKU
-        -- c_new_sku_bias=100 means delete, the record if exists
-        IF c_new_sku_bias = 100 THEN
+        -- upsert using p_new_bias
+        SELECT count(*)
+          INTO counter1
+          FROM MRKT_PERD
+         WHERE MRKT_ID = p_mrkt_id
+           AND PERD_ID = p_sls_perd_id;
+        SELECT count(*)
+          INTO counter2
+          FROM MRKT_SKU
+         WHERE MRKT_ID = p_mrkt_id
+           AND SKU_ID = p_sku_id;
+        IF counter1 + counter2 = 2 THEN
           BEGIN
-            SAVEPOINT before_delete;
-            DELETE FROM MRKT_PERD_SKU_BIAS
-             WHERE MRKT_ID = p_mrkt_id
-               AND SLS_PERD_ID = p_sls_perd_id
-               AND SKU_ID = p_sku_id;
+            SAVEPOINT before_upsert;
+            MERGE INTO MRKT_PERD_SKU_BIAS trgt
+            USING (SELECT p_mrkt_id t1, p_sls_perd_id t2, p_sku_id t3
+                     FROM dual) src
+            ON (trgt.MRKT_ID = src.t1 AND trgt.SLS_PERD_ID = src.t2 AND trgt.SKU_ID = src.t3)
+            WHEN MATCHED THEN
+              UPDATE
+                 SET trgt.BIAS_PCT          = p_new_sku_bias,
+                     trgt.LAST_UPDT_USER_ID = p_user_id
+            WHEN NOT MATCHED THEN
+              INSERT
+                (MRKT_ID,
+                 SLS_PERD_ID,
+                 SKU_ID,
+                 BIAS_PCT,
+                 CREAT_USER_ID,
+                 LAST_UPDT_USER_ID)
+              VALUES
+                (p_mrkt_id,
+                 p_sls_perd_id,
+                 p_sku_id,
+                 p_new_sku_bias,
+                 p_user_id,
+                 p_user_id);
           EXCEPTION
             WHEN OTHERS THEN
-              ROLLBACK TO before_delete;
+              ROLLBACK TO before_changes;
               p_stus := 2; -- Database Error
           END;
-          -- otherwise upsert using p_new_bias
         ELSE
-          SELECT count(*)
-            INTO counter1
-            FROM MRKT_PERD
-           WHERE MRKT_ID = p_mrkt_id
-             AND PERD_ID = p_sls_perd_id;
-          SELECT count(*)
-            INTO counter2
-            FROM MRKT_SKU
-           WHERE MRKT_ID = p_mrkt_id
-             AND SKU_ID = p_sku_id;
-          IF counter1 + counter2 = 2 THEN
-            BEGIN
-              SAVEPOINT before_upsert;
-              MERGE INTO MRKT_PERD_SKU_BIAS trgt
-              USING (SELECT p_mrkt_id t1, p_sls_perd_id t2, p_sku_id t3
-                       FROM dual) src
-              ON (trgt.MRKT_ID = src.t1 AND trgt.SLS_PERD_ID = src.t2 AND trgt.SKU_ID = src.t3)
-              WHEN MATCHED THEN
-                UPDATE
-                   SET trgt.BIAS_PCT          = c_new_sku_bias,
-                       trgt.LAST_UPDT_USER_ID = p_user_id
-              WHEN NOT MATCHED THEN
-                INSERT
-                  (MRKT_ID,
-                   SLS_PERD_ID,
-                   SKU_ID,
-                   BIAS_PCT,
-                   CREAT_USER_ID,
-                   LAST_UPDT_USER_ID)
-                VALUES
-                  (p_mrkt_id,
-                   p_sls_perd_id,
-                   p_sku_id,
-                   c_new_sku_bias,
-                   p_user_id,
-                   p_user_id);
-            EXCEPTION
-              WHEN OTHERS THEN
-                ROLLBACK TO before_changes;
-                p_stus := 2; -- Database Error
-            END;
-          ELSE
-            p_STUS := 3; -- Missing foreign keys
-          END IF;
-        END IF;
+          p_STUS := 3; -- Missing foreign keys
+        END IF; -- cc2
       ELSE
         p_STUS := 4; -- Passive SKU
-      END IF;
+      END IF;  --ccc3
     ELSE
       p_STUS := 1; -- Negative value
-    END IF;
+    END IF; -- 1 1000
   END SET_SKU_BIAS;
 
 END PA_SKU_BIAS;
