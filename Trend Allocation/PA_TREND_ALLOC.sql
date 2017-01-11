@@ -526,13 +526,15 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                       p_dbt_on_sls_perd_id AND dly_bilng_trnd.offr_perd_id =
                                       p_dbt_on_offr_perd_id THEN
                                   dly_bilng_trnd_offr_sku_line.unit_qty *
-                                  dly_bilng_trnd.sls_prc_amt /
-                                  decode(dly_bilng_trnd.nr_for_qty,
+                                  nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                                  decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
                                          0,
                                          1,
-                                         dly_bilng_trnd.nr_for_qty) -
-                                  dly_bilng_trnd_offr_sku_line.comsn_amt -
-                                  dly_bilng_trnd_offr_sku_line.tax_amt
+                                         offr_prfl_prc_point.nr_for_qty) *
+                                  decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                                         0,
+                                         1,
+                                         offr_prfl_prc_point.net_to_avon_fct)
                                  ELSE
                                   0
                                END)) bi24_sls_on,
@@ -554,13 +556,15 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                       p_dbt_off_sls_perd_id AND dly_bilng_trnd.offr_perd_id =
                                       p_dbt_off_offr_perd_id THEN
                                   dly_bilng_trnd_offr_sku_line.unit_qty *
-                                  dly_bilng_trnd.sls_prc_amt /
-                                  decode(dly_bilng_trnd.nr_for_qty,
+                                  nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                                  decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
                                          0,
                                          1,
-                                         dly_bilng_trnd.nr_for_qty) -
-                                  dly_bilng_trnd_offr_sku_line.comsn_amt -
-                                  dly_bilng_trnd_offr_sku_line.tax_amt
+                                         offr_prfl_prc_point.nr_for_qty) *
+                                  decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                                         0,
+                                         1,
+                                         offr_prfl_prc_point.net_to_avon_fct)
                                  ELSE
                                   0
                                END)) bi24_sls_off
@@ -978,49 +982,73 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
         l_actual_sls_off    := 0;
         IF l_tbl_hist_head_aggr.count > 0 THEN
           FOR i IN l_tbl_hist_head_aggr.first .. l_tbl_hist_head_aggr.last LOOP
-            l_bi24_unts_on      := l_bi24_unts_on + l_tbl_hist_head_aggr(i)
-                                  .bi24_unts_on;
-            l_bi24_sls_on       := l_bi24_sls_on + l_tbl_hist_head_aggr(i)
-                                  .bi24_sls_on;
-            l_bi24_unts_off     := l_bi24_unts_off + l_tbl_hist_head_aggr(i)
-                                  .bi24_unts_off;
-            l_bi24_sls_off      := l_bi24_sls_off + l_tbl_hist_head_aggr(i)
-                                  .bi24_sls_off;
-            l_trend_unts_on     := l_trend_unts_on + l_tbl_hist_head_aggr(i)
-                                  .trend_unts_on;
-            l_trend_sls_on      := l_trend_sls_on + l_tbl_hist_head_aggr(i)
-                                  .trend_sls_on;
-            l_trend_unts_off    := l_trend_unts_off + l_tbl_hist_head_aggr(i)
-                                  .trend_unts_off;
-            l_trend_sls_off     := l_trend_sls_off + l_tbl_hist_head_aggr(i)
-                                  .trend_sls_off;
-            l_estimate_unts_on  := l_estimate_unts_on + l_tbl_hist_head_aggr(i)
-                                  .estimate_unts_on;
-            l_estimate_sls_on   := l_estimate_sls_on + l_tbl_hist_head_aggr(i)
-                                  .estimate_sls_on;
-            l_estimate_unts_off := l_estimate_unts_off + l_tbl_hist_head_aggr(i)
-                                  .estimate_unts_off;
-            l_estimate_sls_off  := l_estimate_sls_off + l_tbl_hist_head_aggr(i)
-                                  .estimate_sls_off;
-            l_actual_unts_on    := l_actual_unts_on + l_tbl_hist_head_aggr(i)
-                                  .actual_unts_on;
-            l_actual_sls_on     := l_actual_sls_on + l_tbl_hist_head_aggr(i)
-                                  .actual_sls_on;
-            l_actual_unts_off   := l_actual_unts_off + l_tbl_hist_head_aggr(i)
-                                  .actual_unts_off;
-            l_actual_sls_off    := l_actual_sls_off + l_tbl_hist_head_aggr(i)
-                                  .actual_sls_off;
+            l_bi24_unts_on      := l_bi24_unts_on +
+                                   nvl(l_tbl_hist_head_aggr(i).bi24_unts_on,
+                                       0);
+            l_bi24_sls_on       := l_bi24_sls_on +
+                                   nvl(l_tbl_hist_head_aggr(i).bi24_sls_on,
+                                       0);
+            l_bi24_unts_off     := l_bi24_unts_off +
+                                   nvl(l_tbl_hist_head_aggr(i).bi24_unts_off,
+                                       0);
+            l_bi24_sls_off      := l_bi24_sls_off +
+                                   nvl(l_tbl_hist_head_aggr(i).bi24_sls_off,
+                                       0);
+            l_trend_unts_on     := l_trend_unts_on +
+                                   nvl(l_tbl_hist_head_aggr(i).trend_unts_on,
+                                       0);
+            l_trend_sls_on      := l_trend_sls_on +
+                                   nvl(l_tbl_hist_head_aggr(i).trend_sls_on,
+                                       0);
+            l_trend_unts_off    := l_trend_unts_off +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .trend_unts_off,
+                                       0);
+            l_trend_sls_off     := l_trend_sls_off +
+                                   nvl(l_tbl_hist_head_aggr(i).trend_sls_off,
+                                       0);
+            l_estimate_unts_on  := l_estimate_unts_on +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .estimate_unts_on,
+                                       0);
+            l_estimate_sls_on   := l_estimate_sls_on +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .estimate_sls_on,
+                                       0);
+            l_estimate_unts_off := l_estimate_unts_off +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .estimate_unts_off,
+                                       0);
+            l_estimate_sls_off  := l_estimate_sls_off +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .estimate_sls_off,
+                                       0);
+            l_actual_unts_on    := l_actual_unts_on +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .actual_unts_on,
+                                       0);
+            l_actual_sls_on     := l_actual_sls_on +
+                                   nvl(l_tbl_hist_head_aggr(i).actual_sls_on,
+                                       0);
+            l_actual_unts_off   := l_actual_unts_off +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .actual_unts_off,
+                                       0);
+            l_actual_sls_off    := l_actual_sls_off +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .actual_sls_off,
+                                       0);
           END LOOP;
         END IF;
-        PIPE ROW(obj_trend_alloc_hist_head_line(l_periods.dbt_on_sls_perd_id /*sls_perd_id*/,
-                                                l_periods.dms_on_sls_perd_id /*trg_perd_id*/,
-                                                l_periods.dbt_bilng_day /*bilng_day*/,
+        PIPE ROW(obj_trend_alloc_hist_head_line(l_periods.dbt_on_sls_perd_id,
+                                                l_periods.dms_on_sls_perd_id,
+                                                l_periods.dbt_bilng_day,
                                                 l_bi24_unts_on,
                                                 l_bi24_sls_on,
                                                 l_bi24_unts_off,
                                                 l_bi24_sls_off,
-                                                l_periods.sct_cash_val /*NULL*/ /*cash_vlu*/,
-                                                l_periods.sct_r_factor /*NULL*/ /*r_factor*/,
+                                                l_periods.sct_cash_val,
+                                                l_periods.sct_r_factor,
                                                 l_estimate_unts_on,
                                                 l_estimate_sls_on,
                                                 l_estimate_unts_off,
@@ -1033,6 +1061,9 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                                 l_actual_sls_on,
                                                 l_actual_unts_off,
                                                 l_actual_sls_off));
+        IF l_tbl_hist_head_aggr.count > 0 THEN
+          l_tbl_hist_head_aggr.delete;
+        END IF;
       END LOOP;
       l_multplyr := l_multplyr - 1;
     END LOOP;
@@ -1234,45 +1265,51 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     BEGIN
       SELECT p_dbt_on_sls_perd_id sls_perd_id,
              offr_sku_line.sku_id,
-             MAX(offr.mrkt_id) mrkt_id,
-             MAX(offr.veh_id) veh_id,
-             MAX(offr.offr_desc_txt) offr_desc_txt,
-             MAX(offr_prfl_prc_point.promtn_id) promtn_id,
-             MAX(offr_prfl_prc_point.promtn_clm_id) promtn_clm_id,
-             MAX(offr_prfl_prc_point.sls_cls_cd) sls_cls_cd,
+             offr.mrkt_id,
+             offr.veh_id,
+             offr.offr_desc_txt,
+             offr_prfl_prc_point.promtn_id,
+             offr_prfl_prc_point.promtn_clm_id,
+             offr_prfl_prc_point.sls_cls_cd,
              round(SUM(CASE
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                              dly_bilng.trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
-                              dly_bilng.offr_perd_id = p_dbt_on_offr_perd_id THEN
-                          dly_bilng.unit_qty
+                              dbt_osl.trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
+                              dbt_osl.offr_perd_id = p_dbt_on_offr_perd_id THEN
+                          dbt_osl.osl_unit_qty
                          ELSE
                           0
                        END)) bi24_unts_on,
              round(SUM(CASE
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                              dly_bilng.trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
-                              dly_bilng.offr_perd_id = p_dbt_on_offr_perd_id THEN
-                          dly_bilng.unit_qty * dly_bilng.sls_prc_amt /
-                          decode(dly_bilng.nr_for_qty, 0, 1, dly_bilng.nr_for_qty) -
-                          dly_bilng.comsn_amt - dly_bilng.tax_amt
+                              dbt_osl.trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
+                              dbt_osl.offr_perd_id = p_dbt_on_offr_perd_id THEN
+                          dbt_osl.osl_unit_qty * dbt_osl.opp_sls_prc_amt /
+                          decode(dbt_osl.opp_nr_for_qty, 0, 1, dbt_osl.opp_nr_for_qty) *
+                          decode(dbt_osl.opp_net_to_avon_fct,
+                                 0,
+                                 1,
+                                 dbt_osl.opp_net_to_avon_fct)
                          ELSE
                           0
                        END)) bi24_sls_on,
              round(SUM(CASE
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                              dly_bilng.trnd_sls_perd_id = p_dbt_off_sls_perd_id AND
-                              dly_bilng.offr_perd_id = p_dbt_off_offr_perd_id THEN
-                          dly_bilng.unit_qty
+                              dbt_osl.trnd_sls_perd_id = p_dbt_off_sls_perd_id AND
+                              dbt_osl.offr_perd_id = p_dbt_off_offr_perd_id THEN
+                          dbt_osl.osl_unit_qty
                          ELSE
                           0
                        END)) bi24_unts_off,
              round(SUM(CASE
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                              dly_bilng.trnd_sls_perd_id = p_dbt_off_sls_perd_id AND
-                              dly_bilng.offr_perd_id = p_dbt_off_offr_perd_id THEN
-                          dly_bilng.unit_qty * dly_bilng.sls_prc_amt /
-                          decode(dly_bilng.nr_for_qty, 0, 1, dly_bilng.nr_for_qty) -
-                          dly_bilng.comsn_amt - dly_bilng.tax_amt
+                              dbt_osl.trnd_sls_perd_id = p_dbt_off_sls_perd_id AND
+                              dbt_osl.offr_perd_id = p_dbt_off_offr_perd_id THEN
+                          dbt_osl.osl_unit_qty * dbt_osl.opp_sls_prc_amt /
+                          decode(dbt_osl.opp_nr_for_qty, 0, 1, dbt_osl.opp_nr_for_qty) *
+                          decode(dbt_osl.opp_net_to_avon_fct,
+                                 0,
+                                 1,
+                                 dbt_osl.opp_net_to_avon_fct)
                          ELSE
                           0
                        END)) bi24_sls_off,
@@ -1280,8 +1317,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
                               dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
                               dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id AND
-                              nvl(dly_bilng.dly_bilng_id, dly_bilng_id_for_osl) =
-                              dly_bilng_id_for_osl THEN
+                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
                           dstrbtd_mrkt_sls.unit_qty
                          ELSE
                           0
@@ -1290,14 +1326,17 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
                               dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
                               dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id AND
-                              nvl(dly_bilng.dly_bilng_id, dly_bilng_id_for_osl) =
-                              dly_bilng_id_for_osl THEN
-                          dstrbtd_mrkt_sls.unit_qty * offr_prfl_prc_point.sls_prc_amt /
-                          decode(offr_prfl_prc_point.nr_for_qty,
+                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
+                          dstrbtd_mrkt_sls.unit_qty *
+                          nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                          decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
                                  0,
                                  1,
                                  offr_prfl_prc_point.nr_for_qty) *
-                          offr_prfl_prc_point.net_to_avon_fct
+                          decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                                 0,
+                                 1,
+                                 offr_prfl_prc_point.net_to_avon_fct)
                          ELSE
                           0
                        END)) estimate_sls_on,
@@ -1305,8 +1344,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
                               dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
                               dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id AND
-                              nvl(dly_bilng.dly_bilng_id, dly_bilng_id_for_osl) =
-                              dly_bilng_id_for_osl THEN
+                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
                           dstrbtd_mrkt_sls.unit_qty
                          ELSE
                           0
@@ -1315,14 +1353,17 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
                               dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
                               dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id AND
-                              nvl(dly_bilng.dly_bilng_id, dly_bilng_id_for_osl) =
-                              dly_bilng_id_for_osl THEN
-                          dstrbtd_mrkt_sls.unit_qty * offr_prfl_prc_point.sls_prc_amt /
-                          decode(offr_prfl_prc_point.nr_for_qty,
+                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
+                          dstrbtd_mrkt_sls.unit_qty *
+                          nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                          decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
                                  0,
                                  1,
                                  offr_prfl_prc_point.nr_for_qty) *
-                          offr_prfl_prc_point.net_to_avon_fct
+                          decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                                 0,
+                                 1,
+                                 offr_prfl_prc_point.net_to_avon_fct)
                          ELSE
                           0
                        END)) estimate_sls_off,
@@ -1330,8 +1371,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = p_sls_typ_id AND
                               dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
                               dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id AND
-                              nvl(dly_bilng.dly_bilng_id, dly_bilng_id_for_osl) =
-                              dly_bilng_id_for_osl THEN
+                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
                           dstrbtd_mrkt_sls.unit_qty
                          ELSE
                           0
@@ -1340,14 +1380,17 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = p_sls_typ_id AND
                               dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
                               dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id AND
-                              nvl(dly_bilng.dly_bilng_id, dly_bilng_id_for_osl) =
-                              dly_bilng_id_for_osl THEN
-                          dstrbtd_mrkt_sls.unit_qty * offr_prfl_prc_point.sls_prc_amt /
-                          decode(offr_prfl_prc_point.nr_for_qty,
+                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
+                          dstrbtd_mrkt_sls.unit_qty *
+                          nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                          decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
                                  0,
                                  1,
                                  offr_prfl_prc_point.nr_for_qty) *
-                          offr_prfl_prc_point.net_to_avon_fct
+                          decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                                 0,
+                                 1,
+                                 offr_prfl_prc_point.net_to_avon_fct)
                          ELSE
                           0
                        END)) trend_sls_on,
@@ -1355,8 +1398,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = p_sls_typ_id AND
                               dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
                               dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id AND
-                              nvl(dly_bilng.dly_bilng_id, dly_bilng_id_for_osl) =
-                              dly_bilng_id_for_osl THEN
+                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
                           dstrbtd_mrkt_sls.unit_qty
                          ELSE
                           0
@@ -1365,14 +1407,17 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = p_sls_typ_id AND
                               dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
                               dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id AND
-                              nvl(dly_bilng.dly_bilng_id, dly_bilng_id_for_osl) =
-                              dly_bilng_id_for_osl THEN
-                          dstrbtd_mrkt_sls.unit_qty * offr_prfl_prc_point.sls_prc_amt /
-                          decode(offr_prfl_prc_point.nr_for_qty,
+                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
+                          dstrbtd_mrkt_sls.unit_qty *
+                          nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                          decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
                                  0,
                                  1,
                                  offr_prfl_prc_point.nr_for_qty) *
-                          offr_prfl_prc_point.net_to_avon_fct
+                          decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                                 0,
+                                 1,
+                                 offr_prfl_prc_point.net_to_avon_fct)
                          ELSE
                           0
                        END)) trend_sls_off,
@@ -1380,8 +1425,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = 6 AND
                               dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
                               dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id AND
-                              nvl(dly_bilng.dly_bilng_id, dly_bilng_id_for_osl) =
-                              dly_bilng_id_for_osl THEN
+                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
                           dstrbtd_mrkt_sls.unit_qty
                          ELSE
                           0
@@ -1390,14 +1434,17 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = 6 AND
                               dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
                               dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id AND
-                              nvl(dly_bilng.dly_bilng_id, dly_bilng_id_for_osl) =
-                              dly_bilng_id_for_osl THEN
-                          dstrbtd_mrkt_sls.unit_qty * offr_prfl_prc_point.sls_prc_amt /
-                          decode(offr_prfl_prc_point.nr_for_qty,
+                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
+                          dstrbtd_mrkt_sls.unit_qty *
+                          nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                          decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
                                  0,
                                  1,
                                  offr_prfl_prc_point.nr_for_qty) *
-                          offr_prfl_prc_point.net_to_avon_fct
+                          decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                                 0,
+                                 1,
+                                 offr_prfl_prc_point.net_to_avon_fct)
                          ELSE
                           0
                        END)) actual_sls_on,
@@ -1405,8 +1452,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = 6 AND
                               dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
                               dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id AND
-                              nvl(dly_bilng.dly_bilng_id, dly_bilng_id_for_osl) =
-                              dly_bilng_id_for_osl THEN
+                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
                           dstrbtd_mrkt_sls.unit_qty
                          ELSE
                           0
@@ -1415,14 +1461,17 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                          WHEN dstrbtd_mrkt_sls.sls_typ_id = 6 AND
                               dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
                               dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id AND
-                              nvl(dly_bilng.dly_bilng_id, dly_bilng_id_for_osl) =
-                              dly_bilng_id_for_osl THEN
-                          dstrbtd_mrkt_sls.unit_qty * offr_prfl_prc_point.sls_prc_amt /
-                          decode(offr_prfl_prc_point.nr_for_qty,
+                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
+                          dstrbtd_mrkt_sls.unit_qty *
+                          nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                          decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
                                  0,
                                  1,
                                  offr_prfl_prc_point.nr_for_qty) *
-                          offr_prfl_prc_point.net_to_avon_fct
+                          decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                                 0,
+                                 1,
+                                 offr_prfl_prc_point.net_to_avon_fct)
                          ELSE
                           0
                        END)) actual_sls_off
@@ -1432,14 +1481,17 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                      dly_bilng_trnd.mrkt_id,
                      dly_bilng_trnd.offr_perd_id,
                      dly_bilng_trnd.trnd_sls_perd_id,
-                     dly_bilng_trnd.sls_prc_amt,
-                     dly_bilng_trnd.nr_for_qty,
+                     nvl(offr_prfl_prc_point.sls_prc_amt, 0) opp_sls_prc_amt,
+                     nvl(offr_prfl_prc_point.nr_for_qty, 0) opp_nr_for_qty,
+                     nvl(offr_prfl_prc_point.net_to_avon_fct, 0) opp_net_to_avon_fct,
                      dly_bilng_trnd_offr_sku_line.offr_sku_line_id,
-                     dly_bilng_trnd_offr_sku_line.unit_qty,
-                     dly_bilng_trnd_offr_sku_line.comsn_amt,
-                     dly_bilng_trnd_offr_sku_line.tax_amt,
-                     MAX(dly_bilng_trnd.dly_bilng_id) over(PARTITION BY dly_bilng_trnd_offr_sku_line.offr_sku_line_id) dly_bilng_id_for_osl
-                FROM dly_bilng_trnd, dly_bilng_trnd_offr_sku_line
+                     dly_bilng_trnd_offr_sku_line.unit_qty osl_unit_qty,
+                     row_number() over(PARTITION BY dly_bilng_trnd_offr_sku_line.offr_sku_line_id ORDER BY dly_bilng_trnd.dly_bilng_id) dly_bilng_id_num
+                FROM dly_bilng_trnd,
+                     dly_bilng_trnd_offr_sku_line,
+                     offr_sku_line,
+                     offr_prfl_prc_point,
+                     offr
                WHERE dly_bilng_trnd.mrkt_id = p_mrkt_id
                  AND (( --on-schedule
                       dly_bilng_trnd.trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
@@ -1454,14 +1506,24 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                      dly_bilng_trnd_offr_sku_line.dly_bilng_id
                     -- filter: p_sls_typ_id
                  AND dly_bilng_trnd_offr_sku_line.sls_typ_id =
-                     p_sls_typ_id_from_config) dly_bilng,
+                     p_sls_typ_id_from_config
+                    -- additional filtering...
+                    -- maybe, we will not need it
+                 AND dly_bilng_trnd_offr_sku_line.offr_sku_line_id =
+                     offr_sku_line.offr_sku_line_id
+                 AND offr_sku_line.dltd_ind <> 'Y'
+                 AND offr_sku_line.offr_prfl_prcpt_id =
+                     offr_prfl_prc_point.offr_prfl_prcpt_id
+                 AND offr_prfl_prc_point.offr_id = offr.offr_id
+                 AND offr.offr_typ = 'CMP'
+                 AND offr.ver_id = 0) dbt_osl,
              dstrbtd_mrkt_sls,
              offr_sku_line,
              offr_prfl_prc_point,
              offr
        WHERE 1 = 1
             -- join: dly_bilng_trnd_offr_sku_line -> dstrbtd_mrkt_sls
-         AND dly_bilng.offr_sku_line_id(+) =
+         AND dbt_osl.offr_sku_line_id(+) =
              dstrbtd_mrkt_sls.offr_sku_line_id
             -- filter: mrkt_id, 
          AND dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
@@ -1481,8 +1543,22 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
          AND offr_prfl_prc_point.offr_id = offr.offr_id
          AND offr.offr_typ = 'CMP'
          AND offr.ver_id = 0
-       GROUP BY p_dbt_on_sls_perd_id, offr_sku_line.sku_id
-       ORDER BY p_dbt_on_sls_perd_id, offr_sku_line.sku_id;
+       GROUP BY p_dbt_on_sls_perd_id,
+                offr_sku_line.sku_id,
+                offr.mrkt_id,
+                offr.veh_id,
+                offr.offr_desc_txt,
+                offr_prfl_prc_point.promtn_id,
+                offr_prfl_prc_point.promtn_clm_id,
+                offr_prfl_prc_point.sls_cls_cd
+       ORDER BY p_dbt_on_sls_perd_id,
+                offr_sku_line.sku_id,
+                offr.mrkt_id,
+                offr.veh_id,
+                offr.offr_desc_txt,
+                offr_prfl_prc_point.promtn_id,
+                offr_prfl_prc_point.promtn_clm_id,
+                offr_prfl_prc_point.sls_cls_cd;
     EXCEPTION
       WHEN OTHERS THEN
         app_plsql_log.error(l_module_name || ' error code:' || SQLCODE ||
@@ -1585,18 +1661,11 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                               offr_perd_id = p_dbt_on_offr_perd_id THEN
                           CASE
                             WHEN sct_unit_qty IS NOT NULL THEN
-                             CASE
-                               WHEN osl_unit_qty = 0 THEN
-                                0 - osl_comsn_amt - osl_tax_amt
-                               ELSE
-                                (osl_unit_qty / total_unit_qty_by_fsc_cd) * sct_unit_qty *
-                                ((osl_unit_qty * dbt_sls_prc_amt / dbt_nr_for_qty -
-                                osl_comsn_amt - osl_tax_amt) / osl_unit_qty)
-                             END
+                             (osl_unit_qty / total_unit_qty_by_fsc_cd) * sct_unit_qty *
+                             (opp_sls_prc_amt / opp_nr_for_qty * opp_net_to_avon_fct)
                             ELSE
-                             p_r_factor * bias * bi24_adj *
-                             (osl_unit_qty * (dbt_sls_prc_amt / dbt_nr_for_qty) -
-                             osl_comsn_amt - osl_tax_amt)
+                             p_r_factor * bias * bi24_adj * osl_unit_qty *
+                             (opp_sls_prc_amt / opp_nr_for_qty * opp_net_to_avon_fct)
                           END
                          ELSE
                           0
@@ -1626,18 +1695,11 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                               offr_perd_id = p_dbt_off_offr_perd_id THEN
                           CASE
                             WHEN sct_unit_qty IS NOT NULL THEN
-                             CASE
-                               WHEN osl_unit_qty = 0 THEN
-                                0 - osl_comsn_amt - osl_tax_amt
-                               ELSE
-                                (osl_unit_qty / total_unit_qty_by_fsc_cd) * sct_unit_qty *
-                                ((osl_unit_qty * dbt_sls_prc_amt / dbt_nr_for_qty -
-                                osl_comsn_amt - osl_tax_amt) / osl_unit_qty)
-                             END
+                             (osl_unit_qty / total_unit_qty_by_fsc_cd) * sct_unit_qty *
+                             (opp_sls_prc_amt / opp_nr_for_qty * opp_net_to_avon_fct)
                             ELSE
-                             p_r_factor * bias * bi24_adj *
-                             (osl_unit_qty * (dbt_sls_prc_amt / dbt_nr_for_qty) -
-                             osl_comsn_amt - osl_tax_amt)
+                             p_r_factor * bias * bi24_adj * osl_unit_qty *
+                             (opp_sls_prc_amt / opp_nr_for_qty * opp_net_to_avon_fct)
                           END
                          ELSE
                           0
@@ -1666,7 +1728,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                        (osl_tax_amt / osl_unit_qty)
                     END
                    ELSE
-                    p_r_factor * bias * bi24_adj * osl_comsn_amt
+                    p_r_factor * bias * bi24_adj * osl_tax_amt
                  END) tax_amt,
              CASE
                WHEN trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
@@ -1682,12 +1744,20 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                       -- DBT
                       dly_bilng_trnd.trnd_sls_perd_id,
                       dly_bilng_trnd.offr_perd_id,
-                      dly_bilng_trnd.unit_qty dbt_unit_qty,
-                      dly_bilng_trnd.sls_prc_amt dbt_sls_prc_amt,
-                      decode(dly_bilng_trnd.nr_for_qty,
+                      -- OSL
+                      nvl(dly_bilng_trnd_offr_sku_line.unit_qty, 0) osl_unit_qty,
+                      nvl(dly_bilng_trnd_offr_sku_line.comsn_amt, 0) osl_comsn_amt,
+                      nvl(dly_bilng_trnd_offr_sku_line.tax_amt, 0) osl_tax_amt,
+                      -- OPP
+                      nvl(offr_prfl_prc_point.sls_prc_amt, 0) opp_sls_prc_amt,
+                      decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
                              0,
                              1,
-                             dly_bilng_trnd.nr_for_qty) dbt_nr_for_qty,
+                             offr_prfl_prc_point.nr_for_qty) opp_nr_for_qty,
+                      decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                             0,
+                             1,
+                             offr_prfl_prc_point.net_to_avon_fct) opp_net_to_avon_fct,
                       SUM(dly_bilng_trnd_offr_sku_line.unit_qty) over(PARTITION BY p_mrkt_id, p_sls_perd_id, p_sls_typ_id, dly_bilng_trnd.fsc_cd) total_unit_qty_by_fsc_cd,
                       COUNT(1) over(PARTITION BY p_mrkt_id, p_sls_perd_id, p_sls_typ_id, dly_bilng_trnd.fsc_cd) total_cnt_by_fsc_cd,
                       -- BIAS
@@ -1696,10 +1766,6 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                       nvl(dly_bilng_adjstmnt.unit_qty /
                           nvl(dly_bilng_trnd.unit_qty, 1),
                           1) bi24_adj,
-                      -- OSL
-                      dly_bilng_trnd_offr_sku_line.unit_qty  osl_unit_qty,
-                      dly_bilng_trnd_offr_sku_line.comsn_amt osl_comsn_amt,
-                      dly_bilng_trnd_offr_sku_line.tax_amt   osl_tax_amt,
                       -- FSC
                       sct_fsc_ovrrd.sct_unit_qty,
                       -- additional...
@@ -1871,12 +1937,15 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                      'Y',
                                      dstrbtd_mrkt_sls.unit_qty,
                                      0)) *
-                          (offr_prfl_prc_point.sls_prc_amt /
-                           decode(offr_prfl_prc_point.nr_for_qty,
+                          (nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                           decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
                                   0,
                                   1,
                                   offr_prfl_prc_point.nr_for_qty) *
-                           offr_prfl_prc_point.net_to_avon_fct /
+                           decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                                  0,
+                                  1,
+                                  offr_prfl_prc_point.net_to_avon_fct) /
                            decode(dstrbtd_mrkt_sls.unit_qty,
                                   0,
                                   1,
@@ -1906,12 +1975,15 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                      'Y',
                                      dstrbtd_mrkt_sls.unit_qty,
                                      0)) *
-                          (offr_prfl_prc_point.sls_prc_amt /
-                           decode(offr_prfl_prc_point.nr_for_qty,
+                          (nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                           decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
                                   0,
                                   1,
                                   offr_prfl_prc_point.nr_for_qty) *
-                           offr_prfl_prc_point.net_to_avon_fct /
+                           decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                                  0,
+                                  1,
+                                  offr_prfl_prc_point.net_to_avon_fct) /
                            decode(dstrbtd_mrkt_sls.unit_qty,
                                   0,
                                   1,
@@ -2148,13 +2220,14 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     l_trnd_sls_off  := 0;
     IF l_table_reproc.count > 0 THEN
       FOR i IN l_table_reproc.first .. l_table_reproc.last LOOP
-        l_trnd_unts_on  := l_trnd_unts_on + l_table_reproc(i)
-                          .frcstd_unts_on;
-        l_trnd_sls_on   := l_trnd_sls_on + l_table_reproc(i).frcstd_sls_on;
-        l_trnd_unts_off := l_trnd_unts_off + l_table_reproc(i)
-                          .frcstd_unts_off;
-        l_trnd_sls_off  := l_trnd_sls_off + l_table_reproc(i)
-                          .frcstd_sls_off;
+        l_trnd_unts_on  := l_trnd_unts_on +
+                           nvl(l_table_reproc(i).frcstd_unts_on, 0);
+        l_trnd_sls_on   := l_trnd_sls_on +
+                           nvl(l_table_reproc(i).frcstd_sls_on, 0);
+        l_trnd_unts_off := l_trnd_unts_off +
+                           nvl(l_table_reproc(i).frcstd_unts_off, 0);
+        l_trnd_sls_off  := l_trnd_sls_off +
+                           nvl(l_table_reproc(i).frcstd_sls_off, 0);
       END LOOP;
     END IF;
     -- EST and OVRRD
@@ -2188,11 +2261,14 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     l_est_sls_off  := 0;
     IF l_table_reproc.count > 0 THEN
       FOR i IN l_table_reproc.first .. l_table_reproc.last LOOP
-        l_est_unts_on  := l_est_unts_on + l_table_reproc(i).frcstd_unts_on;
-        l_est_sls_on   := l_est_sls_on + l_table_reproc(i).frcstd_sls_on;
-        l_est_unts_off := l_est_unts_off + l_table_reproc(i)
-                         .frcstd_unts_off;
-        l_est_sls_off  := l_est_sls_off + l_table_reproc(i).frcstd_sls_off;
+        l_est_unts_on  := l_est_unts_on +
+                          nvl(l_table_reproc(i).frcstd_unts_on, 0);
+        l_est_sls_on   := l_est_sls_on +
+                          nvl(l_table_reproc(i).frcstd_sls_on, 0);
+        l_est_unts_off := l_est_unts_off +
+                          nvl(l_table_reproc(i).frcstd_unts_off, 0);
+        l_est_sls_off  := l_est_sls_off +
+                          nvl(l_table_reproc(i).frcstd_sls_off, 0);
       END LOOP;
     END IF;
     -- cleanup
@@ -2415,118 +2491,10 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                                 .actual_sls_off));
         END LOOP;
       END LOOP;
+      l_tbl_hist_head_aggr.delete;
     END IF;
     app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
   END get_trend_alloc_hist_dtls;
-
-  PROCEDURE insert_dms(p_table_reproc IN t_reproc,
-                       p_type         CHAR,
-                       p_user_id      VARCHAR2) IS
-  BEGIN
-    IF p_table_reproc.count > 0 THEN
-      FOR i IN p_table_reproc.first .. p_table_reproc.last LOOP
-        IF p_table_reproc(i).offr_sku_line_id IS NOT NULL THEN
-          BEGIN
-            INSERT INTO dstrbtd_mrkt_sls
-              (mrkt_id,
-               sls_perd_id,
-               offr_sku_line_id,
-               sls_typ_id,
-               sls_srce_id,
-               offr_perd_id,
-               sls_stus_cd,
-               veh_id,
-               unit_qty,
-               comsn_amt,
-               tax_amt,
-               cost_amt,
-               net_to_avon_fct,
-               creat_user_id,
-               last_updt_user_id)
-            VALUES
-              (p_table_reproc(i).mrkt_id,
-               CASE
-                 WHEN TRIM(p_table_reproc(i).on_off_flag) = 'ON' THEN
-                  p_table_reproc(i).dms_on_sls_perd_id
-                 ELSE
-                  p_table_reproc(i).dms_off_sls_perd_id
-               END,
-               p_table_reproc(i).offr_sku_line_id,
-               p_table_reproc(i).sls_typ_id,
-               billing_sls_srce_id,
-               CASE
-                 WHEN TRIM(p_table_reproc(i).on_off_flag) = 'ON' THEN
-                  p_table_reproc(i).dms_on_offr_perd_id
-                 ELSE
-                  p_table_reproc(i).dms_off_offr_perd_id
-               END,
-               final_sls_stus_cd,
-               p_table_reproc(i).veh_id,
-               CASE
-                 WHEN TRIM(p_table_reproc(i).on_off_flag) = 'ON' THEN
-                  p_table_reproc(i).frcstd_unts_on
-                 ELSE
-                  p_table_reproc(i).frcstd_unts_off
-               END,
-               p_table_reproc(i).comsn_amt,
-               p_table_reproc(i).tax_amt,
-               default_cost_amt,
-               (SELECT CASE opp.nr_for_qty
-                         WHEN 0 THEN
-                          0
-                         ELSE
-                          decode(opp.sls_prc_amt / opp.nr_for_qty * CASE
-                                   WHEN TRIM(p_table_reproc(i).on_off_flag) = 'ON' THEN
-                                    p_table_reproc(i).frcstd_unts_on
-                                   ELSE
-                                    p_table_reproc(i).frcstd_unts_off
-                                 END,
-                                 0,
-                                 0,
-                                 1 - ((p_table_reproc(i).comsn_amt + p_table_reproc(i).tax_amt) /
-                                 (opp.sls_prc_amt / opp.nr_for_qty * CASE
-                                   WHEN TRIM(p_table_reproc(i).on_off_flag) = 'ON' THEN
-                                    p_table_reproc(i).frcstd_unts_on
-                                   ELSE
-                                    p_table_reproc(i).frcstd_unts_off
-                                 END)))
-                       END
-                  FROM offr_prfl_prc_point opp, offr_sku_line osl
-                 WHERE osl.offr_sku_line_id = p_table_reproc(i)
-                      .offr_sku_line_id
-                   AND opp.offr_prfl_prcpt_id = osl.offr_prfl_prcpt_id),
-               p_user_id,
-               p_user_id);
-          EXCEPTION
-            WHEN OTHERS
-            -- log
-             THEN
-              app_plsql_log.error('ERROR at writing trend allocations in internal function insert_dms : ' ||
-                                  p_type || p_table_reproc(i).mrkt_id || ', ' || CASE WHEN
-                                  TRIM(p_table_reproc(i).on_off_flag) = 'ON' THEN p_table_reproc(i)
-                                  .dms_on_sls_perd_id ELSE p_table_reproc(i)
-                                  .dms_off_sls_perd_id
-                                  END || ', ' || p_table_reproc(i)
-                                  .offr_sku_line_id || ', ' || p_table_reproc(i)
-                                  .sls_typ_id || ', ' ||
-                                  billing_sls_srce_id || ', ' || CASE WHEN
-                                  TRIM(p_table_reproc(i).on_off_flag) = 'ON' THEN p_table_reproc(i)
-                                  .dms_on_offr_perd_id ELSE p_table_reproc(i)
-                                  .dms_off_offr_perd_id
-                                  END || ', ' || final_sls_stus_cd || ', ' || p_table_reproc(i)
-                                  .veh_id || ', ' || CASE WHEN
-                                  TRIM(p_table_reproc(i).on_off_flag) = 'ON' THEN p_table_reproc(i)
-                                  .frcstd_unts_on ELSE p_table_reproc(i)
-                                  .frcstd_unts_off
-                                  END || ', ' || p_table_reproc(i)
-                                  .comsn_amt || ', ' || p_table_reproc(i)
-                                  .tax_amt || ', ' || default_cost_amt);
-          END;
-        END IF;
-      END LOOP;
-    END IF;
-  
-  END insert_dms;
 
   PROCEDURE save_trend_alloctn(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
                                p_sls_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
@@ -2897,9 +2865,11 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                  l_table_reproc(i).tax_amt,
                  default_cost_amt,
                  (SELECT CASE
-                           WHEN nvl(opp.sls_prc_amt, 0) +
-                                nvl(opp.nr_for_qty, 0) +
-                                nvl(CASE
+                           WHEN nvl(opp.sls_prc_amt, 0) = 0 THEN
+                            0
+                           WHEN nvl(opp.nr_for_qty, 0) = 0 THEN
+                            0
+                           WHEN nvl(CASE
                                       WHEN TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN
                                        l_table_reproc(i).frcstd_unts_on
                                       ELSE
@@ -3072,7 +3042,6 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     END;
     CASE
       WHEN l_last_dms IS NOT NULL THEN
-        --Added end
         -- sls_typ_id_from_config
         l_sls_typ_id_from_config := get_sls_typ_id_from_config(p_mrkt_id,
                                                                l_run_id,
@@ -3122,38 +3091,62 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
         l_actual_sls_off    := 0;
         IF l_tbl_hist_head_aggr.count > 0 THEN
           FOR i IN l_tbl_hist_head_aggr.first .. l_tbl_hist_head_aggr.last LOOP
-            l_bi24_unts_on      := l_bi24_unts_on + l_tbl_hist_head_aggr(i)
-                                  .bi24_unts_on;
-            l_bi24_sls_on       := l_bi24_sls_on + l_tbl_hist_head_aggr(i)
-                                  .bi24_sls_on;
-            l_bi24_unts_off     := l_bi24_unts_off + l_tbl_hist_head_aggr(i)
-                                  .bi24_unts_off;
-            l_bi24_sls_off      := l_bi24_sls_off + l_tbl_hist_head_aggr(i)
-                                  .bi24_sls_off;
-            l_trend_unts_on     := l_trend_unts_on + l_tbl_hist_head_aggr(i)
-                                  .trend_unts_on;
-            l_trend_sls_on      := l_trend_sls_on + l_tbl_hist_head_aggr(i)
-                                  .trend_sls_on;
-            l_trend_unts_off    := l_trend_unts_off + l_tbl_hist_head_aggr(i)
-                                  .trend_unts_off;
-            l_trend_sls_off     := l_trend_sls_off + l_tbl_hist_head_aggr(i)
-                                  .trend_sls_off;
-            l_estimate_unts_on  := l_estimate_unts_on + l_tbl_hist_head_aggr(i)
-                                  .estimate_unts_on;
-            l_estimate_sls_on   := l_estimate_sls_on + l_tbl_hist_head_aggr(i)
-                                  .estimate_sls_on;
-            l_estimate_unts_off := l_estimate_unts_off + l_tbl_hist_head_aggr(i)
-                                  .estimate_unts_off;
-            l_estimate_sls_off  := l_estimate_sls_off + l_tbl_hist_head_aggr(i)
-                                  .estimate_sls_off;
-            l_actual_unts_on    := l_actual_unts_on + l_tbl_hist_head_aggr(i)
-                                  .actual_unts_on;
-            l_actual_sls_on     := l_actual_sls_on + l_tbl_hist_head_aggr(i)
-                                  .actual_sls_on;
-            l_actual_unts_off   := l_actual_unts_off + l_tbl_hist_head_aggr(i)
-                                  .actual_unts_off;
-            l_actual_sls_off    := l_actual_sls_off + l_tbl_hist_head_aggr(i)
-                                  .actual_sls_off;
+            l_bi24_unts_on      := l_bi24_unts_on +
+                                   nvl(l_tbl_hist_head_aggr(i).bi24_unts_on,
+                                       0);
+            l_bi24_sls_on       := l_bi24_sls_on +
+                                   nvl(l_tbl_hist_head_aggr(i).bi24_sls_on,
+                                       0);
+            l_bi24_unts_off     := l_bi24_unts_off +
+                                   nvl(l_tbl_hist_head_aggr(i).bi24_unts_off,
+                                       0);
+            l_bi24_sls_off      := l_bi24_sls_off +
+                                   nvl(l_tbl_hist_head_aggr(i).bi24_sls_off,
+                                       0);
+            l_trend_unts_on     := l_trend_unts_on +
+                                   nvl(l_tbl_hist_head_aggr(i).trend_unts_on,
+                                       0);
+            l_trend_sls_on      := l_trend_sls_on +
+                                   nvl(l_tbl_hist_head_aggr(i).trend_sls_on,
+                                       0);
+            l_trend_unts_off    := l_trend_unts_off +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .trend_unts_off,
+                                       0);
+            l_trend_sls_off     := l_trend_sls_off +
+                                   nvl(l_tbl_hist_head_aggr(i).trend_sls_off,
+                                       0);
+            l_estimate_unts_on  := l_estimate_unts_on +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .estimate_unts_on,
+                                       0);
+            l_estimate_sls_on   := l_estimate_sls_on +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .estimate_sls_on,
+                                       0);
+            l_estimate_unts_off := l_estimate_unts_off +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .estimate_unts_off,
+                                       0);
+            l_estimate_sls_off  := l_estimate_sls_off +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .estimate_sls_off,
+                                       0);
+            l_actual_unts_on    := l_actual_unts_on +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .actual_unts_on,
+                                       0);
+            l_actual_sls_on     := l_actual_sls_on +
+                                   nvl(l_tbl_hist_head_aggr(i).actual_sls_on,
+                                       0);
+            l_actual_unts_off   := l_actual_unts_off +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .actual_unts_off,
+                                       0);
+            l_actual_sls_off    := l_actual_sls_off +
+                                   nvl(l_tbl_hist_head_aggr(i)
+                                       .actual_sls_off,
+                                       0);
           END LOOP;
         END IF;
         PIPE ROW(obj_trend_alloc_hist_head_line(l_periods.dbt_on_sls_perd_id /*sls_perd_id*/,
@@ -3177,6 +3170,9 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                                 l_actual_sls_on,
                                                 l_actual_unts_off,
                                                 l_actual_sls_off));
+        IF l_tbl_hist_head_aggr.count > 0 THEN
+          l_tbl_hist_head_aggr.delete;
+        END IF;
         -- added
       ELSE
         PIPE ROW(obj_trend_alloc_hist_head_line(NULL /*sls_perd_id*/,
