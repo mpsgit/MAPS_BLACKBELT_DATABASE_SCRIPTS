@@ -62,6 +62,74 @@ create or replace TYPE OBJ_MANL_TREND_ADJSTMNT_LINE as object
 
 CREATE OR REPLACE TYPE OBJ_MANL_TREND_ADJSTMNT_TABLE AS TABLE OF OBJ_MANL_TREND_ADJSTMNT_LINE;
 
+create or replace TYPE OBJ_TREND_TYPE_LINE AS OBJECT
+    ( SLS_TYP_ID number,
+      SLS_TYP_NM varchar2(100)
+    );
+	
+create or replace TYPE OBJ_TREND_TYPE_TABLE AS TABLE OF OBJ_TREND_TYPE_LINE;
+
+create or replace type OBJ_TREND_ALLOC_VIEW_LINE as object 
+	( NOT_PLANND_UNTS NUMBER,
+	  has_save VARCHAR2(1),
+	  LAST_RUN date,
+	  IS_STARTED VARCHAR2(1),
+	  IS_COMPLETE varchar2(1)
+	);
+	
+create or replace type obj_trend_alloc_view_table as table of OBJ_TREND_ALLOC_VIEW_LINE;
+
+create or replace TYPE obj_trend_alloc_hist_head_aggr AS OBJECT
+(
+  sls_perd_id       NUMBER,
+  sku_id            NUMBER,
+  bi24_unts_on      NUMBER,
+  bi24_sls_on       NUMBER,
+  bi24_unts_off     NUMBER,
+  bi24_sls_off      NUMBER,
+  trend_unts_on     NUMBER,
+  trend_sls_on      NUMBER,
+  trend_unts_off    NUMBER,
+  trend_sls_off     NUMBER,
+  estimate_unts_on  NUMBER,
+  estimate_sls_on   NUMBER,
+  estimate_unts_off NUMBER,
+  estimate_sls_off  NUMBER,
+  actual_unts_on    NUMBER,
+  actual_sls_on     NUMBER,
+  actual_unts_off   NUMBER,
+  actual_sls_off    NUMBER
+)
+;
+
+create or replace TYPE OBJ_TREND_ALLOC_HIST_HEAD_LINE AS OBJECT
+(
+  sls_perd_id number,
+  trg_perd_id number,
+  bilng_day   date,
+  bi24_unts_on   number,
+  bi24_sls_on    number,
+  bi24_unts_off   number,
+  bi24_sls_off    number,
+  cash_vlu    number,
+  r_factor    number,
+  estmt_units_on number,
+  estmt_sls_on   number,
+  estmt_units_off number,
+  estmt_sls_off   number,
+  trend_units_on number,
+  trend_sls_on   number,
+  trend_units_off number,
+  trend_sls_off   number,
+  actual_units_on number,
+  actual_sls_on   number,
+  actual_units_off number,
+  actual_sls_off   number
+)
+;
+
+create or replace type obj_trend_alloc_hist_hd_table as table of OBJ_TREND_ALLOC_HIST_HEAD_LINE;
+
 ------------------------------------------------
 
 create or replace TYPE T_FS_BNCHMRK AS OBJECT
