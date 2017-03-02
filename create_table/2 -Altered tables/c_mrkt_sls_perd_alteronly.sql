@@ -20,14 +20,25 @@ ALTER TABLE MRKT_SLS_PERD
 ADD (SCT_ALOCTN_END_TS DATE );
 
 ALTER TABLE MRKT_SLS_PERD 
+ADD (EST_BILNG_DT DATE);
+
+ALTER TABLE MRKT_SLS_PERD 
+ADD (BST_BILNG_DT DATE);
+
+ALTER TABLE MRKT_SLS_PERD 
 ADD (SCT_ONSCH_EST_BI24_IND CHAR(1) );
 
 ALTER TABLE MRKT_SLS_PERD 
 ADD (SCT_OFFSCH_EST_BI24_IND CHAR(1) );
 
-COMMENT ON COLUMN MRKT_SLS_PERD.SCT_ONSCH_EST_BI24_IND IS 'Use estimate in trend allocation if BI24 data is missing for on schedule';
+ALTER TABLE MRKT_SLS_PERD 
+ADD (SCT_SLS_TYP_ID NUMBER );
 
-COMMENT ON COLUMN MRKT_SLS_PERD.SCT_OFFSCH_EST_BI24_IND IS 'Use estimate in trend allocation if BI24 data is missing for off schedule';
+ALTER TABLE MRKT_SLS_PERD 
+ADD (SCT_AUTCLC_EST_IND CHAR(1) );
+
+ALTER TABLE MRKT_SLS_PERD 
+ADD (SCT_AUTCLC_BST_IND CHAR(1) );
 
 COMMENT ON COLUMN MRKT_SLS_PERD.SCT_CASH_VAL IS 'Cash Value entered in advance by the user, or updated via the MAPS Supply Chain Trends screen';
 
@@ -40,6 +51,20 @@ COMMENT ON COLUMN MRKT_SLS_PERD.SCT_ALOCTN_USER_ID IS 'User who last ran Supply 
 COMMENT ON COLUMN MRKT_SLS_PERD.SCT_ALOCTN_STRT_TS IS 'Start time of Supply Chain Trend Allocation';
 
 COMMENT ON COLUMN MRKT_SLS_PERD.SCT_ALOCTN_END_TS IS 'End Time of Supply Chain Trend Allocation';
+
+COMMENT ON COLUMN MRKT_SLS_PERD.EST_BILNG_DT IS 'Billing day for EST for given campaign – this will be date only, no time portion';
+
+COMMENT ON COLUMN MRKT_SLS_PERD.BST_BILNG_DT IS 'Billing day for BST for given campaign – this will be date only, no time portion';
+
+COMMENT ON COLUMN MRKT_SLS_PERD.SCT_ONSCH_EST_BI24_IND IS 'Use estimate in trend allocation if BI24 data is missing for on schedule';
+
+COMMENT ON COLUMN MRKT_SLS_PERD.SCT_OFFSCH_EST_BI24_IND IS 'Use estimate in trend allocation if BI24 data is missing for off schedule';
+
+COMMENT ON COLUMN MRKT_SLS_PERD.SCT_AUTCLC_EST_IND IS 'Automatic EST  allocation set';
+
+COMMENT ON COLUMN MRKT_SLS_PERD.SCT_AUTCLC_BST_IND IS 'Automatic BST allocation set';
+   
+COMMENT ON TABLE MRKT_SLS_PERD  IS 'Market Sales Period.  Data that is required for every sales period.  This table contains only sales periods (not years and quarters as in the MRKT_PERD table).'
 
 ALTER TABLE MRKT_SLS_PERD 
 COMPRESS
