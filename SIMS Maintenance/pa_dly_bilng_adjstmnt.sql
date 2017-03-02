@@ -1,4 +1,4 @@
-create or replace PACKAGE PA_DLY_BILNG_ADJSTMNT AS 
+CREATE OR REPLACE PACKAGE PA_DLY_BILNG_ADJSTMNT AS 
   /*********************************************************
   * History
   * Created by   : Schiff Gy
@@ -20,9 +20,27 @@ create or replace PACKAGE PA_DLY_BILNG_ADJSTMNT AS
   FUNCTION GET_DLY_BILNG_ADJSTMNT2(p_dly_bilng_id_list IN NUMBER_ARRAY)
     RETURN OBJ_DLY_BILNG_ADJSTMNT_TABLE PIPELINED;                                
 
-END PA_DLY_BILNG_ADJSTMNT;
+  FUNCTION GET_DLY_BILNG_ADJSTMNT3(p_mrkt_id IN NUMBER,
+                        p_sls_perd_id IN NUMBER,
+                        p_offr_perd_id IN NUMBER,
+                        p_prcsng_dt IN DATE,
+                        p_dly_bilng_id_list IN NUMBER_ARRAY
+                        ) RETURN OBJ_DLY_BILNG_ADJSTMNT_TABLE PIPELINED;
+  
+  PROCEDURE SET_DLY_BILNG_ADJSTMNT3(p_mrkt_id IN NUMBER,
+                        p_sls_perd_id IN NUMBER,
+                        p_offr_perd_id IN NUMBER,
+                        p_prcsng_dt IN DATE,
+                        p_dly_bilng_id IN NUMBER,
+                        p_new_bi24_units IN NUMBER,
+                        p_user_id IN VARCHAR2,
+                        p_stus OUT NUMBER);
 
-create or replace PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
+END PA_DLY_BILNG_ADJSTMNT;
+/
+
+
+CREATE OR REPLACE PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
 
   FUNCTION GET_DLY_BILNG_ADJSTMNT(p_mrkt_id IN NUMBER,
                         p_sls_perd_id IN NUMBER,
@@ -453,3 +471,4 @@ END GET_DLY_BILNG_ADJSTMNT2;
   END SET_DLY_BILNG_ADJSTMNT3;
 
 END PA_DLY_BILNG_ADJSTMNT;
+/

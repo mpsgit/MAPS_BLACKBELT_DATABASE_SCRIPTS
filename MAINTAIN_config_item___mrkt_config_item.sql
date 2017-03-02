@@ -66,6 +66,50 @@ INSERT INTO mrkt_config_item_audit
          6
     FROM mrkt mm
    WHERE NOT EXISTS (SELECT mrkt_id
+            FROM mrkt_config_item_audit mcia
+           WHERE mcia.mrkt_id = mm.mrkt_id
+             AND mcia.config_item_id = 10000);
+			 
+INSERT INTO CONFIG_ITEM (CONFIG_ITEM_ID, CONFIG_ITEM_DESC_TXT, CONFIG_ITEM_LABL_TXT, SEQ_NR)
+values (10001, 'Estimate Type to Show At Trend Allocation', 'Estimate Type to Show At Trend Allocation', 999);
+--
+INSERT INTO mrkt_config_item
+  (mrkt_id,
+   config_item_id,
+   mrkt_config_item_desc_txt,
+   mrkt_config_item_labl_txt,
+   mrkt_config_item_val_txt)
+  SELECT mm.mrkt_id,
+         10001,
+         'Estimate Type to Show At Trend Allocation',
+         'Estimate Type to Show At Trend Allocation',
+         case when mm.mrkt_id=73 then  2 else 1 end
+    FROM mrkt mm
+   WHERE NOT EXISTS (SELECT mrkt_id
             FROM mrkt_config_item mci
            WHERE mci.mrkt_id = mm.mrkt_id
-             AND mci.config_item_id = 10000);
+             AND mci.config_item_id = 10001);
+-- AUDIT:
+-- config_item_audit
+-- INSERT:
+-- config_item_audit
+insert into config_item_audit (CONFIG_ITEM_ID, CONFIG_ITEM_DESC_TXT, CONFIG_ITEM_LABL_TXT, SEQ_NR)
+values (10001, 'Estimate Type to Show At Trend Allocation', 'Estimate Type to Show At Trend Allocation', 999);
+-- mrkt_config_item_audit
+-- INSERT
+INSERT INTO mrkt_config_item_audit
+  (mrkt_id,
+   config_item_id,
+   mrkt_config_item_desc_txt,
+   mrkt_config_item_labl_txt,
+   mrkt_config_item_val_txt)
+  SELECT mm.mrkt_id,
+         10001,
+         'Estimate Type to Show At Trend Allocation',
+         'Estimate Type to Show At Trend Allocation',
+         case when mm.mrkt_id=73 then  2 else 1 end
+    FROM mrkt mm
+   WHERE NOT EXISTS (SELECT mrkt_id
+            FROM mrkt_config_item_audit mcia
+           WHERE mcia.mrkt_id = mm.mrkt_id
+             AND mcia.config_item_id = 10001);			 

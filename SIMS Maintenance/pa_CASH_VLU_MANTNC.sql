@@ -1,4 +1,4 @@
-create or replace PACKAGE CASH_VLU_MANTNC IS
+CREATE OR REPLACE PACKAGE CASH_VLU_MANTNC IS
   /*********************************************************
   * History
   * Created by   : Schiff Gy
@@ -26,14 +26,28 @@ create or replace PACKAGE CASH_VLU_MANTNC IS
                         ) RETURN OBJ_CASH_VAL_MANTNC_TABLE PIPELINED;                                
   
 END CASH_VLU_MANTNC;
+/
+
+
+CREATE OR REPLACE PACKAGE BODY CASH_VLU_MANTNC AS
+  /*********************************************************
+  * History
+  * Created by   : Schiff Gy
+  * Date         : 12/10/2016
+  * Description  : First created 
+  ******************************************************
+  * Modified by  : Schiff Gy
+  * Date         : 25/11/2016
+  * Description  : Function with added history lines added 
+  ******************************************************/
 
 FUNCTION get_local_prcsng_dt(p_mrkt_id NUMBER, p_sls_perd NUMBER) RETURN DATE;
 
-FUNCTION get_latest_prcsng_dt(p_mrkt_id NUMBER, p_sls_perd NUMBER) RETURN DATE;                              
+FUNCTION get_latest_prcsng_dt(p_mrkt_id NUMBER, p_sls_perd NUMBER) RETURN DATE;
   
 FUNCTION GET_CASH_VAL(p_mrkt_id IN NUMBER,
                       p_sls_perd_list IN NUMBER_ARRAY
-                      ) RETURN OBJ_CASH_VAL_MANTNC_TABLE PIPELINED IS                      
+                      ) RETURN OBJ_CASH_VAL_MANTNC_TABLE PIPELINED IS
     
 CURSOR cc IS
   SELECT OBJ_CASH_VAL_MANTNC_LINE(
@@ -42,13 +56,17 @@ CURSOR cc IS
       WHEN M.MAX_PERD_ID>t.PERD_ID THEN 'FINISHED_TRENDING'
       WHEN M.MAX_PERD_ID=t.PERD_ID THEN 'CURRENT_TRENDING'
       ELSE 'PLANNING'
-    END,
-    SP.LAST_UPDT_TS, U.USER_FRST_NM || ' ' || U.USER_LAST_NM) cline
+    end,
+    SP.LAST_UPDT_TS,
+    substr(case when U.USER_NM is not null 
+           then U.USER_FRST_NM || ' ' || U.USER_LAST_NM
+         else 'USERID: ' || SP.LAST_UPDT_USER_ID end,1,35)
+    ) cline
   FROM (SELECT  MAX(SLS_PERD_ID) as MAX_PERD_ID FROM DLY_BILNG
                      WHERE MRKT_ID=p_mrkt_id ) M, MRKT_PERD T
     LEFT JOIN MRKT_SLS_PERD SP
-      ON SP.MRKT_ID=T.MRKT_ID AND SP.SLS_PERD_ID=T.PERD_ID
-    LEFT JOIN MPS_USER U
+      on SP.MRKT_ID=T.MRKT_ID and SP.SLS_PERD_ID=T.PERD_ID
+    LEFT JOIN (select distinct user_nm, USER_FRST_NM, USER_LAST_NM from MPS_USER where sys_id=1) U
       ON U.USER_NM=SP.LAST_UPDT_USER_ID
   WHERE T.PERD_TYP='SC'
     AND T.MRKT_ID=p_mrkt_id
@@ -133,7 +151,7 @@ BEGIN
                 MRKT_SLS_PERD.SCT_PRCSNG_DT=local_prcsng_dt,
                 MRKT_SLS_PERD.LAST_UPDT_USER_ID=p_user_id
               WHERE MRKT_ID=p_mrkt_id AND SLS_PERD_ID=p_sls_perd_id;
-          ELSE
+          ELSE -- wtd=I
             INSERT INTO MRKT_SLS_PERD(MRKT_ID,SLS_PERD_ID,SCT_CASH_VAL,SCT_R_FACTOR,SCT_PRCSNG_DT,CREAT_USER_ID,LAST_UPDT_USER_ID)
               VALUES (p_mrkt_id,p_sls_perd_id,p_cash_val,r_factor_to_set,local_prcsng_dt,p_user_id,p_user_id);
           END IF;
@@ -220,11 +238,13 @@ END;
                   ELSE 'PLANNING'
                 END trend_status,
                 SP.LAST_UPDT_TS,
-                U.USER_FRST_NM || ' ' || U.USER_LAST_NM user_nm
+                case when U.USER_NM is not null 
+                     then U.USER_FRST_NM || ' ' || U.USER_LAST_NM
+                     else 'USERID: ' || SP.LAST_UPDT_USER_ID end user_nm
               FROM MRKT_PERD T
                 LEFT JOIN MRKT_SLS_PERD SP -- actual values
-                  ON SP.MRKT_ID=T.MRKT_ID AND SP.SLS_PERD_ID=T.PERD_ID
-                LEFT JOIN MPS_USER U
+                  on SP.MRKT_ID=T.MRKT_ID and SP.SLS_PERD_ID=T.PERD_ID
+                LEFT JOIN (select distinct user_nm, USER_FRST_NM, USER_LAST_NM from MPS_USER where sys_id=1) U
                   ON U.USER_NM=SP.LAST_UPDT_USER_ID
               WHERE T.PERD_TYP='SC'
                 AND T.MRKT_ID=p_mrkt_id
@@ -234,26 +254,28 @@ END;
                 T.PERD_ID,
                 SP.CASH_VAL,
                 SP.R_FACTOR,
-                'PREVIOUS VALUES' trend_status,
+                'PREVIOUS VALUES' TREND_STATUS,
                 SP.LAST_UPDT_TS,
-                U.USER_FRST_NM || ' ' || U.USER_LAST_NM user_nm
+                case when U.USER_NM is not null 
+                     then U.USER_FRST_NM || ' ' || U.USER_LAST_NM
+                     else 'USERID: ' || SP.LAST_UPDT_USER_ID end user_nm
             FROM 
               MRKT_PERD T
               LEFT JOIN CASH_VAL_RF_HIST SP -- historic values
-                ON SP.MRKT_ID=T.MRKT_ID AND SP.SLS_PERD_ID=T.PERD_ID
-              LEFT JOIN MPS_USER U
+                on SP.MRKT_ID=T.MRKT_ID and SP.SLS_PERD_ID=T.PERD_ID
+              LEFT JOIN (select distinct user_nm, USER_FRST_NM, USER_LAST_NM from MPS_USER where sys_id=1) U
                 ON U.USER_NM=SP.LAST_UPDT_USER_ID
             WHERE T.PERD_TYP='SC'
               AND T.MRKT_ID=p_mrkt_id
               AND T.PERD_ID IN((select column_value from table( p_sls_perd_list)))
-           ORDER BY PERD_ID desc, LAST_UPDT_TS desc            
+           order by PERD_ID desc, LAST_UPDT_TS desc            
             ) LOOP
       pipe row(OBJ_CASH_VAL_MANTNC_LINE(i.perd_id,
                                         i.cash_val,
                                         i.r_factor,
                                         i.trend_status,
-                                        i.last_updt_ts,
-                                        i.user_nm
+                                        I.LAST_UPDT_TS,
+                                        substr(i.user_nm,1,35)
         ));
     end loop;
     
@@ -262,3 +284,4 @@ END;
   end;  
 
 END CASH_VLU_MANTNC;
+/

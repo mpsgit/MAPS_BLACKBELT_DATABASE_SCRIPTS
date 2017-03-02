@@ -1,162 +1,163 @@
 CREATE OR REPLACE PACKAGE pa_trend_alloc AS
 
   g_package_name CONSTANT VARCHAR2(30) := 'PA_TREND_ALLOC';
+  --
+  c_sls_typ_grp_nm_bi24   CONSTANT VARCHAR2(128) := 'BI24';
+  c_sls_typ_grp_nm_dms    CONSTANT VARCHAR2(128) := 'ESTIMATE, OPERATIONAL ESTIMATE, TREND, ACTUAL';
+  c_sls_typ_grp_nm_fc_dbt CONSTANT VARCHAR2(128) := 'FORECASTED FROM DBT';
+  c_sls_typ_grp_nm_fc_dms CONSTANT VARCHAR2(128) := 'FORECASTED FROM DMS';
 
   TYPE r_periods IS RECORD(
-    dbt_on_sls_perd_id   dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-    dbt_on_offr_perd_id  dly_bilng_trnd.offr_perd_id%TYPE,
-    dbt_off_sls_perd_id  dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-    dbt_off_offr_perd_id dly_bilng_trnd.offr_perd_id%TYPE,
-    dms_on_sls_perd_id   dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-    dms_on_offr_perd_id  dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-    dms_off_sls_perd_id  dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-    dms_off_offr_perd_id dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-    dbt_bilng_day        dly_bilng_trnd.prcsng_dt%TYPE,
-    sct_cash_val         mrkt_sls_perd.sct_cash_val%TYPE,
-    sct_r_factor         mrkt_sls_perd.sct_r_factor%TYPE);
+    sls_perd_id    dly_bilng_trnd.trnd_sls_perd_id%TYPE,
+    trg_perd_id    dly_bilng_trnd.offr_perd_id%TYPE,
+    bilng_day      dly_bilng_trnd.prcsng_dt%TYPE,
+    sct_cash_value mrkt_sls_perd.sct_cash_val%TYPE,
+    sct_r_factor   mrkt_sls_perd.sct_r_factor%TYPE);
 
-  TYPE r_hist_head_aggr IS RECORD(
-    p_sls_perd_id     dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-    p_sku_id          offr_sku_line.sku_id%TYPE,
-    mrkt_id           offr.mrkt_id%TYPE,
-    veh_id            offr.veh_id%TYPE,
-    offr_desc_txt     offr.offr_desc_txt%TYPE,
-    promtn_id         offr_prfl_prc_point.promtn_id%TYPE,
-    promtn_clm_id     offr_prfl_prc_point.promtn_clm_id%TYPE,
-    sls_cls_cd        offr_prfl_prc_point.sls_cls_cd%TYPE,
-    bi24_unts_on      NUMBER,
-    bi24_sls_on       NUMBER,
-    bi24_unts_off     NUMBER,
-    bi24_sls_off      NUMBER,
-    estimate_unts_on  NUMBER,
-    estimate_sls_on   NUMBER,
-    estimate_unts_off NUMBER,
-    estimate_sls_off  NUMBER,
-    trend_unts_on     NUMBER,
-    trend_sls_on      NUMBER,
-    trend_unts_off    NUMBER,
-    trend_sls_off     NUMBER,
-    actual_unts_on    NUMBER,
-    actual_sls_on     NUMBER,
-    actual_unts_off   NUMBER,
-    actual_sls_off    NUMBER);
-  TYPE t_hist_head_aggr IS TABLE OF r_hist_head_aggr;
+  TYPE r_hist_detail IS RECORD(
+    sku_id         offr_sku_line.sku_id%TYPE,
+    veh_id         offr.veh_id%TYPE,
+    offr_id        offr.offr_id%TYPE,
+    promtn_id      offr_prfl_prc_point.promtn_id%TYPE,
+    promtn_clm_id  offr_prfl_prc_point.promtn_clm_id%TYPE,
+    sls_cls_cd     offr_prfl_prc_point.sls_cls_cd%TYPE,
+    offst_lbl_id   ta_dict.lbl_id%TYPE,
+    cash_value     NUMBER,
+    r_factor       NUMBER,
+    sls_typ_lbl_id ta_dict.lbl_id%TYPE,
+    units          NUMBER,
+    sales          NUMBER);
+  TYPE t_hist_detail IS TABLE OF r_hist_detail;
+
+  TYPE r_hist_head IS RECORD(
+    offst_lbl_id   ta_dict.lbl_id%TYPE,
+    cash_value     mrkt_sls_perd.sct_cash_val%TYPE,
+    r_factor       mrkt_sls_perd.sct_r_factor%TYPE,
+    sls_typ_lbl_id ta_dict.lbl_id%TYPE,
+    units          NUMBER,
+    sales          NUMBER);
+  TYPE t_hist_head IS TABLE OF r_hist_head INDEX BY VARCHAR2(128);
+
+  TYPE r_hist_dtl2 IS RECORD(
+    dtl_id         NUMBER,
+    catgry_id      prfl.catgry_id%TYPE,
+    brnd_id        prfl.brnd_id%TYPE,
+    sgmt_id        prfl.sgmt_id%TYPE,
+    form_id        prfl.form_id%TYPE,
+    prfl_cd        sku.prfl_cd%TYPE,
+    fsc_cd         mrkt_fsc.fsc_cd%TYPE,
+    promtn_id      offr_prfl_prc_point.promtn_id%TYPE,
+    promtn_clm_id  offr_prfl_prc_point.promtn_clm_id%TYPE,
+    sls_cls_cd     offr_prfl_prc_point.sls_cls_cd%TYPE,
+    veh_id         offr.veh_id%TYPE,
+    sku_id         offr_sku_line.sku_id%TYPE,
+    offr_id        offr.offr_id%TYPE,
+    offst_lbl_id   ta_dict.lbl_id%TYPE,
+    cash_value     NUMBER,
+    r_factor       NUMBER,
+    units          NUMBER,
+    sales          NUMBER,
+    sls_typ_lbl_id ta_dict.lbl_id%TYPE);
+  TYPE t_hist_dtl2 IS TABLE OF r_hist_dtl2 INDEX BY VARCHAR2(128);
+
+  TYPE r_save IS RECORD(
+    offst_lbl_id      ta_dict.lbl_id%TYPE,
+    trgt_sls_perd_id  dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+    trgt_offr_perd_id dstrbtd_mrkt_sls.offr_perd_id%TYPE);
+  TYPE t_save IS TABLE OF r_save INDEX BY VARCHAR2(128);
 
   TYPE r_reproc IS RECORD(
-    mrkt_id              dstrbtd_mrkt_sls.mrkt_id%TYPE,
-    sls_typ_id           dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-    offr_sku_line_id     dstrbtd_mrkt_sls.offr_sku_line_id%TYPE,
-    dbt_on_sls_perd_id   dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-    dbt_on_offr_perd_id  dly_bilng_trnd.offr_perd_id%TYPE,
-    dbt_off_sls_perd_id  dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-    dbt_off_offr_perd_id dly_bilng_trnd.offr_perd_id%TYPE,
-    dms_on_sls_perd_id   dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-    dms_on_offr_perd_id  dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-    dms_off_sls_perd_id  dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-    dms_off_offr_perd_id dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-    frcstd_unts_on       NUMBER,
-    frcstd_sls_on        NUMBER,
-    frcstd_unts_off      NUMBER,
-    frcstd_sls_off       NUMBER,
-    veh_id               offr.veh_id%TYPE,
-    comsn_amt            NUMBER,
-    tax_amt              NUMBER,
-    on_off_flag          CHAR(3));
+    offr_sku_line_id dstrbtd_mrkt_sls.offr_sku_line_id%TYPE,
+    offst_lbl_id     ta_dict.lbl_id%TYPE,
+    sls_typ_lbl_id   ta_dict.lbl_id%TYPE,
+    units            NUMBER,
+    sales            NUMBER,
+    veh_id           offr.veh_id%TYPE,
+    comsn_amt        NUMBER,
+    tax_amt          NUMBER);
   TYPE t_reproc IS TABLE OF r_reproc;
 
-  TYPE r_bi24_r_factor IS RECORD(
-    bi24_unts_on  NUMBER,
-    bi24_sls_on   NUMBER,
-    bi24_unts_off NUMBER,
-    bi24_sls_off  NUMBER,
-    r_factor      NUMBER);
+  TYPE r_reproc_est2 IS RECORD(
+    offr_sku_line_id dstrbtd_mrkt_sls.offr_sku_line_id%TYPE,
+    offst_lbl_id     ta_dict.lbl_id%TYPE,
+    x_sls_typ_lbl_id ta_dict.lbl_id%TYPE,
+    units_bi24       NUMBER,
+    sales_bi24       NUMBER,
+    sls_typ_lbl_id   ta_dict.lbl_id%TYPE,
+    units_forecasted NUMBER,
+    sales_forecasted NUMBER,
+    veh_id           offr.veh_id%TYPE,
+    comsn_amt        NUMBER,
+    tax_amt          NUMBER);
+  TYPE t_reproc_est2 IS TABLE OF r_reproc_est2;
 
-  FUNCTION get_trend_alloc_head_view(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                     p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_trg_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                                     p_bilng_day   IN dly_bilng_trnd.prcsng_dt%TYPE,
-                                     p_run_id      IN NUMBER DEFAULT NULL,
-                                     p_user_id     IN VARCHAR2 DEFAULT NULL)
+  FUNCTION get_ta_config(p_mrkt_id        IN ta_config.mrkt_id%TYPE,
+                         p_sls_perd_id    IN ta_config.eff_sls_perd_id%TYPE,
+                         p_sls_typ_id     IN ta_config.trgt_sls_typ_id%TYPE,
+                         p_sls_typ_grp_nm IN ta_config.sls_typ_grp_nm%TYPE,
+                         p_user_id        IN VARCHAR2 DEFAULT NULL,
+                         p_run_id         IN NUMBER DEFAULT NULL)
+    RETURN obj_ta_config_table
+    PIPELINED;
+
+  FUNCTION get_trend_alloc_head_view(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                                     p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                                     p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                                     p_bilng_day      IN dly_bilng_trnd.prcsng_dt%TYPE,
+                                     p_user_id        IN VARCHAR2 DEFAULT NULL)
     RETURN obj_trend_alloc_view_table
     PIPELINED;
 
-  FUNCTION get_trend_alloc_hist_head(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                     p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_trg_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                                     p_bilng_day   IN dly_bilng_trnd.prcsng_dt%TYPE,
-                                     p_perd_from   IN NUMBER,
-                                     p_perd_to     IN NUMBER,
-                                     p_run_id      IN NUMBER DEFAULT NULL,
-                                     p_user_id     IN VARCHAR2 DEFAULT NULL)
-    RETURN obj_trend_alloc_hist_hd_table
-    PIPELINED;
-
-  FUNCTION get_trend_alloc(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                           p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_trg_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                           p_bilng_day   IN dly_bilng_trnd.prcsng_dt%TYPE,
-                           p_run_id      IN NUMBER DEFAULT NULL,
-                           p_user_id     IN VARCHAR2 DEFAULT NULL)
-    RETURN obj_trend_alloc_hist_hd_table
+  FUNCTION get_trend_alloc_hist_head(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                                     p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                                     p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                                     p_bilng_day      IN dly_bilng_trnd.prcsng_dt%TYPE,
+                                     p_perd_from      IN NUMBER,
+                                     p_perd_to        IN NUMBER,
+                                     p_user_id        IN VARCHAR2 DEFAULT NULL)
+    RETURN pa_trend_alloc_hist_hd_table
     PIPELINED;
 
   FUNCTION get_trend_alloc_re_proc(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                   p_sls_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                   p_trg_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                                   p_campgn_perd_id       IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
                                    p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
                                    p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
-                                   p_cash_value           IN NUMBER,
-                                   p_r_factor             IN NUMBER,
+                                   p_cash_value           IN NUMBER DEFAULT NULL,
+                                   p_r_factor             IN NUMBER DEFAULT NULL,
                                    p_use_offers_on_sched  IN CHAR DEFAULT 'N',
                                    p_use_offers_off_sched IN CHAR DEFAULT 'N',
-                                   p_run_id               IN NUMBER DEFAULT NULL,
                                    p_user_id              IN VARCHAR2 DEFAULT NULL)
-    RETURN obj_trend_alloc_hist_hd_table
+    RETURN pa_trend_alloc_hist_hd_table
     PIPELINED;
 
-  FUNCTION get_trend_alloc_hist_dtls(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                     p_sls_perd_id IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                                     p_trg_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                                     p_bilng_day   IN dly_bilng.prcsng_dt%TYPE,
-                                     p_run_id      IN NUMBER DEFAULT NULL,
-                                     p_user_id     IN VARCHAR2 DEFAULT NULL)
-    RETURN obj_trend_alloc_hist_dt_table
+  FUNCTION get_trend_alloc_hist_dtls(p_mrkt_id      IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                                     p_sls_perd_id  IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
+                                     p_trg_perd_id  IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                                     p_sls_typ_id   IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                                     p_bilng_day    IN dly_bilng.prcsng_dt%TYPE,
+                                     p_offst_lbl_id IN ta_dict.lbl_id%TYPE DEFAULT NULL,
+                                     p_user_id      IN VARCHAR2 DEFAULT NULL)
+    RETURN pa_trend_alloc_hist_dt_table
     PIPELINED;
 
   PROCEDURE save_trend_alloctn(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                               p_sls_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                               p_trg_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                               p_campgn_perd_id       IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
                                p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
                                p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
                                p_cash_value           IN mrkt_sls_perd.sct_cash_val%TYPE,
                                p_r_factor             IN mrkt_sls_perd.sct_r_factor%TYPE,
                                p_use_offers_on_sched  IN CHAR,
                                p_use_offers_off_sched IN CHAR,
-                               p_run_id               IN NUMBER DEFAULT NULL,
                                p_user_id              IN VARCHAR2 DEFAULT NULL,
+                               p_run_id               IN NUMBER DEFAULT NULL,
                                p_stus                 OUT NUMBER);
 
-  PROCEDURE set_sct_autclc(p_mrkt_id     IN mrkt_sls_perd.mrkt_id%TYPE,
-                           p_trg_perd_id IN mrkt_sls_perd.sls_perd_id%TYPE,
-                           p_sls_typ_id  IN mrkt_sls_perd.sct_sls_typ_id%TYPE,
-                           p_autclc_ind  IN mrkt_sls_perd.sct_autclc_est_ind%TYPE,
-                           p_run_id      IN NUMBER DEFAULT NULL,
-                           p_user_id     IN VARCHAR2 DEFAULT NULL,
-                           p_stus        OUT NUMBER);
-
-  FUNCTION get_saved_trend_head(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                p_trg_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                                p_bilng_day   IN dly_bilng_trnd.prcsng_dt%TYPE,
-                                p_run_id      IN NUMBER DEFAULT NULL,
-                                p_user_id     IN VARCHAR2 DEFAULT NULL)
-    RETURN obj_trend_alloc_hist_hd_table
-    PIPELINED;
+  PROCEDURE set_sct_autclc(p_mrkt_id        IN mrkt_sls_perd.mrkt_id%TYPE,
+                           p_campgn_perd_id IN mrkt_sls_perd.sls_perd_id%TYPE,
+                           p_sls_typ_id     IN mrkt_sls_perd.sct_sls_typ_id%TYPE,
+                           p_autclc_ind     IN mrkt_sls_perd.sct_autclc_est_ind%TYPE,
+                           p_user_id        IN VARCHAR2 DEFAULT NULL,
+                           p_stus           OUT NUMBER);
 
   ---------------------------------------------
   -- inherited from WEDEV.TRND_ALOCTN package -
@@ -236,8 +237,8 @@ CREATE OR REPLACE PACKAGE pa_trend_alloc AS
   PROCEDURE auto_procs(p_mrkt_id     IN mrkt.mrkt_id%TYPE,
                        p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
                        p_user_nm     IN VARCHAR,
-                       p_run_id      IN NUMBER DEFAULT NULL,
-                       p_user_id     IN VARCHAR2 DEFAULT NULL);
+                       p_user_id     IN VARCHAR2 DEFAULT NULL,
+                       p_run_id      IN NUMBER DEFAULT NULL);
 
   PROCEDURE procs_multmtch(p_mrkt_id     IN mrkt.mrkt_id%TYPE,
                            p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
@@ -286,53 +287,330 @@ CREATE OR REPLACE PACKAGE pa_trend_alloc AS
     selected_catgry       NUMBER);
 
   -- runs the jobs from the TRND_CTGRY_SLS_JOB table
-  PROCEDURE process_jobs(p_run_id  IN NUMBER DEFAULT NULL,
-                         p_user_id IN VARCHAR2 DEFAULT NULL);
+  PROCEDURE process_jobs(p_user_id IN VARCHAR2 DEFAULT NULL,
+                         p_run_id  IN NUMBER DEFAULT NULL);
 
   -- process new periods (load data from dly_bilng to dly_bilng_trnd)
   -- creates a new job record in TRND_CTGRY_SLS_JOB table
   PROCEDURE process_jobs_new_periods;
-  --
+
+  ---------------------------------------------
+  -- inherited from WEDEV.SLS_ALOCTN package -
+  ---------------------------------------------
+  TYPE tbl_key_value IS TABLE OF VARCHAR(255) INDEX BY VARCHAR(255);
+
+  TYPE tbl_key_values IS TABLE OF tbl_key_value INDEX BY VARCHAR(255);
+
+  TYPE tbl_key_keys_values IS TABLE OF tbl_key_values INDEX BY VARCHAR(255);
+
+  PROCEDURE unplan_offr_creation(p_mrkt_id     IN NUMBER,
+                                 p_sls_perd_id IN NUMBER,
+                                 p_stus        OUT NUMBER);
+
+--
 END pa_trend_alloc;
 /
+
+
 CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
-  -- get_sls_typ_id_from_config
-  FUNCTION get_sls_typ_id_from_config(p_mrkt_id IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                      p_run_id  IN NUMBER DEFAULT NULL,
-                                      p_user_id IN VARCHAR2 DEFAULT NULL)
-    RETURN dly_bilng_trnd_offr_sku_line.sls_typ_id%TYPE IS
-    l_sls_typ_id_from_config dly_bilng_trnd_offr_sku_line.sls_typ_id%TYPE;
+
+  -- get_cache
+  FUNCTION get_cache_flag(p_mrkt_id        IN ta_config.mrkt_id%TYPE,
+                          p_sls_perd_id    IN ta_config.eff_sls_perd_id%TYPE,
+                          p_sls_typ_id     IN ta_config.trgt_sls_typ_id%TYPE,
+                          p_sls_typ_grp_nm IN ta_config.sls_typ_grp_nm%TYPE,
+                          p_bilng_day      IN dly_bilng_trnd.prcsng_dt%TYPE,
+                          p_user_id        IN VARCHAR2 DEFAULT NULL,
+                          p_run_id         IN NUMBER DEFAULT NULL)
+    RETURN BOOLEAN IS
+    -- local variables
+    l_dms_last_updt_ts dstrbtd_mrkt_sls.last_updt_ts%TYPE;
+    l_dbt_last_updt_ts dly_bilng_trnd.last_updt_ts%TYPE;
+    l_log_last_updt_ts trend_alloc_hist_dtls_log.last_updt_ts%TYPE;
     -- for LOG
     l_run_id         NUMBER := nvl(p_run_id,
                                    app_plsql_output.generate_new_run_id);
     l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
-    l_module_name    VARCHAR2(30) := 'GET_SLS_TYP_ID_FROM_CONFIG';
+    l_module_name    VARCHAR2(30) := 'GET_CACHE';
     l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
                                        to_char(p_mrkt_id) || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
+                                       'p_sls_perd_id: ' ||
+                                       to_char(p_sls_perd_id) || ', ' ||
+                                       'p_sls_typ_id: ' ||
+                                       to_char(p_sls_typ_id) || ', ' ||
+                                       'p_sls_typ_grp_nm: ' ||
+                                       p_sls_typ_grp_nm || ', ' ||
+                                       'p_bilng_day: ' ||
+                                       to_char(p_bilng_day, 'yyyy-mm-dd') || ', ' ||
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
   BEGIN
     app_plsql_log.register(g_package_name || '.' || l_module_name);
     app_plsql_output.set_run_id(l_run_id);
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
-    -- sls_typ_id_from_config
+    -- CHECK c_sls_typ_grp_nm_dms
+    IF p_sls_typ_grp_nm = c_sls_typ_grp_nm_dms THEN
+      BEGIN
+        SELECT greatest(MAX(dstrbtd_mrkt_sls.last_updt_ts),
+                        MAX(offr_sku_line.last_updt_ts),
+                        MAX(offr_prfl_prc_point.last_updt_ts))
+          INTO l_dms_last_updt_ts
+          FROM dstrbtd_mrkt_sls,
+               offr_prfl_prc_point,
+               offr_sku_line,
+               (SELECT src_sls_typ_id,
+                       x_src_sls_typ_id,
+                       offst_lbl_id,
+                       sls_typ_lbl_id,
+                       x_sls_typ_lbl_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_src_sls) src_sls_perd_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_trgt_sls) trgt_sls_perd_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_src_offr) src_offr_perd_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_trgt_offr) trgt_offr_perd_id,
+                       r_factor
+                  FROM (SELECT src_sls_typ_id,
+                               est_src_sls_typ_id AS x_src_sls_typ_id,
+                               offst_lbl_id,
+                               sls_typ_lbl_id,
+                               x_sls_typ_lbl_id,
+                               offst_val_src_sls,
+                               offst_val_trgt_sls,
+                               offst_val_src_offr,
+                               offst_val_trgt_offr,
+                               r_factor,
+                               eff_sls_perd_id,
+                               lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                          FROM ta_config
+                         WHERE mrkt_id = p_mrkt_id
+                           AND trgt_sls_typ_id = p_sls_typ_id
+                           AND upper(REPLACE(TRIM(sls_typ_grp_nm), '  ', ' ')) IN
+                               (SELECT TRIM(regexp_substr(col,
+                                                          '[^,]+',
+                                                          1,
+                                                          LEVEL)) RESULT
+                                  FROM (SELECT c_sls_typ_grp_nm_dms col
+                                          FROM dual)
+                                CONNECT BY LEVEL <=
+                                           length(regexp_replace(col, '[^,]+')) + 1)
+                           AND eff_sls_perd_id <= p_sls_perd_id)
+                 WHERE p_sls_perd_id BETWEEN eff_sls_perd_id AND
+                       nvl(next_eff_sls_perd_id, p_sls_perd_id)) tc_dms
+         WHERE dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
+           AND dstrbtd_mrkt_sls.sls_perd_id = tc_dms.trgt_sls_perd_id
+           AND dstrbtd_mrkt_sls.offr_perd_id = tc_dms.trgt_offr_perd_id
+           AND dstrbtd_mrkt_sls.sls_typ_id = tc_dms.src_sls_typ_id
+           AND dstrbtd_mrkt_sls.ver_id = 0
+           AND dstrbtd_mrkt_sls.offr_sku_line_id =
+               offr_sku_line.offr_sku_line_id
+           AND offr_sku_line.offr_prfl_prcpt_id =
+               offr_prfl_prc_point.offr_prfl_prcpt_id;
+      EXCEPTION
+        WHEN OTHERS THEN
+          l_dms_last_updt_ts := SYSDATE;
+      END;
+      BEGIN
+        SELECT MAX(last_updt_ts)
+          INTO l_log_last_updt_ts
+          FROM trend_alloc_hist_dtls_log
+         WHERE mrkt_id = p_mrkt_id
+           AND sls_perd_id = p_sls_perd_id
+           AND sls_typ_id = p_sls_typ_id
+           AND sls_typ_grp_nm = c_sls_typ_grp_nm_dms
+           AND bilng_day = p_bilng_day;
+      EXCEPTION
+        WHEN OTHERS THEN
+          l_log_last_updt_ts := l_dms_last_updt_ts - 999;
+      END;
+      IF l_log_last_updt_ts > l_dms_last_updt_ts THEN
+        app_plsql_log.info(l_module_name || ' (TRUE) - ' ||
+                           c_sls_typ_grp_nm_dms || l_parameter_list);
+        RETURN TRUE;
+      ELSE
+        app_plsql_log.info(l_module_name || ' (FALSE) - ' ||
+                           c_sls_typ_grp_nm_dms || l_parameter_list);
+        RETURN FALSE;
+      END IF;
+    END IF;
+    -- CHECK c_sls_typ_grp_nm_bi24
+    IF p_sls_typ_grp_nm = c_sls_typ_grp_nm_bi24 THEN
+      BEGIN
+        SELECT MAX(dly_bilng_trnd.last_updt_ts) last_updated_ts
+          INTO l_dbt_last_updt_ts
+          FROM dly_bilng_trnd,
+               (SELECT src_sls_typ_id,
+                       x_src_sls_typ_id,
+                       offst_lbl_id,
+                       sls_typ_lbl_id,
+                       x_sls_typ_lbl_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_src_sls) src_sls_perd_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_trgt_sls) trgt_sls_perd_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_src_offr) src_offr_perd_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_trgt_offr) trgt_offr_perd_id,
+                       r_factor
+                  FROM (SELECT src_sls_typ_id,
+                               est_src_sls_typ_id AS x_src_sls_typ_id,
+                               offst_lbl_id,
+                               sls_typ_lbl_id,
+                               x_sls_typ_lbl_id,
+                               offst_val_src_sls,
+                               offst_val_trgt_sls,
+                               offst_val_src_offr,
+                               offst_val_trgt_offr,
+                               r_factor,
+                               eff_sls_perd_id,
+                               lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                          FROM ta_config
+                         WHERE mrkt_id = p_mrkt_id
+                           AND trgt_sls_typ_id = p_sls_typ_id
+                           AND upper(REPLACE(TRIM(sls_typ_grp_nm), '  ', ' ')) =
+                               c_sls_typ_grp_nm_bi24
+                           AND eff_sls_perd_id <= p_sls_perd_id)
+                 WHERE p_sls_perd_id BETWEEN eff_sls_perd_id AND
+                       nvl(next_eff_sls_perd_id, p_sls_perd_id)) tc_bi24
+         WHERE dly_bilng_trnd.mrkt_id = p_mrkt_id
+           AND dly_bilng_trnd.trnd_sls_perd_id = tc_bi24.src_sls_perd_id;
+      EXCEPTION
+        WHEN OTHERS THEN
+          l_dbt_last_updt_ts := SYSDATE;
+      END;
+      BEGIN
+        SELECT MAX(last_updt_ts)
+          INTO l_log_last_updt_ts
+          FROM trend_alloc_hist_dtls_log
+         WHERE mrkt_id = p_mrkt_id
+           AND sls_perd_id = p_sls_perd_id
+           AND sls_typ_id = p_sls_typ_id
+           AND sls_typ_grp_nm = c_sls_typ_grp_nm_bi24
+           AND bilng_day = p_bilng_day;
+      EXCEPTION
+        WHEN OTHERS THEN
+          l_log_last_updt_ts := l_dbt_last_updt_ts - 999;
+      END;
+      IF l_log_last_updt_ts > l_dbt_last_updt_ts THEN
+        app_plsql_log.info(l_module_name || ' (TRUE) - ' ||
+                           c_sls_typ_grp_nm_bi24 || l_parameter_list);
+        RETURN TRUE;
+      ELSE
+        app_plsql_log.info(l_module_name || ' (FALSE) - ' ||
+                           c_sls_typ_grp_nm_bi24 || l_parameter_list);
+        RETURN FALSE;
+      END IF;
+    END IF;
+  END get_cache_flag;
+
+  -- get_config
+  FUNCTION get_ta_config(p_mrkt_id        IN ta_config.mrkt_id%TYPE,
+                         p_sls_perd_id    IN ta_config.eff_sls_perd_id%TYPE,
+                         p_sls_typ_id     IN ta_config.trgt_sls_typ_id%TYPE,
+                         p_sls_typ_grp_nm IN ta_config.sls_typ_grp_nm%TYPE,
+                         p_user_id        IN VARCHAR2 DEFAULT NULL,
+                         p_run_id         IN NUMBER DEFAULT NULL)
+    RETURN obj_ta_config_table
+    PIPELINED AS
+    -- for LOG
+    l_run_id         NUMBER := nvl(p_run_id,
+                                   app_plsql_output.generate_new_run_id);
+    l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
+    l_module_name    VARCHAR2(30) := 'GET_CONFIG';
+    l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
+                                       to_char(p_mrkt_id) || ', ' ||
+                                       'p_sls_perd_id: ' ||
+                                       to_char(p_sls_perd_id) || ', ' ||
+                                       'p_sls_typ_id: ' ||
+                                       to_char(p_sls_typ_id) || ', ' ||
+                                       'p_sls_typ_grp_nm: ' ||
+                                       to_char(p_sls_typ_grp_nm) || ', ' ||
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
+  BEGIN
+    app_plsql_log.register(g_package_name || '.' || l_module_name);
+    app_plsql_output.set_run_id(l_run_id);
+    app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
+    --
     BEGIN
-      SELECT mrkt_config_item_val_txt
-        INTO l_sls_typ_id_from_config
-        FROM mrkt_config_item
-       WHERE mrkt_id = p_mrkt_id
-         AND config_item_id = 10000;
+      FOR i IN (SELECT src_sls_typ_id,
+                       x_src_sls_typ_id,
+                       offst_lbl_id,
+                       sls_typ_lbl_id,
+                       x_sls_typ_lbl_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_src_sls) src_sls_perd_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_trgt_sls) trgt_sls_perd_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_src_offr) src_offr_perd_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_trgt_offr) trgt_offr_perd_id,
+                       r_factor
+                  FROM (SELECT src_sls_typ_id,
+                               est_src_sls_typ_id AS x_src_sls_typ_id,
+                               offst_lbl_id,
+                               sls_typ_lbl_id,
+                               x_sls_typ_lbl_id,
+                               offst_val_src_sls,
+                               offst_val_trgt_sls,
+                               offst_val_src_offr,
+                               offst_val_trgt_offr,
+                               r_factor,
+                               eff_sls_perd_id,
+                               lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                          FROM ta_config
+                         WHERE mrkt_id = p_mrkt_id
+                           AND trgt_sls_typ_id = p_sls_typ_id
+                           AND upper(REPLACE(TRIM(sls_typ_grp_nm), '  ', ' ')) IN
+                               (SELECT TRIM(regexp_substr(col,
+                                                          '[^,]+',
+                                                          1,
+                                                          LEVEL)) RESULT
+                                  FROM (SELECT p_sls_typ_grp_nm col FROM dual)
+                                CONNECT BY LEVEL <=
+                                           length(regexp_replace(col, '[^,]+')) + 1)
+                           AND eff_sls_perd_id <= p_sls_perd_id)
+                 WHERE p_sls_perd_id BETWEEN eff_sls_perd_id AND
+                       nvl(next_eff_sls_perd_id, p_sls_perd_id)) LOOP
+        PIPE ROW(obj_ta_config_line(i.src_sls_typ_id,
+                                    i.x_src_sls_typ_id,
+                                    i.offst_lbl_id,
+                                    i.sls_typ_lbl_id,
+                                    i.x_sls_typ_lbl_id,
+                                    i.src_sls_perd_id,
+                                    i.trgt_sls_perd_id,
+                                    i.src_offr_perd_id,
+                                    i.trgt_offr_perd_id,
+                                    i.r_factor));
+      END LOOP;
     EXCEPTION
       WHEN OTHERS THEN
         app_plsql_log.info(l_module_name ||
-                           ' warning: "MRKT_CONFIG_ITEM_VAL_TXT" not found in table: mrkt_config_item where mrkt_id=' ||
-                           to_char(p_mrkt_id) ||
-                           'and config_item_id = 10000' ||
-                           l_parameter_list);
-        l_sls_typ_id_from_config := -999;
+                           ' warning: RECORD not found in table: ta_config where mrkt_id=' ||
+                           to_char(p_mrkt_id) || ' and trgt_sls_typ_id = ' ||
+                           to_char(p_sls_typ_id) ||
+                           ' and sls_typ_grp_nm in (' || p_sls_typ_grp_nm || ')' ||
+                           ' and eff_sls_perd_id <= ' ||
+                           to_char(p_sls_perd_id) ||
+                           ' < next_eff_sls_perd_id' || l_parameter_list);
     END;
-    RETURN l_sls_typ_id_from_config;
-  END get_sls_typ_id_from_config;
+  END get_ta_config;
 
   -- get_periods
   FUNCTION get_periods(p_mrkt_id       IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
@@ -340,8 +618,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                        p_bilng_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
                        p_sls_typ_id    IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
                        p_bilng_day     IN dly_bilng_trnd.prcsng_dt%TYPE,
-                       p_run_id        IN NUMBER DEFAULT NULL,
-                       p_user_id       IN VARCHAR2 DEFAULT NULL)
+                       p_user_id       IN VARCHAR2 DEFAULT NULL,
+                       p_run_id        IN NUMBER DEFAULT NULL)
     RETURN r_periods IS
     l_periods r_periods;
     -- for LOG
@@ -359,46 +637,33 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                        to_char(p_sls_typ_id) || ', ' ||
                                        'p_bilng_day: ' ||
                                        to_char(p_bilng_day, 'yyyy-mm-dd') || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
   BEGIN
     app_plsql_log.register(g_package_name || '.' || l_module_name);
     app_plsql_output.set_run_id(l_run_id);
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
-    -- dbt
-    l_periods.dbt_on_sls_perd_id   := p_bilng_perd_id;
-    l_periods.dbt_on_offr_perd_id  := pa_manl_trend_adjstmnt.get_target_campaign(p_mrkt_id     => p_mrkt_id,
-                                                                                 p_sls_perd_id => p_bilng_perd_id,
-                                                                                 p_sls_typ_id  => p_sls_typ_id);
-    l_periods.dbt_off_sls_perd_id  := p_bilng_perd_id;
-    l_periods.dbt_off_offr_perd_id := pa_maps_public.perd_plus(p_mrkt_id,
-                                                               pa_manl_trend_adjstmnt.get_target_campaign(p_mrkt_id     => p_mrkt_id,
-                                                                                                          p_sls_perd_id => p_bilng_perd_id,
-                                                                                                          p_sls_typ_id  => p_sls_typ_id),
-                                                               -1);
-    -- dms
-    l_periods.dms_on_sls_perd_id   := pa_manl_trend_adjstmnt.get_target_campaign(p_mrkt_id     => p_mrkt_id,
-                                                                                 p_sls_perd_id => p_bilng_perd_id,
-                                                                                 p_sls_typ_id  => p_sls_typ_id);
-    l_periods.dms_on_offr_perd_id  := pa_manl_trend_adjstmnt.get_target_campaign(p_mrkt_id     => p_mrkt_id,
-                                                                                 p_sls_perd_id => p_bilng_perd_id,
-                                                                                 p_sls_typ_id  => p_sls_typ_id);
-    l_periods.dms_off_sls_perd_id  := pa_manl_trend_adjstmnt.get_target_campaign(p_mrkt_id     => p_mrkt_id,
-                                                                                 p_sls_perd_id => p_bilng_perd_id,
-                                                                                 p_sls_typ_id  => p_sls_typ_id);
-    l_periods.dms_off_offr_perd_id := pa_maps_public.perd_plus(p_mrkt_id,
-                                                               pa_manl_trend_adjstmnt.get_target_campaign(p_mrkt_id     => p_mrkt_id,
-                                                                                                          p_sls_perd_id => p_bilng_perd_id,
-                                                                                                          p_sls_typ_id  => p_sls_typ_id),
-                                                               -1);
+    --
+    l_periods.sls_perd_id := p_bilng_perd_id;
+    BEGIN
+      SELECT MAX(trgt_sls_perd_id)
+        INTO l_periods.trg_perd_id
+        FROM TABLE(pa_trend_alloc.get_ta_config(p_mrkt_id        => p_mrkt_id,
+                                                    p_sls_perd_id    => p_bilng_perd_id,
+                                                    p_sls_typ_id     => p_sls_typ_id,
+                                                    p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24));
+    EXCEPTION
+      WHEN OTHERS THEN
+        l_periods.trg_perd_id := NULL;
+    END;
     -- billing day
     IF p_orig_perd_id = p_bilng_perd_id THEN
-      l_periods.dbt_bilng_day := p_bilng_day;
+      l_periods.bilng_day := p_bilng_day;
     ELSE
       -- has to be recalculated for billing period 
       BEGIN
         SELECT MAX(trnd_bilng_days.prcsng_dt)
-          INTO l_periods.dbt_bilng_day
+          INTO l_periods.bilng_day
           FROM trnd_bilng_days
          WHERE trnd_bilng_days.mrkt_id = p_mrkt_id
            AND trnd_bilng_days.sls_perd_id = p_bilng_perd_id
@@ -408,7 +673,6 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                  WHERE trnd_bilng_days.mrkt_id = p_mrkt_id
                    AND trnd_bilng_days.sls_perd_id = p_orig_perd_id
                    AND trnd_bilng_days.prcsng_dt = p_bilng_day);
-      
       EXCEPTION
         WHEN OTHERS THEN
           app_plsql_log.info(l_module_name ||
@@ -420,333 +684,487 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                              ' and prcsng_dt = ' ||
                              to_char(p_bilng_day, 'yyyy-mm-dd') ||
                              l_parameter_list);
-          l_periods.dbt_bilng_day := NULL;
+          l_periods.bilng_day := NULL;
       END;
     END IF;
-    -- sct_cash_val, sct_r_factor
+    -- sct_cash_val, sct_r_factor_on, sct_r_factor_off
     BEGIN
       SELECT mrkt_sls_perd.sct_cash_val, mrkt_sls_perd.sct_r_factor
-        INTO l_periods.sct_cash_val, l_periods.sct_r_factor
+        INTO l_periods.sct_cash_value, l_periods.sct_r_factor
         FROM mrkt_sls_perd
        WHERE p_mrkt_id = mrkt_sls_perd.mrkt_id(+)
-         AND pa_manl_trend_adjstmnt.get_target_campaign(p_mrkt_id     => p_mrkt_id,
-                                                        p_sls_perd_id => p_bilng_perd_id,
-                                                        p_sls_typ_id  => p_sls_typ_id) =
-             mrkt_sls_perd.sls_perd_id(+);
+         AND l_periods.trg_perd_id = mrkt_sls_perd.sls_perd_id(+);
     EXCEPTION
       WHEN OTHERS THEN
         app_plsql_log.info(l_module_name ||
                            ' warning: RECORD not found in table: mrkt_sls_perd where mrkt_id=' ||
                            to_char(p_mrkt_id) || ' and sls_perd_id = ' ||
                            to_char(p_bilng_perd_id) || l_parameter_list);
-        l_periods.sct_cash_val := 0;
-        l_periods.sct_r_factor := 0;
+        l_periods.sct_cash_value := 0;
+        l_periods.sct_r_factor   := 0;
     END;
     RETURN l_periods;
   END get_periods;
 
-  -- R-faktor
-  FUNCTION get_bi24_r_factor(p_mrkt_id                IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                             p_dbt_bilng_day          IN dly_bilng_trnd.prcsng_dt%TYPE,
-                             p_sls_typ_id_from_config IN mrkt_config_item.mrkt_config_item_val_txt%TYPE,
-                             p_dbt_on_sls_perd_id     IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                             p_dbt_on_offr_perd_id    IN dly_bilng_trnd.offr_perd_id%TYPE,
-                             p_dbt_off_sls_perd_id    IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                             p_dbt_off_offr_perd_id   IN dly_bilng_trnd.offr_perd_id%TYPE,
-                             p_dms_on_sls_perd_id     IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                             p_dms_on_offr_perd_id    IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-                             p_dms_off_sls_perd_id    IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                             p_dms_off_offr_perd_id   IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-                             p_sct_cash_val           IN NUMBER,
-                             p_r_factor               IN NUMBER,
-                             p_sls_typ_id             IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                             p_run_id                 IN NUMBER DEFAULT NULL,
-                             p_user_id                IN VARCHAR2 DEFAULT NULL)
-    RETURN r_bi24_r_factor IS
+  -- get_bi24
+  FUNCTION get_bi24(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                    p_sls_perd_id          IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
+                    p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                    p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
+                    p_offst_lbl_id         IN ta_dict.lbl_id%TYPE DEFAULT NULL,
+                    p_cash_value           IN NUMBER DEFAULT NULL,
+                    p_r_factor             IN NUMBER DEFAULT NULL,
+                    p_x_sls_typ_lbl_id_flg IN CHAR DEFAULT 'N',
+                    p_user_id              IN VARCHAR2 DEFAULT NULL,
+                    p_run_id               IN NUMBER DEFAULT NULL)
+    RETURN t_hist_detail IS
+    PRAGMA AUTONOMOUS_TRANSACTION;
     -- local variables
-    l_bi24_r_factor r_bi24_r_factor;
+    l_tbl_bi24_get_cache_flag BOOLEAN;
+    l_tbl_bi24                t_hist_detail := t_hist_detail();
+    l_sls_typ_lbl_id          ta_dict.lbl_id%TYPE;
+    l_ins_cnt                 PLS_INTEGER := 0;
+    l_stus                    PLS_INTEGER := 0;
     -- for LOG
     l_run_id         NUMBER := nvl(p_run_id,
                                    app_plsql_output.generate_new_run_id);
     l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
-    l_module_name    VARCHAR2(30) := 'GET_BI24_R_FACTOR';
+    l_module_name    VARCHAR2(30) := 'GET_BI24';
     l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
                                        to_char(p_mrkt_id) || ', ' ||
-                                       ' p_dbt_bilng_day: ' ||
-                                       to_char(p_dbt_bilng_day) || ', ' ||
-                                       ' p_sls_typ_id_from_config: ' ||
-                                       to_char(p_sls_typ_id_from_config) || ', ' ||
-                                       ' p_dbt_on_sls_perd_id: ' ||
-                                       to_char(p_dbt_on_sls_perd_id) || ', ' ||
-                                       ' p_dbt_on_offr_perd_id: ' ||
-                                       to_char(p_dbt_on_offr_perd_id) || ', ' ||
-                                       ' p_dbt_off_sls_perd_id: ' ||
-                                       to_char(p_dbt_off_sls_perd_id) || ', ' ||
-                                       ' p_dbt_off_offr_perd_id: ' ||
-                                       to_char(p_dbt_off_offr_perd_id) || ', ' ||
-                                       ' p_sct_cash_val: ' ||
-                                       to_char(p_sct_cash_val) || ', ' ||
-                                       ' p_r_factor: ' ||
+                                       'p_sls_perd_id: ' ||
+                                       to_char(p_sls_perd_id) || ', ' ||
+                                       'p_sls_typ_id: ' ||
+                                       to_char(p_sls_typ_id) || ', ' ||
+                                       'p_bilng_day: ' ||
+                                       to_char(p_bilng_day, 'yyyy-mm-dd') || ', ' ||
+                                       'p_offst_lbl_id: ' ||
+                                       to_char(p_offst_lbl_id) || ', ' ||
+                                       'p_cash_value: ' ||
+                                       to_char(p_cash_value) || ', ' ||
+                                       'p_r_factor: ' ||
                                        to_char(p_r_factor) || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
+                                       'p_x_sls_typ_lbl_id_flg: ' ||
+                                       p_x_sls_typ_lbl_id_flg || ', ' ||
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
   BEGIN
     app_plsql_log.register(g_package_name || '.' || l_module_name);
     app_plsql_output.set_run_id(l_run_id);
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
     app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
     BEGIN
-      SELECT SUM(bi24_unts_on) bi24_unts_on,
-             SUM(bi24_sls_on) bi24_sls_on,
-             SUM(bi24_unts_off) bi24_unts_off,
-             SUM(bi24_sls_off) bi24_sls_off,
-             nvl(p_r_factor, round((p_sct_cash_val / SUM(bi24_sls_on)), 4)) r_factor
-        INTO l_bi24_r_factor.bi24_unts_on,
-             l_bi24_r_factor.bi24_sls_on,
-             l_bi24_r_factor.bi24_unts_off,
-             l_bi24_r_factor.bi24_sls_off,
-             l_bi24_r_factor.r_factor
-        FROM (SELECT p_dbt_on_sls_perd_id sls_perd_id,
-                     offr_sku_line.sku_id,
-                     -- On-Schedule
-                     -- bi24_unts_on
-                     round(SUM(CASE
-                                 WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                                      dly_bilng_trnd.trnd_sls_perd_id =
-                                      p_dbt_on_sls_perd_id AND dly_bilng_trnd.offr_perd_id =
-                                      p_dbt_on_offr_perd_id THEN
-                                  dly_bilng_trnd_offr_sku_line.unit_qty
-                                 ELSE
-                                  0
-                               END)) bi24_unts_on,
-                     -- bi24_sls_on
-                     round(SUM(CASE
-                                 WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                                      dly_bilng_trnd.trnd_sls_perd_id =
-                                      p_dbt_on_sls_perd_id AND dly_bilng_trnd.offr_perd_id =
-                                      p_dbt_on_offr_perd_id THEN
-                                  dly_bilng_trnd_offr_sku_line.unit_qty *
-                                  nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
-                                  decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
-                                         0,
-                                         1,
-                                         offr_prfl_prc_point.nr_for_qty) *
-                                  decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
-                                         0,
-                                         1,
-                                         offr_prfl_prc_point.net_to_avon_fct)
-                                 ELSE
-                                  0
-                               END)) bi24_sls_on,
-                     -- Off-Schedule
-                     -- bi24_unts_off
-                     round(SUM(CASE
-                                 WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                                      dly_bilng_trnd.trnd_sls_perd_id =
-                                      p_dbt_off_sls_perd_id AND dly_bilng_trnd.offr_perd_id =
-                                      p_dbt_off_offr_perd_id THEN
-                                  dly_bilng_trnd_offr_sku_line.unit_qty
-                                 ELSE
-                                  0
-                               END)) bi24_unts_off,
-                     -- bi24_sls_off
-                     round(SUM(CASE
-                                 WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                                      dly_bilng_trnd.trnd_sls_perd_id =
-                                      p_dbt_off_sls_perd_id AND dly_bilng_trnd.offr_perd_id =
-                                      p_dbt_off_offr_perd_id THEN
-                                  dly_bilng_trnd_offr_sku_line.unit_qty *
-                                  nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
-                                  decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
-                                         0,
-                                         1,
-                                         offr_prfl_prc_point.nr_for_qty) *
-                                  decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
-                                         0,
-                                         1,
-                                         offr_prfl_prc_point.net_to_avon_fct)
-                                 ELSE
-                                  0
-                               END)) bi24_sls_off
-                FROM dly_bilng_trnd,
-                     dly_bilng_trnd_offr_sku_line,
-                     dstrbtd_mrkt_sls,
-                     offr_sku_line,
-                     offr_prfl_prc_point,
-                     offr
-               WHERE 1 = 1
-                    -- filter: dly_bilng_trnd
-                 AND dly_bilng_trnd.mrkt_id = p_mrkt_id
-                 AND (( --on-schedule
-                      dly_bilng_trnd.trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
-                      dly_bilng_trnd.offr_perd_id = p_dbt_on_offr_perd_id) OR
-                     ( --off-schedule
-                      dly_bilng_trnd.trnd_sls_perd_id =
-                      p_dbt_off_sls_perd_id AND
-                      dly_bilng_trnd.offr_perd_id = p_dbt_off_offr_perd_id))
-                 AND trunc(dly_bilng_trnd.prcsng_dt) <= p_dbt_bilng_day
-                    -- join: dly_bilng_trnd -> dly_bilng_trnd_offr_sku_line
-                 AND dly_bilng_trnd.dly_bilng_id =
-                     dly_bilng_trnd_offr_sku_line.dly_bilng_id
-                    -- filter: p_sls_typ_id
-                 AND dly_bilng_trnd_offr_sku_line.sls_typ_id =
-                     p_sls_typ_id_from_config
-                    -- join: dly_bilng_trnd_offr_sku_line -> dstrbtd_mrkt_sls
-                 AND dly_bilng_trnd_offr_sku_line.offr_sku_line_id =
-                     dstrbtd_mrkt_sls.offr_sku_line_id
-                    -- filter: mrkt_id, 
-                 AND dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
-                 AND (( --on-schedule
-                      dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
-                      dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id) OR
-                     ( --off-schedule
-                      dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
-                      dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id))
-                 AND dstrbtd_mrkt_sls.sls_typ_id IN (1, p_sls_typ_id, 6)
-                    -- additional filtering...
-                    -- maybe, we will not need it
-                 AND dly_bilng_trnd_offr_sku_line.offr_sku_line_id =
-                     offr_sku_line.offr_sku_line_id
-                 AND offr_sku_line.dltd_ind <> 'Y'
-                 AND offr_sku_line.offr_prfl_prcpt_id =
-                     offr_prfl_prc_point.offr_prfl_prcpt_id
-                 AND offr_prfl_prc_point.offr_id = offr.offr_id
-                 AND offr.offr_typ = 'CMP'
-                 AND offr.ver_id = 0
-               GROUP BY p_dbt_on_sls_perd_id, offr_sku_line.sku_id);
+      l_tbl_bi24_get_cache_flag := get_cache_flag(p_mrkt_id        => p_mrkt_id,
+                                                  p_sls_perd_id    => p_sls_perd_id,
+                                                  p_sls_typ_id     => p_sls_typ_id,
+                                                  p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24,
+                                                  p_bilng_day      => p_bilng_day,
+                                                  p_user_id        => l_user_id,
+                                                  p_run_id         => l_run_id);
+      IF l_tbl_bi24_get_cache_flag THEN
+        -- re-READ
+        SELECT trend_alloc_hist_dtls.sku_id,
+               trend_alloc_hist_dtls.veh_id,
+               trend_alloc_hist_dtls.offr_id,
+               trend_alloc_hist_dtls.promtn_id,
+               trend_alloc_hist_dtls.promtn_clm_id,
+               trend_alloc_hist_dtls.sls_cls_cd,
+               trend_alloc_hist_dtls.offst_lbl_id,
+               trend_alloc_hist_dtls.cash_value,
+               trend_alloc_hist_dtls.r_factor,
+               CASE
+                 WHEN p_x_sls_typ_lbl_id_flg = 'Y' THEN
+                  tc_bi24.x_sls_typ_lbl_id
+                 ELSE
+                  tc_bi24.sls_typ_lbl_id
+               END AS sls_typ_lbl_id,
+               trend_alloc_hist_dtls.units,
+               trend_alloc_hist_dtls.sales
+          BULK COLLECT
+          INTO l_tbl_bi24
+          FROM trend_alloc_hist_dtls,
+               (SELECT offst_lbl_id, sls_typ_lbl_id, x_sls_typ_lbl_id
+                  FROM (SELECT src_sls_typ_id,
+                               est_src_sls_typ_id AS x_src_sls_typ_id,
+                               offst_lbl_id,
+                               sls_typ_lbl_id,
+                               x_sls_typ_lbl_id,
+                               offst_val_src_sls,
+                               offst_val_trgt_sls,
+                               offst_val_src_offr,
+                               offst_val_trgt_offr,
+                               r_factor,
+                               eff_sls_perd_id,
+                               lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                          FROM ta_config
+                         WHERE mrkt_id = p_mrkt_id
+                           AND trgt_sls_typ_id = p_sls_typ_id
+                           AND upper(REPLACE(TRIM(sls_typ_grp_nm), '  ', ' ')) =
+                               c_sls_typ_grp_nm_bi24
+                           AND eff_sls_perd_id <= p_sls_perd_id)
+                 WHERE p_sls_perd_id BETWEEN eff_sls_perd_id AND
+                       nvl(next_eff_sls_perd_id, p_sls_perd_id)) tc_bi24
+         WHERE trend_alloc_hist_dtls.mrkt_id = p_mrkt_id
+           AND trend_alloc_hist_dtls.sls_perd_id = p_sls_perd_id
+           AND trend_alloc_hist_dtls.sls_typ_id = p_sls_typ_id
+           AND trend_alloc_hist_dtls.sls_typ_grp_nm = c_sls_typ_grp_nm_bi24
+           AND trend_alloc_hist_dtls.bilng_day = p_bilng_day
+           AND trend_alloc_hist_dtls.offst_lbl_id = tc_bi24.offst_lbl_id;
+        app_plsql_log.info(l_module_name || ' BI24 cache' ||
+                           l_parameter_list);
+      ELSE
+        -- re-CALCULATE
+        WITH dbt AS
+         (SELECT /*+ INDEX(DLY_BILNG_TRND FK_MRKTPERD_DLYBLTRNDSLSPERD) */
+           dly_bilng_trnd.dly_bilng_id,
+           tc_bi24.offst_lbl_id,
+           tc_bi24.x_sls_typ_lbl_id,
+           tc_bi24.sls_typ_lbl_id,
+           tc_bi24.src_sls_typ_id
+            FROM dly_bilng_trnd,
+                 (SELECT src_sls_typ_id,
+                         x_src_sls_typ_id,
+                         offst_lbl_id,
+                         sls_typ_lbl_id,
+                         x_sls_typ_lbl_id,
+                         pa_maps_public.perd_plus(p_mrkt_id,
+                                                  p_sls_perd_id,
+                                                  offst_val_src_sls) src_sls_perd_id,
+                         pa_maps_public.perd_plus(p_mrkt_id,
+                                                  p_sls_perd_id,
+                                                  offst_val_trgt_sls) trgt_sls_perd_id,
+                         pa_maps_public.perd_plus(p_mrkt_id,
+                                                  p_sls_perd_id,
+                                                  offst_val_src_offr) src_offr_perd_id,
+                         pa_maps_public.perd_plus(p_mrkt_id,
+                                                  p_sls_perd_id,
+                                                  offst_val_trgt_offr) trgt_offr_perd_id,
+                         r_factor
+                    FROM (SELECT src_sls_typ_id,
+                                 est_src_sls_typ_id AS x_src_sls_typ_id,
+                                 offst_lbl_id,
+                                 sls_typ_lbl_id,
+                                 x_sls_typ_lbl_id,
+                                 offst_val_src_sls,
+                                 offst_val_trgt_sls,
+                                 offst_val_src_offr,
+                                 offst_val_trgt_offr,
+                                 r_factor,
+                                 eff_sls_perd_id,
+                                 lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                            FROM ta_config
+                           WHERE mrkt_id = p_mrkt_id
+                             AND trgt_sls_typ_id = p_sls_typ_id
+                             AND upper(REPLACE(TRIM(sls_typ_grp_nm), '  ', ' ')) =
+                                 c_sls_typ_grp_nm_bi24
+                             AND eff_sls_perd_id <= p_sls_perd_id)
+                   WHERE p_sls_perd_id BETWEEN eff_sls_perd_id AND
+                         nvl(next_eff_sls_perd_id, p_sls_perd_id)) tc_bi24
+           WHERE dly_bilng_trnd.mrkt_id = p_mrkt_id
+             AND dly_bilng_trnd.trnd_sls_perd_id = tc_bi24.src_sls_perd_id
+             AND dly_bilng_trnd.offr_perd_id = tc_bi24.src_offr_perd_id
+             AND trunc(dly_bilng_trnd.prcsng_dt) <= p_bilng_day
+             AND dly_bilng_trnd.trnd_aloctn_auto_stus_id IN
+                 (auto_matched, auto_suggested_single, auto_suggested_multi))
+        SELECT offr_sku_line.sku_id,
+               offr.veh_id,
+               offr.offr_id,
+               offr_prfl_prc_point.promtn_id,
+               nvl(offr_prfl_prc_point.promtn_clm_id, -999),
+               offr_prfl_prc_point.sls_cls_cd,
+               dbt.offst_lbl_id,
+               p_cash_value,
+               p_r_factor,
+               CASE
+                 WHEN p_x_sls_typ_lbl_id_flg = 'Y' THEN
+                  dbt.x_sls_typ_lbl_id
+                 ELSE
+                  dbt.sls_typ_lbl_id
+               END AS sls_typ_lbl_id,
+               round(SUM(nvl(dly_bilng_trnd_offr_sku_line.unit_qty, 0))) units,
+               round(SUM(nvl(dly_bilng_trnd_offr_sku_line.unit_qty, 0) *
+                         nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                         decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
+                                0,
+                                1,
+                                offr_prfl_prc_point.nr_for_qty) *
+                         decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                                0,
+                                1,
+                                offr_prfl_prc_point.net_to_avon_fct))) sales
+          BULK COLLECT
+          INTO l_tbl_bi24
+          FROM dbt,
+               dly_bilng_trnd_offr_sku_line,
+               offr_sku_line,
+               offr_prfl_prc_point,
+               offr
+         WHERE dbt.dly_bilng_id = dly_bilng_trnd_offr_sku_line.dly_bilng_id
+           AND dly_bilng_trnd_offr_sku_line.sls_typ_id =
+               (SELECT MAX(src_sls_typ_id)
+                  FROM TABLE(pa_trend_alloc.get_ta_config(p_mrkt_id        => p_mrkt_id,
+                                                              p_sls_perd_id    => p_sls_perd_id,
+                                                              p_sls_typ_id     => p_sls_typ_id,
+                                                              p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24)))
+           AND dly_bilng_trnd_offr_sku_line.offr_sku_line_id =
+               offr_sku_line.offr_sku_line_id
+           AND offr_sku_line.dltd_ind <> 'Y'
+           AND offr_sku_line.offr_prfl_prcpt_id =
+               offr_prfl_prc_point.offr_prfl_prcpt_id
+           AND offr_prfl_prc_point.offr_id = offr.offr_id
+           AND offr.offr_typ = 'CMP'
+           AND offr.ver_id = 0
+         GROUP BY offr_sku_line.sku_id,
+                  offr.veh_id,
+                  offr.offr_id,
+                  offr_prfl_prc_point.promtn_id,
+                  offr_prfl_prc_point.promtn_clm_id,
+                  offr_prfl_prc_point.sls_cls_cd,
+                  dbt.offst_lbl_id,
+                  CASE
+                    WHEN p_x_sls_typ_lbl_id_flg = 'Y' THEN
+                     dbt.x_sls_typ_lbl_id
+                    ELSE
+                     dbt.sls_typ_lbl_id
+                  END;
+      -- write TREND_ALLOC_HIST_DTLS
+        BEGIN
+          DELETE FROM trend_alloc_hist_dtls
+           WHERE mrkt_id = p_mrkt_id
+             AND sls_perd_id = p_sls_perd_id
+             AND sls_typ_id = p_sls_typ_id
+             AND sls_typ_grp_nm = c_sls_typ_grp_nm_bi24
+             AND bilng_day = p_bilng_day;
+          app_plsql_log.info(l_module_name || ' ' || SQL%ROWCOUNT ||
+                             ' records DELETED from trend_alloc_hist_dtls - ' ||
+                             c_sls_typ_grp_nm_bi24 || l_parameter_list);
+          IF l_tbl_bi24.count > 0 THEN
+            SELECT MAX(sls_typ_lbl_id)
+              INTO l_sls_typ_lbl_id
+              FROM TABLE(pa_trend_alloc.get_ta_config(p_mrkt_id        => p_mrkt_id,
+                                                          p_sls_perd_id    => p_sls_perd_id,
+                                                          p_sls_typ_id     => p_sls_typ_id,
+                                                          p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24));
+            FOR i IN l_tbl_bi24.first .. l_tbl_bi24.last LOOP
+              l_stus := 2;
+              BEGIN
+                INSERT INTO trend_alloc_hist_dtls
+                  (mrkt_id,
+                   sls_perd_id,
+                   sls_typ_id,
+                   sls_typ_grp_nm,
+                   bilng_day,
+                   sku_id,
+                   veh_id,
+                   offr_id,
+                   promtn_id,
+                   promtn_clm_id,
+                   sls_cls_cd,
+                   offst_lbl_id,
+                   cash_value,
+                   r_factor,
+                   sls_typ_lbl_id,
+                   units,
+                   sales)
+                VALUES
+                  (p_mrkt_id,
+                   p_sls_perd_id,
+                   p_sls_typ_id,
+                   c_sls_typ_grp_nm_bi24,
+                   p_bilng_day,
+                   l_tbl_bi24(i).sku_id,
+                   l_tbl_bi24(i).veh_id,
+                   l_tbl_bi24(i).offr_id,
+                   l_tbl_bi24(i).promtn_id,
+                   l_tbl_bi24(i).promtn_clm_id,
+                   l_tbl_bi24(i).sls_cls_cd,
+                   l_tbl_bi24(i).offst_lbl_id,
+                   l_tbl_bi24(i).cash_value,
+                   l_tbl_bi24(i).r_factor,
+                   l_sls_typ_lbl_id,
+                   l_tbl_bi24(i).units,
+                   l_tbl_bi24(i).sales);
+                -- count REAL insert
+                l_ins_cnt := l_ins_cnt + 1;
+                l_stus    := 0;
+              EXCEPTION
+                WHEN OTHERS
+                -- log
+                 THEN
+                  app_plsql_log.error('ERROR at INSERT INTO trend_alloc_hist_dtls (mrkt_id: ' ||
+                                      p_mrkt_id || ', sls_perd_id: ' ||
+                                      p_sls_perd_id || ', sls_typ_id: ' ||
+                                      p_sls_typ_id || ', sls_typ_grp_nm: ' ||
+                                      c_sls_typ_grp_nm_bi24 ||
+                                      ', bilng_day: ' || p_bilng_day ||
+                                      ', sku_id: ' || l_tbl_bi24(i).sku_id ||
+                                      ', veh_id: ' || l_tbl_bi24(i).veh_id ||
+                                      ', offr_id: ' || l_tbl_bi24(i)
+                                      .offr_id || ', promtn_id: ' || l_tbl_bi24(i)
+                                      .promtn_id || ', promtn_clm_id: ' || l_tbl_bi24(i)
+                                      .promtn_clm_id || ', sls_cls_cd: ' || l_tbl_bi24(i)
+                                      .sls_cls_cd || ', offst_lbl_id: ' || l_tbl_bi24(i)
+                                      .offst_lbl_id || ', sls_typ_lbl_id: ' || l_tbl_bi24(i)
+                                      .sls_typ_lbl_id);
+                  RAISE;
+              END;
+            END LOOP;
+          END IF;
+          -- write into TREND_ALLOC_HIST_DTLS_LOG
+          MERGE INTO trend_alloc_hist_dtls_log l
+          USING (SELECT p_mrkt_id             AS mrkt_id,
+                        p_sls_perd_id         AS sls_perd_id,
+                        p_sls_typ_id          AS sls_typ_id,
+                        c_sls_typ_grp_nm_bi24 AS sls_typ_grp_nm,
+                        p_bilng_day           AS bilng_day,
+                        SYSDATE               AS last_updt_ts
+                   FROM dual) m
+          ON (l.mrkt_id = m.mrkt_id AND l.sls_perd_id = m.sls_perd_id AND l.sls_typ_id = m.sls_typ_id AND l.sls_typ_grp_nm = m.sls_typ_grp_nm AND l.bilng_day = m.bilng_day)
+          WHEN MATCHED THEN
+            UPDATE SET l.last_updt_ts = m.last_updt_ts
+          WHEN NOT MATCHED THEN
+            INSERT
+              (mrkt_id,
+               sls_perd_id,
+               sls_typ_id,
+               sls_typ_grp_nm,
+               bilng_day,
+               last_updt_ts)
+            VALUES
+              (m.mrkt_id,
+               m.sls_perd_id,
+               m.sls_typ_id,
+               m.sls_typ_grp_nm,
+               m.bilng_day,
+               m.last_updt_ts);
+        EXCEPTION
+          WHEN OTHERS THEN
+            ROLLBACK;
+            l_stus := 2;
+            app_plsql_log.info(l_module_name || ' FAILED, error code: ' ||
+                               SQLCODE || ' error message: ' || SQLERRM ||
+                               l_parameter_list);
+        END;
+        IF l_stus = 0 THEN
+          COMMIT;
+          app_plsql_log.info(l_module_name || ' COMMIT, status_code: ' ||
+                             to_char(l_stus) ||
+                             ' trend_alloc_hist_dtls (insert): ' ||
+                             l_ins_cnt || l_parameter_list);
+        ELSE
+          ROLLBACK;
+          app_plsql_log.info(l_module_name || ' ROLLBACK, status_code: ' ||
+                             to_char(l_stus) || l_parameter_list);
+        END IF;
+      END IF;
     EXCEPTION
       WHEN OTHERS THEN
         app_plsql_log.info(l_module_name ||
                            ' warning: BI24 calculation! error code:' ||
                            SQLCODE || ' error message: ' || SQLERRM ||
                            l_parameter_list);
-        l_bi24_r_factor.bi24_unts_on  := 0;
-        l_bi24_r_factor.bi24_sls_on   := 0;
-        l_bi24_r_factor.bi24_unts_off := 0;
-        l_bi24_r_factor.bi24_sls_off  := 0;
-        l_bi24_r_factor.r_factor      := 0;
     END;
-    IF l_bi24_r_factor.r_factor IS NULL THEN
-      l_bi24_r_factor.r_factor := 0;
-    END IF;
-    RETURN l_bi24_r_factor;
-  END get_bi24_r_factor;
+    app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
+    RETURN l_tbl_bi24;
+  END get_bi24;
+
+  -- get_head_details (declaration)
+  FUNCTION get_head_details(p_mrkt_id      IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                            p_sls_perd_id  IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                            p_sls_typ_id   IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                            p_bilng_day    IN dly_bilng_trnd.prcsng_dt%TYPE,
+                            p_offst_lbl_id IN ta_dict.lbl_id%TYPE DEFAULT NULL,
+                            p_cash_value   IN NUMBER DEFAULT NULL,
+                            p_r_factor     IN NUMBER DEFAULT NULL,
+                            p_user_id      IN VARCHAR2 DEFAULT NULL,
+                            p_run_id       IN NUMBER DEFAULT NULL)
+    RETURN t_hist_detail;
 
   -- BIAS, BI24
-  FUNCTION get_head_details(p_mrkt_id                IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                            p_sls_perd_id            IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                            p_trg_perd_id            IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                            p_sls_typ_id             IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                            p_dbt_bilng_day          IN dly_bilng_trnd.prcsng_dt%TYPE,
-                            p_sls_typ_id_from_config IN mrkt_config_item.mrkt_config_item_val_txt%TYPE,
-                            p_dbt_on_sls_perd_id     IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                            p_dbt_on_offr_perd_id    IN dly_bilng_trnd.offr_perd_id%TYPE,
-                            p_dbt_off_sls_perd_id    IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                            p_dbt_off_offr_perd_id   IN dly_bilng_trnd.offr_perd_id%TYPE,
-                            p_dms_on_sls_perd_id     IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                            p_dms_on_offr_perd_id    IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-                            p_dms_off_sls_perd_id    IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                            p_dms_off_offr_perd_id   IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-                            p_run_id                 IN NUMBER DEFAULT NULL,
-                            p_user_id                IN VARCHAR2 DEFAULT NULL)
-    RETURN t_hist_head_aggr;
-
-  -- BIAS, BI24
-  FUNCTION get_reproc_trnd(p_mrkt_id                IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                           p_sls_perd_id            IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_trg_perd_id            IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_sls_typ_id             IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                           p_bilng_day              IN dly_bilng_trnd.prcsng_dt%TYPE,
-                           p_sls_typ_id_from_config IN mrkt_config_item.mrkt_config_item_val_txt%TYPE,
-                           p_dbt_on_sls_perd_id     IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                           p_dbt_on_offr_perd_id    IN dly_bilng_trnd.offr_perd_id%TYPE,
-                           p_dbt_off_sls_perd_id    IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                           p_dbt_off_offr_perd_id   IN dly_bilng_trnd.offr_perd_id%TYPE,
-                           p_dms_on_sls_perd_id     IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_dms_on_offr_perd_id    IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-                           p_dms_off_sls_perd_id    IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_dms_off_offr_perd_id   IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-                           p_cash_value             IN NUMBER,
-                           p_r_factor               IN NUMBER,
-                           p_run_id                 IN NUMBER DEFAULT NULL,
-                           p_user_id                IN VARCHAR2 DEFAULT NULL)
+  FUNCTION get_reproc_trnd(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                           p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                           p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                           p_bilng_day   IN dly_bilng_trnd.prcsng_dt%TYPE,
+                           p_cash_value  IN NUMBER,
+                           p_r_factor    IN NUMBER,
+                           p_user_id     IN VARCHAR2 DEFAULT NULL,
+                           p_run_id      IN NUMBER DEFAULT NULL)
     RETURN t_reproc;
 
   -- ESTIMATE (and OVRRD)
   FUNCTION get_reproc_est(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
                           p_sls_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                          p_trg_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
                           p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
                           p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
-                          p_dbt_on_sls_perd_id   IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                          p_dbt_on_offr_perd_id  IN dly_bilng_trnd.offr_perd_id%TYPE,
-                          p_dbt_off_sls_perd_id  IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                          p_dbt_off_offr_perd_id IN dly_bilng_trnd.offr_perd_id%TYPE,
-                          p_dms_on_sls_perd_id   IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                          p_dms_on_offr_perd_id  IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-                          p_dms_off_sls_perd_id  IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                          p_dms_off_offr_perd_id IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
                           p_cash_value           IN NUMBER,
                           p_r_factor             IN NUMBER,
                           p_use_offers_on_sched  IN CHAR DEFAULT 'N',
                           p_use_offers_off_sched IN CHAR DEFAULT 'N',
-                          p_run_id               IN NUMBER DEFAULT NULL,
-                          p_user_id              IN VARCHAR2 DEFAULT NULL)
+                          p_user_id              IN VARCHAR2 DEFAULT NULL,
+                          p_run_id               IN NUMBER DEFAULT NULL)
     RETURN t_reproc;
 
-  FUNCTION get_trend_alloc_reproc_ln(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                     p_sls_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_trg_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                                     p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
-                                     p_cash_value           IN NUMBER,
-                                     p_r_factor             IN NUMBER,
-                                     p_use_offers_on_sched  IN CHAR DEFAULT 'N',
-                                     p_use_offers_off_sched IN CHAR DEFAULT 'N',
-                                     p_run_id               IN NUMBER DEFAULT NULL,
-                                     p_user_id              IN VARCHAR2 DEFAULT NULL)
-    RETURN obj_trend_alloc_hist_head_line;
-
-  FUNCTION get_trend_alloc_head_view(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                     p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_trg_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                                     p_bilng_day   IN dly_bilng_trnd.prcsng_dt%TYPE,
-                                     p_run_id      IN NUMBER DEFAULT NULL,
-                                     p_user_id     IN VARCHAR2 DEFAULT NULL)
+  FUNCTION get_trend_alloc_head_view(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                                     p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                                     p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                                     p_bilng_day      IN dly_bilng_trnd.prcsng_dt%TYPE,
+                                     p_user_id        IN VARCHAR2 DEFAULT NULL)
     RETURN obj_trend_alloc_view_table
     PIPELINED AS
     -- local variables
-    l_periods     r_periods;
-    l_not_planned NUMBER := NULL;
-    l_last_dms    DATE;
-    l_has_save    CHAR(1);
-    l_last_run    DATE;
-    l_is_started  CHAR(1);
-    l_is_complete CHAR(1);
+    l_periods          r_periods;
+    l_src_sls_perd_id  mrkt_perd.perd_id%TYPE;
+    l_trgt_sls_perd_id mrkt_perd.perd_id%TYPE;
+    l_not_planned      NUMBER := NULL;
+    l_last_dms         DATE;
+    l_has_save         CHAR(1);
+    l_last_run         DATE;
+    l_is_started       CHAR(1);
+    l_is_complete      CHAR(1);
     -- for LOG
-    l_run_id         NUMBER := nvl(p_run_id,
-                                   app_plsql_output.generate_new_run_id);
+    l_run_id         NUMBER := app_plsql_output.generate_new_run_id;
     l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
     l_module_name    VARCHAR2(30) := 'GET_TREND_ALLOC_HEAD_VIEW';
     l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
                                        to_char(p_mrkt_id) || ', ' ||
-                                       'p_sls_perd_id: ' ||
-                                       to_char(p_sls_perd_id) || ', ' ||
-                                       'p_trg_perd_id: ' ||
-                                       to_char(p_trg_perd_id) || ', ' ||
+                                       'p_campgn_perd_id: ' ||
+                                       to_char(p_campgn_perd_id) || ', ' ||
                                        'p_sls_typ_id: ' ||
                                        to_char(p_sls_typ_id) || ', ' ||
                                        'p_bilng_day: ' ||
                                        to_char(p_bilng_day, 'yyyy-mm-dd') || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
+                                       'p_user_id: ' || l_user_id || ', ' || ')';
   
   BEGIN
     app_plsql_log.register(g_package_name || '.' || l_module_name);
     app_plsql_output.set_run_id(l_run_id);
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
     app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
+    --
+    SELECT pa_maps_public.perd_plus(p_mrkt_id,
+                                    p_campgn_perd_id,
+                                    offst_val_src_sls) src_sls_perd_id,
+           pa_maps_public.perd_plus(p_mrkt_id,
+                                    p_campgn_perd_id,
+                                    offst_val_trgt_sls) trgt_sls_perd_id
+      INTO l_src_sls_perd_id, l_trgt_sls_perd_id
+      FROM (SELECT eff_sls_perd_id,
+                   offst_val_src_sls,
+                   offst_val_trgt_sls,
+                   offst_lbl_id,
+                   lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+              FROM ta_config
+             WHERE mrkt_id = p_mrkt_id
+               AND trgt_sls_typ_id = p_sls_typ_id
+               AND upper(REPLACE(TRIM(sls_typ_grp_nm), '  ', ' ')) =
+                   c_sls_typ_grp_nm_bi24
+               AND eff_sls_perd_id <= p_campgn_perd_id)
+     WHERE p_campgn_perd_id BETWEEN eff_sls_perd_id AND
+           nvl(next_eff_sls_perd_id, p_campgn_perd_id)
+       AND offst_lbl_id IN (SELECT lbl_id
+                              FROM ta_dict
+                             WHERE lbl_desc = 'On-Schedule'
+                               AND mrkt_id IS NULL);
   
     BEGIN
       BEGIN
@@ -754,7 +1172,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
           INTO l_last_dms
           FROM dstrbtd_mrkt_sls
          WHERE mrkt_id = p_mrkt_id
-           AND sls_perd_id = p_trg_perd_id
+           AND sls_perd_id = l_trgt_sls_perd_id
            AND sls_typ_id = p_sls_typ_id
            AND rownum <= 1;
       EXCEPTION
@@ -764,9 +1182,10 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
           app_plsql_log.info(l_module_name ||
                              ' warning: Other exception when selecting from: dstrbtd_mrkt_sls where mrkt_id=' ||
                              to_char(p_mrkt_id) || ' and sls_perd_id=' ||
-                             to_char(p_trg_perd_id) || ' and sls_typ_id=' ||
-                             to_char(p_sls_typ_id) || 'error code: ' ||
-                             SQLCODE || ' error message: ' || SQLERRM ||
+                             to_char(l_trgt_sls_perd_id) ||
+                             ' and sls_typ_id=' || to_char(p_sls_typ_id) ||
+                             'error code: ' || SQLCODE ||
+                             ' error message: ' || SQLERRM ||
                              l_parameter_list);
           l_last_dms := NULL;
       END;
@@ -786,7 +1205,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                 NULL
              END,
              CASE
-               WHEN sct_sls_typ_id <= p_sls_typ_id THEN
+               WHEN nvl(sct_sls_typ_id, p_sls_typ_id) <= p_sls_typ_id THEN
                 'N'
                ELSE
                 'Y'
@@ -794,13 +1213,13 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
         INTO l_has_save, l_last_run, l_is_started, l_is_complete
         FROM mrkt_sls_perd
        WHERE mrkt_id = p_mrkt_id
-         AND sls_perd_id = p_trg_perd_id;
+         AND sls_perd_id = l_trgt_sls_perd_id;
     EXCEPTION
       WHEN OTHERS THEN
         app_plsql_log.info(l_module_name ||
                            ' warning: RECORD not found in table: mrkt_sls_perd where mrkt_id=' ||
                            to_char(p_mrkt_id) || ' and sls_perd_id=' ||
-                           to_char(p_trg_perd_id) || l_parameter_list);
+                           to_char(l_trgt_sls_perd_id) || l_parameter_list);
         l_has_save    := NULL;
         l_last_run    := NULL;
         l_is_started  := NULL;
@@ -809,29 +1228,61 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     -- NOT PLANNED
     -- get CURRENT periods
     l_periods := get_periods(p_mrkt_id       => p_mrkt_id,
-                             p_orig_perd_id  => p_sls_perd_id,
-                             p_bilng_perd_id => p_sls_perd_id,
+                             p_orig_perd_id  => p_campgn_perd_id,
+                             p_bilng_perd_id => p_campgn_perd_id,
                              p_sls_typ_id    => p_sls_typ_id,
                              p_bilng_day     => p_bilng_day,
-                             p_run_id        => l_run_id,
-                             p_user_id       => l_user_id);
+                             p_user_id       => l_user_id,
+                             p_run_id        => l_run_id);
     BEGIN
       SELECT SUM(dly_bilng_trnd.unit_qty)
         INTO l_not_planned
-        FROM dly_bilng_trnd, dly_bilng_offr_sku_line
-       WHERE 1 = 1
-            -- filter: dly_bilng_trnd
-         AND dly_bilng_trnd.mrkt_id = p_mrkt_id
-         AND (( --on-schedule
-              dly_bilng_trnd.trnd_sls_perd_id =
-              l_periods.dbt_on_sls_perd_id AND
-              dly_bilng_trnd.offr_perd_id = l_periods.dbt_on_offr_perd_id) OR
-             ( --off-schedule
-              dly_bilng_trnd.trnd_sls_perd_id =
-              l_periods.dbt_off_sls_perd_id AND
-              dly_bilng_trnd.offr_perd_id = l_periods.dbt_off_offr_perd_id))
-         AND trunc(dly_bilng_trnd.prcsng_dt) <= l_periods.dbt_bilng_day
-            -- join: dly_bilng_trnd -> dly_bilng_trnd_offr_sku_line
+        FROM dly_bilng_trnd,
+             dly_bilng_offr_sku_line,
+             (SELECT src_sls_typ_id,
+                     x_src_sls_typ_id,
+                     offst_lbl_id,
+                     sls_typ_lbl_id,
+                     x_sls_typ_lbl_id,
+                     pa_maps_public.perd_plus(p_mrkt_id,
+                                              p_campgn_perd_id,
+                                              offst_val_src_sls) src_sls_perd_id,
+                     pa_maps_public.perd_plus(p_mrkt_id,
+                                              p_campgn_perd_id,
+                                              offst_val_trgt_sls) trgt_sls_perd_id,
+                     pa_maps_public.perd_plus(p_mrkt_id,
+                                              p_campgn_perd_id,
+                                              offst_val_src_offr) src_offr_perd_id,
+                     pa_maps_public.perd_plus(p_mrkt_id,
+                                              p_campgn_perd_id,
+                                              offst_val_trgt_offr) trgt_offr_perd_id,
+                     r_factor
+                FROM (SELECT src_sls_typ_id,
+                             est_src_sls_typ_id AS x_src_sls_typ_id,
+                             offst_lbl_id,
+                             sls_typ_lbl_id,
+                             x_sls_typ_lbl_id,
+                             offst_val_src_sls,
+                             offst_val_trgt_sls,
+                             offst_val_src_offr,
+                             offst_val_trgt_offr,
+                             r_factor,
+                             eff_sls_perd_id,
+                             lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                        FROM ta_config
+                       WHERE mrkt_id = p_mrkt_id
+                         AND trgt_sls_typ_id = p_sls_typ_id
+                         AND upper(REPLACE(TRIM(sls_typ_grp_nm), '  ', ' ')) =
+                             c_sls_typ_grp_nm_bi24
+                         AND eff_sls_perd_id <= p_campgn_perd_id)
+               WHERE p_campgn_perd_id BETWEEN eff_sls_perd_id AND
+                     nvl(next_eff_sls_perd_id, p_campgn_perd_id)) tc_bi24
+       WHERE dly_bilng_trnd.mrkt_id = p_mrkt_id
+         AND dly_bilng_trnd.trnd_sls_perd_id = tc_bi24.src_sls_perd_id
+         AND dly_bilng_trnd.offr_perd_id = tc_bi24.src_offr_perd_id
+         AND trunc(dly_bilng_trnd.prcsng_dt) <= l_periods.bilng_day
+         AND dly_bilng_trnd.trnd_aloctn_auto_stus_id IN
+             (auto_matched, auto_suggested_single, auto_suggested_multi)
          AND dly_bilng_trnd.dly_bilng_id =
              dly_bilng_offr_sku_line.dly_bilng_id(+)
          AND dly_bilng_offr_sku_line.dly_bilng_id IS NULL;
@@ -840,7 +1291,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
         app_plsql_log.info(l_module_name ||
                            ' warning: RECORD not found in table: dly_bilng_trnd where mrkt_id=' ||
                            to_char(p_mrkt_id) || ' and trnd_sls_perd_id=' ||
-                           to_char(p_sls_perd_id) || l_parameter_list);
+                           to_char(p_campgn_perd_id) || l_parameter_list);
         l_not_planned := NULL;
     END;
   
@@ -853,52 +1304,30 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
   END get_trend_alloc_head_view;
 
-  FUNCTION get_trend_alloc_hist_head(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                     p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_trg_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                                     p_bilng_day   IN dly_bilng_trnd.prcsng_dt%TYPE,
-                                     p_perd_from   IN NUMBER,
-                                     p_perd_to     IN NUMBER,
-                                     p_run_id      IN NUMBER DEFAULT NULL,
-                                     p_user_id     IN VARCHAR2 DEFAULT NULL)
-    RETURN obj_trend_alloc_hist_hd_table
+  FUNCTION get_trend_alloc_hist_head(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                                     p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                                     p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                                     p_bilng_day      IN dly_bilng_trnd.prcsng_dt%TYPE,
+                                     p_perd_from      IN NUMBER,
+                                     p_perd_to        IN NUMBER,
+                                     p_user_id        IN VARCHAR2 DEFAULT NULL)
+    RETURN pa_trend_alloc_hist_hd_table
     PIPELINED IS
     -- local variables
-    l_periods            r_periods;
-    l_tbl_hist_head_aggr t_hist_head_aggr;
-    -- for HEAD aggr
-    l_bi24_unts_on      NUMBER;
-    l_bi24_sls_on       NUMBER;
-    l_bi24_unts_off     NUMBER;
-    l_bi24_sls_off      NUMBER;
-    l_estimate_unts_on  NUMBER;
-    l_estimate_sls_on   NUMBER;
-    l_estimate_unts_off NUMBER;
-    l_estimate_sls_off  NUMBER;
-    l_trend_unts_on     NUMBER;
-    l_trend_sls_on      NUMBER;
-    l_trend_unts_off    NUMBER;
-    l_trend_sls_off     NUMBER;
-    l_actual_unts_on    NUMBER;
-    l_actual_sls_on     NUMBER;
-    l_actual_unts_off   NUMBER;
-    l_actual_sls_off    NUMBER;
-    -- once
-    l_sls_typ_id_from_config dly_bilng_trnd_offr_sku_line.sls_typ_id%TYPE;
+    l_tbl_hist_detail t_hist_detail := t_hist_detail();
+    l_tbl_hist_head   t_hist_head;
+    l_periods         r_periods;
     --
     l_multplyr NUMBER;
+    c_key      VARCHAR2(128);
     -- for LOG
-    l_run_id         NUMBER := nvl(p_run_id,
-                                   app_plsql_output.generate_new_run_id);
+    l_run_id         NUMBER := app_plsql_output.generate_new_run_id;
     l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
     l_module_name    VARCHAR2(30) := 'GET_TREND_ALLOC_HIST_HEAD';
     l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
                                        to_char(p_mrkt_id) || ', ' ||
-                                       'p_sls_perd_id: ' ||
-                                       to_char(p_sls_perd_id) || ', ' ||
-                                       'p_trg_perd_id: ' ||
-                                       to_char(p_trg_perd_id) || ', ' ||
+                                       'p_campgn_perd_id: ' ||
+                                       to_char(p_campgn_perd_id) || ', ' ||
                                        'p_sls_typ_id: ' ||
                                        to_char(p_sls_typ_id) || ', ' ||
                                        'p_bilng_day: ' ||
@@ -906,163 +1335,90 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                        'p_perd_from: ' ||
                                        to_char(p_perd_from) || ', ' ||
                                        'p_perd_to: ' || to_char(p_perd_to) || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
     --
   BEGIN
     app_plsql_log.register(g_package_name || '.' || l_module_name);
     app_plsql_output.set_run_id(l_run_id);
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
     app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
-    -- sls_typ_id_from_config
-    l_sls_typ_id_from_config := get_sls_typ_id_from_config(p_mrkt_id,
-                                                           l_run_id,
-                                                           l_user_id);
-    -- 
-    l_multplyr := to_number(substr(to_char(p_sls_perd_id), 1, 4)) -
+    --
+    l_multplyr := to_number(substr(to_char(p_campgn_perd_id), 1, 4)) -
                   p_perd_to;
     FOR p IN p_perd_to .. p_perd_from LOOP
       -- iterations for FROM periods to TO periods
       FOR i_prd IN (SELECT pa_maps_public.perd_plus(p_mrkt_id,
-                                                    p_sls_perd_id -
+                                                    p_campgn_perd_id -
                                                     (10000 * l_multplyr),
-                                                    -1) perd_id
+                                                    (-1) * sign(l_multplyr)) perd_id
                       FROM dual
-                    UNION ALL
-                    SELECT p_sls_perd_id - (10000 * l_multplyr) perd_id
+                    UNION
+                    SELECT p_campgn_perd_id - (10000 * l_multplyr) perd_id
                       FROM dual
-                    UNION ALL
+                    UNION
                     SELECT pa_maps_public.perd_plus(p_mrkt_id,
-                                                    p_sls_perd_id -
+                                                    p_campgn_perd_id -
                                                     (10000 * l_multplyr),
-                                                    1) perd_id
+                                                    1 * sign(l_multplyr)) perd_id
                       FROM dual
                      ORDER BY 1) LOOP
         -- get CURRENT periods
         l_periods := get_periods(p_mrkt_id       => p_mrkt_id,
-                                 p_orig_perd_id  => p_sls_perd_id,
+                                 p_orig_perd_id  => p_campgn_perd_id,
                                  p_bilng_perd_id => i_prd.perd_id,
                                  p_sls_typ_id    => p_sls_typ_id,
                                  p_bilng_day     => p_bilng_day,
-                                 p_run_id        => l_run_id,
-                                 p_user_id       => l_user_id);
+                                 p_user_id       => l_user_id,
+                                 p_run_id        => l_run_id);
         -- get_head_details
-        l_tbl_hist_head_aggr := get_head_details(p_mrkt_id,
-                                                 p_sls_perd_id,
-                                                 p_trg_perd_id,
-                                                 p_sls_typ_id,
-                                                 l_periods.dbt_bilng_day,
-                                                 l_sls_typ_id_from_config,
-                                                 l_periods.dbt_on_sls_perd_id,
-                                                 l_periods.dbt_on_offr_perd_id,
-                                                 l_periods.dbt_off_sls_perd_id,
-                                                 l_periods.dbt_off_offr_perd_id,
-                                                 l_periods.dms_on_sls_perd_id,
-                                                 l_periods.dms_on_offr_perd_id,
-                                                 l_periods.dms_off_sls_perd_id,
-                                                 l_periods.dms_off_offr_perd_id,
-                                                 l_run_id,
-                                                 l_user_id);
-        --
-        l_bi24_unts_on      := 0;
-        l_bi24_sls_on       := 0;
-        l_bi24_unts_off     := 0;
-        l_bi24_sls_off      := 0;
-        l_trend_unts_on     := 0;
-        l_trend_sls_on      := 0;
-        l_trend_unts_off    := 0;
-        l_trend_sls_off     := 0;
-        l_estimate_unts_on  := 0;
-        l_estimate_sls_on   := 0;
-        l_estimate_unts_off := 0;
-        l_estimate_sls_off  := 0;
-        l_actual_unts_on    := 0;
-        l_actual_sls_on     := 0;
-        l_actual_unts_off   := 0;
-        l_actual_sls_off    := 0;
-        IF l_tbl_hist_head_aggr.count > 0 THEN
-          FOR i IN l_tbl_hist_head_aggr.first .. l_tbl_hist_head_aggr.last LOOP
-            l_bi24_unts_on      := l_bi24_unts_on +
-                                   nvl(l_tbl_hist_head_aggr(i).bi24_unts_on,
-                                       0);
-            l_bi24_sls_on       := l_bi24_sls_on +
-                                   nvl(l_tbl_hist_head_aggr(i).bi24_sls_on,
-                                       0);
-            l_bi24_unts_off     := l_bi24_unts_off +
-                                   nvl(l_tbl_hist_head_aggr(i).bi24_unts_off,
-                                       0);
-            l_bi24_sls_off      := l_bi24_sls_off +
-                                   nvl(l_tbl_hist_head_aggr(i).bi24_sls_off,
-                                       0);
-            l_trend_unts_on     := l_trend_unts_on +
-                                   nvl(l_tbl_hist_head_aggr(i).trend_unts_on,
-                                       0);
-            l_trend_sls_on      := l_trend_sls_on +
-                                   nvl(l_tbl_hist_head_aggr(i).trend_sls_on,
-                                       0);
-            l_trend_unts_off    := l_trend_unts_off +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .trend_unts_off,
-                                       0);
-            l_trend_sls_off     := l_trend_sls_off +
-                                   nvl(l_tbl_hist_head_aggr(i).trend_sls_off,
-                                       0);
-            l_estimate_unts_on  := l_estimate_unts_on +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .estimate_unts_on,
-                                       0);
-            l_estimate_sls_on   := l_estimate_sls_on +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .estimate_sls_on,
-                                       0);
-            l_estimate_unts_off := l_estimate_unts_off +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .estimate_unts_off,
-                                       0);
-            l_estimate_sls_off  := l_estimate_sls_off +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .estimate_sls_off,
-                                       0);
-            l_actual_unts_on    := l_actual_unts_on +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .actual_unts_on,
-                                       0);
-            l_actual_sls_on     := l_actual_sls_on +
-                                   nvl(l_tbl_hist_head_aggr(i).actual_sls_on,
-                                       0);
-            l_actual_unts_off   := l_actual_unts_off +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .actual_unts_off,
-                                       0);
-            l_actual_sls_off    := l_actual_sls_off +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .actual_sls_off,
-                                       0);
+        l_tbl_hist_detail := get_head_details(p_mrkt_id      => p_mrkt_id,
+                                              p_sls_perd_id  => i_prd.perd_id,
+                                              p_sls_typ_id   => p_sls_typ_id,
+                                              p_bilng_day    => l_periods.bilng_day,
+                                              p_offst_lbl_id => NULL,
+                                              p_cash_value   => l_periods.sct_cash_value,
+                                              p_r_factor     => l_periods.sct_r_factor,
+                                              p_user_id      => l_user_id,
+                                              p_run_id       => l_run_id);
+        -- SUM (HEAD)
+        IF l_tbl_hist_detail.count > 0 THEN
+          FOR i IN l_tbl_hist_detail.first .. l_tbl_hist_detail.last LOOP
+            c_key := to_char(l_tbl_hist_detail(i).offst_lbl_id) || '_' ||
+                     to_char(l_tbl_hist_detail(i).sls_typ_lbl_id);
+            l_tbl_hist_head(c_key).offst_lbl_id := l_tbl_hist_detail(i)
+                                                   .offst_lbl_id;
+            l_tbl_hist_head(c_key).units := nvl(l_tbl_hist_head(c_key).units,
+                                                0) + l_tbl_hist_detail(i)
+                                           .units;
+            l_tbl_hist_head(c_key).sales := nvl(l_tbl_hist_head(c_key).sales,
+                                                0) + l_tbl_hist_detail(i)
+                                           .sales;
+            l_tbl_hist_head(c_key).sls_typ_lbl_id := l_tbl_hist_detail(i)
+                                                     .sls_typ_lbl_id;
           END LOOP;
+          l_tbl_hist_detail.delete;
         END IF;
-        PIPE ROW(obj_trend_alloc_hist_head_line(l_periods.dbt_on_sls_perd_id,
-                                                l_periods.dms_on_sls_perd_id,
-                                                l_periods.dbt_bilng_day,
-                                                l_bi24_unts_on,
-                                                l_bi24_sls_on,
-                                                l_bi24_unts_off,
-                                                l_bi24_sls_off,
-                                                l_periods.sct_cash_val,
-                                                l_periods.sct_r_factor,
-                                                l_estimate_unts_on,
-                                                l_estimate_sls_on,
-                                                l_estimate_unts_off,
-                                                l_estimate_sls_off,
-                                                l_trend_unts_on,
-                                                l_trend_sls_on,
-                                                l_trend_unts_off,
-                                                l_trend_sls_off,
-                                                l_actual_unts_on,
-                                                l_actual_sls_on,
-                                                l_actual_unts_off,
-                                                l_actual_sls_off));
-        IF l_tbl_hist_head_aggr.count > 0 THEN
-          l_tbl_hist_head_aggr.delete;
+        -- PIPE (HEAD)
+        IF l_tbl_hist_head.count > 0 THEN
+          c_key := l_tbl_hist_head.first;
+          WHILE c_key IS NOT NULL LOOP
+            PIPE ROW(pa_trend_alloc_hist_hd_line(i_prd.perd_id,
+                                                 l_periods.trg_perd_id,
+                                                 l_periods.bilng_day,
+                                                 l_tbl_hist_head         (c_key)
+                                                 .offst_lbl_id,
+                                                 l_periods.sct_cash_value,
+                                                 l_periods.sct_r_factor,
+                                                 l_tbl_hist_head         (c_key)
+                                                 .sls_typ_lbl_id,
+                                                 l_tbl_hist_head         (c_key)
+                                                 .units,
+                                                 l_tbl_hist_head         (c_key)
+                                                 .sales));
+            c_key := l_tbl_hist_head.next(c_key);
+          END LOOP;
+          l_tbl_hist_head.delete;
         END IF;
       END LOOP;
       l_multplyr := l_multplyr - 1;
@@ -1071,170 +1427,25 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
   END get_trend_alloc_hist_head;
 
-  FUNCTION get_trend_alloc(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                           p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_trg_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                           p_bilng_day   IN dly_bilng_trnd.prcsng_dt%TYPE,
-                           p_run_id      IN NUMBER DEFAULT NULL,
-                           p_user_id     IN VARCHAR2 DEFAULT NULL)
-    RETURN obj_trend_alloc_hist_hd_table
-    PIPELINED IS
+  -- get_head_details
+  FUNCTION get_head_details(p_mrkt_id      IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                            p_sls_perd_id  IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                            p_sls_typ_id   IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                            p_bilng_day    IN dly_bilng_trnd.prcsng_dt%TYPE,
+                            p_offst_lbl_id IN ta_dict.lbl_id%TYPE DEFAULT NULL,
+                            p_cash_value   IN NUMBER DEFAULT NULL,
+                            p_r_factor     IN NUMBER DEFAULT NULL,
+                            p_user_id      IN VARCHAR2 DEFAULT NULL,
+                            p_run_id       IN NUMBER DEFAULT NULL)
+    RETURN t_hist_detail IS
+    PRAGMA AUTONOMOUS_TRANSACTION;
     -- local variables
-    l_obj_trend_alloc_hist_head_ln obj_trend_alloc_hist_head_line;
-    -- once
-    l_cash_value           mrkt_sls_perd.sct_cash_val%TYPE;
-    l_use_offers_on_sched  mrkt_sls_perd.sct_onsch_est_bi24_ind%TYPE;
-    l_use_offers_off_sched mrkt_sls_perd.sct_offsch_est_bi24_ind%TYPE;
-    -- for LOG
-    l_run_id         NUMBER := nvl(p_run_id,
-                                   app_plsql_output.generate_new_run_id);
-    l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
-    l_module_name    VARCHAR2(30) := 'GET_TREND_ALLOC';
-    l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
-                                       to_char(p_mrkt_id) || ', ' ||
-                                       'p_sls_perd_id: ' ||
-                                       to_char(p_sls_perd_id) || ', ' ||
-                                       'p_trg_perd_id: ' ||
-                                       to_char(p_trg_perd_id) || ', ' ||
-                                       'p_sls_typ_id: ' ||
-                                       to_char(p_sls_typ_id) || ', ' ||
-                                       'p_bilng_day: ' ||
-                                       to_char(p_bilng_day, 'yyyy-mm-dd') || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
-    --
-  BEGIN
-    app_plsql_log.register(g_package_name || '.' || l_module_name);
-    app_plsql_output.set_run_id(l_run_id);
-    app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
-    app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
-    --
-    -- ACTUAL record
-    BEGIN
-      SELECT sct_cash_val, sct_onsch_est_bi24_ind, sct_offsch_est_bi24_ind
-        INTO l_cash_value, l_use_offers_on_sched, l_use_offers_off_sched
-        FROM mrkt_sls_perd
-       WHERE mrkt_id = p_mrkt_id
-         AND sls_perd_id = p_trg_perd_id;
-    EXCEPTION
-      WHEN OTHERS THEN
-        app_plsql_log.info(l_module_name ||
-                           ' warning: ACTUAL record not found in table: mrkt_sls_perd where mrkt_id=' ||
-                           to_char(p_mrkt_id) || ' and sls_perd_id=' ||
-                           to_char(p_trg_perd_id) || l_parameter_list);
-        l_cash_value           := NULL;
-        l_use_offers_on_sched  := NULL;
-        l_use_offers_off_sched := NULL;
-    END;
-    IF l_cash_value IS NULL THEN
-      l_cash_value := 0;
-    END IF;
-    IF l_use_offers_on_sched IS NULL THEN
-      l_use_offers_on_sched := 'N';
-    END IF;
-    IF l_use_offers_off_sched IS NULL THEN
-      l_use_offers_off_sched := 'N';
-    END IF;
-    l_obj_trend_alloc_hist_head_ln := get_trend_alloc_reproc_ln(p_mrkt_id              => p_mrkt_id,
-                                                                p_sls_perd_id          => p_sls_perd_id,
-                                                                p_trg_perd_id          => p_trg_perd_id,
-                                                                p_sls_typ_id           => p_sls_typ_id,
-                                                                p_bilng_day            => p_bilng_day,
-                                                                p_cash_value           => l_cash_value,
-                                                                p_r_factor             => NULL,
-                                                                p_use_offers_on_sched  => l_use_offers_on_sched,
-                                                                p_use_offers_off_sched => l_use_offers_off_sched,
-                                                                p_run_id               => l_run_id,
-                                                                p_user_id              => l_user_id);
-    PIPE ROW(l_obj_trend_alloc_hist_head_ln);
-    --
-    app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
-  END get_trend_alloc;
-
-  FUNCTION get_trend_alloc_re_proc(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                   p_sls_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                   p_trg_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                   p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                                   p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
-                                   p_cash_value           IN NUMBER,
-                                   p_r_factor             IN NUMBER,
-                                   p_use_offers_on_sched  IN CHAR DEFAULT 'N',
-                                   p_use_offers_off_sched IN CHAR DEFAULT 'N',
-                                   p_run_id               IN NUMBER DEFAULT NULL,
-                                   p_user_id              IN VARCHAR2 DEFAULT NULL)
-    RETURN obj_trend_alloc_hist_hd_table
-    PIPELINED IS
-    -- local variables
-    l_obj_trend_alloc_hist_head_ln obj_trend_alloc_hist_head_line;
-    -- for LOG
-    l_run_id         NUMBER := nvl(p_run_id,
-                                   app_plsql_output.generate_new_run_id);
-    l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
-    l_module_name    VARCHAR2(30) := 'GET_TREND_ALLOC_RE_PROC';
-    l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
-                                       to_char(p_mrkt_id) || ', ' ||
-                                       'p_sls_perd_id: ' ||
-                                       to_char(p_sls_perd_id) || ', ' ||
-                                       'p_trg_perd_id: ' ||
-                                       to_char(p_trg_perd_id) || ', ' ||
-                                       'p_sls_typ_id: ' ||
-                                       to_char(p_sls_typ_id) || ', ' ||
-                                       'p_bilng_day: ' ||
-                                       to_char(p_bilng_day, 'yyyymmdd') || ', ' ||
-                                       'p_cash_value: ' ||
-                                       to_char(p_cash_value) || ', ' ||
-                                       'p_r_factor: ' ||
-                                       to_char(p_r_factor) || ', ' ||
-                                       'p_use_offers_on_sched: ' ||
-                                       p_use_offers_on_sched || ', ' ||
-                                       'p_use_offers_off_sched: ' ||
-                                       p_use_offers_off_sched || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
-    --
-  BEGIN
-    --
-    app_plsql_log.register(g_package_name || '.' || l_module_name);
-    app_plsql_output.set_run_id(l_run_id);
-    app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
-    app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
-    --
-    l_obj_trend_alloc_hist_head_ln := get_trend_alloc_reproc_ln(p_mrkt_id              => p_mrkt_id,
-                                                                p_sls_perd_id          => p_sls_perd_id,
-                                                                p_trg_perd_id          => p_trg_perd_id,
-                                                                p_sls_typ_id           => p_sls_typ_id,
-                                                                p_bilng_day            => p_bilng_day,
-                                                                p_cash_value           => p_cash_value,
-                                                                p_r_factor             => p_r_factor,
-                                                                p_use_offers_on_sched  => p_use_offers_on_sched,
-                                                                p_use_offers_off_sched => p_use_offers_off_sched,
-                                                                p_run_id               => l_run_id,
-                                                                p_user_id              => l_user_id);
-    PIPE ROW(l_obj_trend_alloc_hist_head_ln);
-    --
-    app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
-  END get_trend_alloc_re_proc;
-
-  FUNCTION get_head_details(p_mrkt_id                IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                            p_sls_perd_id            IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                            p_trg_perd_id            IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                            p_sls_typ_id             IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                            p_dbt_bilng_day          IN dly_bilng_trnd.prcsng_dt%TYPE,
-                            p_sls_typ_id_from_config IN mrkt_config_item.mrkt_config_item_val_txt%TYPE,
-                            p_dbt_on_sls_perd_id     IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                            p_dbt_on_offr_perd_id    IN dly_bilng_trnd.offr_perd_id%TYPE,
-                            p_dbt_off_sls_perd_id    IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                            p_dbt_off_offr_perd_id   IN dly_bilng_trnd.offr_perd_id%TYPE,
-                            p_dms_on_sls_perd_id     IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                            p_dms_on_offr_perd_id    IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-                            p_dms_off_sls_perd_id    IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                            p_dms_off_offr_perd_id   IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-                            p_run_id                 IN NUMBER DEFAULT NULL,
-                            p_user_id                IN VARCHAR2 DEFAULT NULL)
-    RETURN t_hist_head_aggr IS
-    -- local variables
-    l_tbl_hist_head_aggr t_hist_head_aggr;
+    l_tbl_bi24               t_hist_detail := t_hist_detail();
+    l_tbl_dms_get_cache_flag BOOLEAN;
+    l_tbl_dms                t_hist_detail := t_hist_detail();
+    l_tbl_hist_detail        t_hist_detail := t_hist_detail();
+    l_ins_cnt                PLS_INTEGER := 0;
+    l_stus                   PLS_INTEGER := 0;
     -- for LOG
     l_run_id         NUMBER := nvl(p_run_id,
                                    app_plsql_output.generate_new_run_id);
@@ -1244,14 +1455,18 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                        to_char(p_mrkt_id) || ', ' ||
                                        'p_sls_perd_id: ' ||
                                        to_char(p_sls_perd_id) || ', ' ||
-                                       'p_trg_perd_id: ' ||
-                                       to_char(p_trg_perd_id) || ', ' ||
                                        'p_sls_typ_id: ' ||
                                        to_char(p_sls_typ_id) || ', ' ||
-                                       'p_dbt_bilng_day: ' ||
-                                       to_char(p_dbt_bilng_day, 'yyyymmdd') || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
+                                       'p_bilng_day: ' ||
+                                       to_char(p_bilng_day, 'yyyy-mm-dd') || ', ' ||
+                                       'p_offst_lbl_id: ' ||
+                                       to_char(p_offst_lbl_id) || ', ' ||
+                                       'p_cash_value: ' ||
+                                       to_char(p_cash_value) || ', ' ||
+                                       'p_r_factor: ' ||
+                                       to_char(p_r_factor) || ', ' ||
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
     -- exception
     e_get_head_details EXCEPTION;
     --
@@ -1263,304 +1478,280 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
     -- AGGR: head_details
     BEGIN
-      SELECT p_dbt_on_sls_perd_id sls_perd_id,
-             offr_sku_line.sku_id,
-             offr.mrkt_id,
-             offr.veh_id,
-             offr.offr_desc_txt,
-             offr_prfl_prc_point.promtn_id,
-             offr_prfl_prc_point.promtn_clm_id,
-             offr_prfl_prc_point.sls_cls_cd,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                              dbt_osl.trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
-                              dbt_osl.offr_perd_id = p_dbt_on_offr_perd_id THEN
-                          dbt_osl.osl_unit_qty
-                         ELSE
-                          0
-                       END)) bi24_unts_on,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                              dbt_osl.trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
-                              dbt_osl.offr_perd_id = p_dbt_on_offr_perd_id THEN
-                          dbt_osl.osl_unit_qty * dbt_osl.opp_sls_prc_amt /
-                          decode(dbt_osl.opp_nr_for_qty, 0, 1, dbt_osl.opp_nr_for_qty) *
-                          decode(dbt_osl.opp_net_to_avon_fct,
-                                 0,
-                                 1,
-                                 dbt_osl.opp_net_to_avon_fct)
-                         ELSE
-                          0
-                       END)) bi24_sls_on,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                              dbt_osl.trnd_sls_perd_id = p_dbt_off_sls_perd_id AND
-                              dbt_osl.offr_perd_id = p_dbt_off_offr_perd_id THEN
-                          dbt_osl.osl_unit_qty
-                         ELSE
-                          0
-                       END)) bi24_unts_off,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                              dbt_osl.trnd_sls_perd_id = p_dbt_off_sls_perd_id AND
-                              dbt_osl.offr_perd_id = p_dbt_off_offr_perd_id THEN
-                          dbt_osl.osl_unit_qty * dbt_osl.opp_sls_prc_amt /
-                          decode(dbt_osl.opp_nr_for_qty, 0, 1, dbt_osl.opp_nr_for_qty) *
-                          decode(dbt_osl.opp_net_to_avon_fct,
-                                 0,
-                                 1,
-                                 dbt_osl.opp_net_to_avon_fct)
-                         ELSE
-                          0
-                       END)) bi24_sls_off,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                              dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id AND
-                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
-                          dstrbtd_mrkt_sls.unit_qty
-                         ELSE
-                          0
-                       END)) estimate_unts_on,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                              dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id AND
-                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
-                          dstrbtd_mrkt_sls.unit_qty *
-                          nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
-                          decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
-                                 0,
-                                 1,
-                                 offr_prfl_prc_point.nr_for_qty) *
-                          decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
-                                 0,
-                                 1,
-                                 offr_prfl_prc_point.net_to_avon_fct)
-                         ELSE
-                          0
-                       END)) estimate_sls_on,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                              dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id AND
-                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
-                          dstrbtd_mrkt_sls.unit_qty
-                         ELSE
-                          0
-                       END)) estimate_unts_off,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = 1 AND
-                              dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id AND
-                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
-                          dstrbtd_mrkt_sls.unit_qty *
-                          nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
-                          decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
-                                 0,
-                                 1,
-                                 offr_prfl_prc_point.nr_for_qty) *
-                          decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
-                                 0,
-                                 1,
-                                 offr_prfl_prc_point.net_to_avon_fct)
-                         ELSE
-                          0
-                       END)) estimate_sls_off,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = p_sls_typ_id AND
-                              dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id AND
-                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
-                          dstrbtd_mrkt_sls.unit_qty
-                         ELSE
-                          0
-                       END)) trend_unts_on,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = p_sls_typ_id AND
-                              dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id AND
-                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
-                          dstrbtd_mrkt_sls.unit_qty *
-                          nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
-                          decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
-                                 0,
-                                 1,
-                                 offr_prfl_prc_point.nr_for_qty) *
-                          decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
-                                 0,
-                                 1,
-                                 offr_prfl_prc_point.net_to_avon_fct)
-                         ELSE
-                          0
-                       END)) trend_sls_on,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = p_sls_typ_id AND
-                              dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id AND
-                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
-                          dstrbtd_mrkt_sls.unit_qty
-                         ELSE
-                          0
-                       END)) trend_unts_off,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = p_sls_typ_id AND
-                              dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id AND
-                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
-                          dstrbtd_mrkt_sls.unit_qty *
-                          nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
-                          decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
-                                 0,
-                                 1,
-                                 offr_prfl_prc_point.nr_for_qty) *
-                          decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
-                                 0,
-                                 1,
-                                 offr_prfl_prc_point.net_to_avon_fct)
-                         ELSE
-                          0
-                       END)) trend_sls_off,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = 6 AND
-                              dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id AND
-                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
-                          dstrbtd_mrkt_sls.unit_qty
-                         ELSE
-                          0
-                       END)) actual_unts_on,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = 6 AND
-                              dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id AND
-                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
-                          dstrbtd_mrkt_sls.unit_qty *
-                          nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
-                          decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
-                                 0,
-                                 1,
-                                 offr_prfl_prc_point.nr_for_qty) *
-                          decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
-                                 0,
-                                 1,
-                                 offr_prfl_prc_point.net_to_avon_fct)
-                         ELSE
-                          0
-                       END)) actual_sls_on,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = 6 AND
-                              dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id AND
-                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
-                          dstrbtd_mrkt_sls.unit_qty
-                         ELSE
-                          0
-                       END)) actual_unts_off,
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_typ_id = 6 AND
-                              dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id AND
-                              nvl(dbt_osl.dly_bilng_id_num, 1) = 1 THEN
-                          dstrbtd_mrkt_sls.unit_qty *
-                          nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
-                          decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
-                                 0,
-                                 1,
-                                 offr_prfl_prc_point.nr_for_qty) *
-                          decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
-                                 0,
-                                 1,
-                                 offr_prfl_prc_point.net_to_avon_fct)
-                         ELSE
-                          0
-                       END)) actual_sls_off
-        BULK COLLECT
-        INTO l_tbl_hist_head_aggr
-        FROM (SELECT dly_bilng_trnd.dly_bilng_id,
-                     dly_bilng_trnd.mrkt_id,
-                     dly_bilng_trnd.offr_perd_id,
-                     dly_bilng_trnd.trnd_sls_perd_id,
-                     nvl(offr_prfl_prc_point.sls_prc_amt, 0) opp_sls_prc_amt,
-                     nvl(offr_prfl_prc_point.nr_for_qty, 0) opp_nr_for_qty,
-                     nvl(offr_prfl_prc_point.net_to_avon_fct, 0) opp_net_to_avon_fct,
-                     dly_bilng_trnd_offr_sku_line.offr_sku_line_id,
-                     dly_bilng_trnd_offr_sku_line.unit_qty osl_unit_qty,
-                     row_number() over(PARTITION BY dly_bilng_trnd_offr_sku_line.offr_sku_line_id ORDER BY dly_bilng_trnd.dly_bilng_id) dly_bilng_id_num
-                FROM dly_bilng_trnd,
-                     dly_bilng_trnd_offr_sku_line,
-                     offr_sku_line,
-                     offr_prfl_prc_point,
-                     offr
-               WHERE dly_bilng_trnd.mrkt_id = p_mrkt_id
-                 AND (( --on-schedule
-                      dly_bilng_trnd.trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
-                      dly_bilng_trnd.offr_perd_id = p_dbt_on_offr_perd_id) OR
-                     ( --off-schedule
-                      dly_bilng_trnd.trnd_sls_perd_id =
-                      p_dbt_off_sls_perd_id AND
-                      dly_bilng_trnd.offr_perd_id = p_dbt_off_offr_perd_id))
-                 AND trunc(dly_bilng_trnd.prcsng_dt) <= p_dbt_bilng_day
-                    -- join: dly_bilng_trnd -> dly_bilng_trnd_offr_sku_line
-                 AND dly_bilng_trnd.dly_bilng_id =
-                     dly_bilng_trnd_offr_sku_line.dly_bilng_id
-                    -- filter: p_sls_typ_id
-                 AND dly_bilng_trnd_offr_sku_line.sls_typ_id =
-                     p_sls_typ_id_from_config
-                    -- additional filtering...
-                    -- maybe, we will not need it
-                 AND dly_bilng_trnd_offr_sku_line.offr_sku_line_id =
-                     offr_sku_line.offr_sku_line_id
-                 AND offr_sku_line.dltd_ind <> 'Y'
-                 AND offr_sku_line.offr_prfl_prcpt_id =
-                     offr_prfl_prc_point.offr_prfl_prcpt_id
-                 AND offr_prfl_prc_point.offr_id = offr.offr_id
-                 AND offr.offr_typ = 'CMP'
-                 AND offr.ver_id = 0) dbt_osl,
-             dstrbtd_mrkt_sls,
-             offr_sku_line,
-             offr_prfl_prc_point,
-             offr
-       WHERE 1 = 1
-            -- join: dly_bilng_trnd_offr_sku_line -> dstrbtd_mrkt_sls
-         AND dbt_osl.offr_sku_line_id(+) =
-             dstrbtd_mrkt_sls.offr_sku_line_id
-            -- filter: mrkt_id, 
-         AND dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
-         AND (( --on-schedule
-              dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
-              dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id) OR
-             ( --off-schedule
-              dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
-              dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id))
-         AND dstrbtd_mrkt_sls.sls_typ_id IN (1, p_sls_typ_id, 6)
-            -- additional filtering...
-         AND dstrbtd_mrkt_sls.offr_sku_line_id =
-             offr_sku_line.offr_sku_line_id
-         AND offr_sku_line.dltd_ind <> 'Y'
-         AND offr_sku_line.offr_prfl_prcpt_id =
-             offr_prfl_prc_point.offr_prfl_prcpt_id
-         AND offr_prfl_prc_point.offr_id = offr.offr_id
-         AND offr.offr_typ = 'CMP'
-         AND offr.ver_id = 0
-       GROUP BY p_dbt_on_sls_perd_id,
-                offr_sku_line.sku_id,
-                offr.mrkt_id,
-                offr.veh_id,
-                offr.offr_desc_txt,
-                offr_prfl_prc_point.promtn_id,
-                offr_prfl_prc_point.promtn_clm_id,
-                offr_prfl_prc_point.sls_cls_cd
-       ORDER BY p_dbt_on_sls_perd_id,
-                offr_sku_line.sku_id,
-                offr.mrkt_id,
-                offr.veh_id,
-                offr.offr_desc_txt,
-                offr_prfl_prc_point.promtn_id,
-                offr_prfl_prc_point.promtn_clm_id,
-                offr_prfl_prc_point.sls_cls_cd;
+      -- BI24
+      l_tbl_bi24 := get_bi24(p_mrkt_id              => p_mrkt_id,
+                             p_sls_perd_id          => p_sls_perd_id,
+                             p_sls_typ_id           => p_sls_typ_id,
+                             p_bilng_day            => p_bilng_day,
+                             p_offst_lbl_id         => NULL,
+                             p_cash_value           => p_cash_value,
+                             p_r_factor             => p_r_factor,
+                             p_x_sls_typ_lbl_id_flg => 'N',
+                             p_user_id              => l_user_id,
+                             p_run_id               => l_run_id);
+      -- DMS
+      l_tbl_dms_get_cache_flag := get_cache_flag(p_mrkt_id        => p_mrkt_id,
+                                                 p_sls_perd_id    => p_sls_perd_id,
+                                                 p_sls_typ_id     => p_sls_typ_id,
+                                                 p_sls_typ_grp_nm => c_sls_typ_grp_nm_dms,
+                                                 p_bilng_day      => p_bilng_day,
+                                                 p_user_id        => l_user_id,
+                                                 p_run_id         => l_run_id);
+      IF l_tbl_dms_get_cache_flag THEN
+        -- re-READ
+        SELECT sku_id,
+               veh_id,
+               offr_id,
+               promtn_id,
+               promtn_clm_id,
+               sls_cls_cd,
+               offst_lbl_id,
+               cash_value,
+               r_factor,
+               sls_typ_lbl_id,
+               units,
+               sales
+          BULK COLLECT
+          INTO l_tbl_dms
+          FROM trend_alloc_hist_dtls
+         WHERE mrkt_id = p_mrkt_id
+           AND sls_perd_id = p_sls_perd_id
+           AND sls_typ_id = p_sls_typ_id
+           AND sls_typ_grp_nm = c_sls_typ_grp_nm_dms
+           AND bilng_day = p_bilng_day;
+        app_plsql_log.info(l_module_name || ' DMS cache' ||
+                           l_parameter_list);
+      ELSE
+        -- re-CALCULATE
+        SELECT offr_sku_line.sku_id,
+               offr.veh_id,
+               offr.offr_id,
+               offr_prfl_prc_point.promtn_id,
+               nvl(offr_prfl_prc_point.promtn_clm_id, -999),
+               offr_prfl_prc_point.sls_cls_cd,
+               tc_dms.offst_lbl_id,
+               p_cash_value,
+               p_r_factor,
+               tc_dms.sls_typ_lbl_id,
+               round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty, 0))) units,
+               round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty, 0) *
+                         nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                         decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
+                                0,
+                                1,
+                                offr_prfl_prc_point.nr_for_qty) *
+                         decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                                0,
+                                1,
+                                offr_prfl_prc_point.net_to_avon_fct))) sales
+          BULK COLLECT
+          INTO l_tbl_dms
+          FROM dstrbtd_mrkt_sls,
+               offr_sku_line,
+               offr_prfl_prc_point,
+               offr,
+               (SELECT src_sls_typ_id,
+                       x_src_sls_typ_id,
+                       offst_lbl_id,
+                       sls_typ_lbl_id,
+                       x_sls_typ_lbl_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_src_sls) src_sls_perd_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_trgt_sls) trgt_sls_perd_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_src_offr) src_offr_perd_id,
+                       pa_maps_public.perd_plus(p_mrkt_id,
+                                                p_sls_perd_id,
+                                                offst_val_trgt_offr) trgt_offr_perd_id,
+                       r_factor
+                  FROM (SELECT src_sls_typ_id,
+                               est_src_sls_typ_id AS x_src_sls_typ_id,
+                               offst_lbl_id,
+                               sls_typ_lbl_id,
+                               x_sls_typ_lbl_id,
+                               offst_val_src_sls,
+                               offst_val_trgt_sls,
+                               offst_val_src_offr,
+                               offst_val_trgt_offr,
+                               r_factor,
+                               eff_sls_perd_id,
+                               lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                          FROM ta_config
+                         WHERE mrkt_id = p_mrkt_id
+                           AND trgt_sls_typ_id = p_sls_typ_id
+                           AND upper(REPLACE(TRIM(sls_typ_grp_nm), '  ', ' ')) IN
+                               (SELECT TRIM(regexp_substr(col,
+                                                          '[^,]+',
+                                                          1,
+                                                          LEVEL)) RESULT
+                                  FROM (SELECT c_sls_typ_grp_nm_dms col
+                                          FROM dual)
+                                CONNECT BY LEVEL <=
+                                           length(regexp_replace(col, '[^,]+')) + 1)
+                           AND eff_sls_perd_id <= p_sls_perd_id)
+                 WHERE p_sls_perd_id BETWEEN eff_sls_perd_id AND
+                       nvl(next_eff_sls_perd_id, p_sls_perd_id)) tc_dms
+         WHERE dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
+           AND dstrbtd_mrkt_sls.sls_perd_id = tc_dms.trgt_sls_perd_id
+           AND dstrbtd_mrkt_sls.offr_perd_id = tc_dms.trgt_offr_perd_id
+           AND dstrbtd_mrkt_sls.sls_typ_id = tc_dms.src_sls_typ_id
+           AND dstrbtd_mrkt_sls.offr_sku_line_id =
+               offr_sku_line.offr_sku_line_id
+           AND offr_sku_line.dltd_ind <> 'Y'
+           AND offr_sku_line.offr_prfl_prcpt_id =
+               offr_prfl_prc_point.offr_prfl_prcpt_id
+           AND offr_prfl_prc_point.offr_id = offr.offr_id
+           AND offr.offr_typ = 'CMP'
+           AND offr.ver_id = 0
+         GROUP BY offr_sku_line.sku_id,
+                  offr.veh_id,
+                  offr.offr_id,
+                  offr_prfl_prc_point.promtn_id,
+                  nvl(offr_prfl_prc_point.promtn_clm_id, -999),
+                  offr_prfl_prc_point.sls_cls_cd,
+                  tc_dms.offst_lbl_id,
+                  p_cash_value,
+                  p_r_factor,
+                  tc_dms.sls_typ_lbl_id;
+        -- write TREND_ALLOC_HIST_DTLS
+        IF p_mrkt_id IS NOT NULL AND p_sls_perd_id IS NOT NULL AND
+           p_sls_typ_id IS NOT NULL AND p_bilng_day IS NOT NULL THEN
+          -- DMS
+          BEGIN
+            DELETE FROM trend_alloc_hist_dtls
+             WHERE mrkt_id = p_mrkt_id
+               AND sls_perd_id = p_sls_perd_id
+               AND sls_typ_id = p_sls_typ_id
+               AND sls_typ_grp_nm = c_sls_typ_grp_nm_dms
+               AND bilng_day = p_bilng_day;
+            app_plsql_log.info(l_module_name || ' ' || SQL%ROWCOUNT ||
+                               ' records DELETED from trend_alloc_hist_dtls - ' ||
+                               c_sls_typ_grp_nm_dms || l_parameter_list);
+            IF l_tbl_dms.count > 0 THEN
+              FOR i IN l_tbl_dms.first .. l_tbl_dms.last LOOP
+                l_stus := 2;
+                BEGIN
+                  INSERT INTO trend_alloc_hist_dtls
+                    (mrkt_id,
+                     sls_perd_id,
+                     sls_typ_id,
+                     sls_typ_grp_nm,
+                     bilng_day,
+                     sku_id,
+                     veh_id,
+                     offr_id,
+                     promtn_id,
+                     promtn_clm_id,
+                     sls_cls_cd,
+                     offst_lbl_id,
+                     cash_value,
+                     r_factor,
+                     sls_typ_lbl_id,
+                     units,
+                     sales)
+                  VALUES
+                    (p_mrkt_id,
+                     p_sls_perd_id,
+                     p_sls_typ_id,
+                     c_sls_typ_grp_nm_dms,
+                     p_bilng_day,
+                     l_tbl_dms(i).sku_id,
+                     l_tbl_dms(i).veh_id,
+                     l_tbl_dms(i).offr_id,
+                     l_tbl_dms(i).promtn_id,
+                     l_tbl_dms(i).promtn_clm_id,
+                     l_tbl_dms(i).sls_cls_cd,
+                     l_tbl_dms(i).offst_lbl_id,
+                     l_tbl_dms(i).cash_value,
+                     l_tbl_dms(i).r_factor,
+                     l_tbl_dms(i).sls_typ_lbl_id,
+                     l_tbl_dms(i).units,
+                     l_tbl_dms(i).sales);
+                  -- count REAL insert
+                  l_ins_cnt := l_ins_cnt + 1;
+                  l_stus    := 0;
+                EXCEPTION
+                  WHEN OTHERS
+                  -- log
+                   THEN
+                    app_plsql_log.error('ERROR at INSERT INTO trend_alloc_hist_dtls (mrkt_id: ' ||
+                                        p_mrkt_id || ', sls_perd_id: ' ||
+                                        p_sls_perd_id || ', sls_typ_id: ' ||
+                                        p_sls_typ_id ||
+                                        ', sls_typ_grp_nm: ' ||
+                                        c_sls_typ_grp_nm_dms ||
+                                        ', bilng_day: ' || p_bilng_day ||
+                                        ', sku_id: ' || l_tbl_dms(i)
+                                        .sku_id || ', veh_id: ' || l_tbl_dms(i)
+                                        .veh_id || ', offr_id: ' || l_tbl_dms(i)
+                                        .offr_id || ', promtn_id: ' || l_tbl_dms(i)
+                                        .promtn_id || ', promtn_clm_id: ' || l_tbl_dms(i)
+                                        .promtn_clm_id || ', sls_cls_cd: ' || l_tbl_dms(i)
+                                        .sls_cls_cd || ', offst_lbl_id: ' || l_tbl_dms(i)
+                                        .offst_lbl_id ||
+                                        ', sls_typ_lbl_id: ' || l_tbl_dms(i)
+                                        .sls_typ_lbl_id);
+                    RAISE;
+                END;
+              END LOOP;
+            END IF;
+            -- write into TREND_ALLOC_HIST_DTLS_LOG
+            MERGE INTO trend_alloc_hist_dtls_log l
+            USING (SELECT p_mrkt_id            AS mrkt_id,
+                          p_sls_perd_id        AS sls_perd_id,
+                          p_sls_typ_id         AS sls_typ_id,
+                          c_sls_typ_grp_nm_dms AS sls_typ_grp_nm,
+                          p_bilng_day          AS bilng_day,
+                          SYSDATE              AS last_updt_ts
+                     FROM dual) m
+            ON (l.mrkt_id = m.mrkt_id AND l.sls_perd_id = m.sls_perd_id AND l.sls_typ_id = m.sls_typ_id AND l.sls_typ_grp_nm = m.sls_typ_grp_nm AND l.bilng_day = m.bilng_day)
+            WHEN MATCHED THEN
+              UPDATE SET l.last_updt_ts = m.last_updt_ts
+            WHEN NOT MATCHED THEN
+              INSERT
+                (mrkt_id,
+                 sls_perd_id,
+                 sls_typ_id,
+                 sls_typ_grp_nm,
+                 bilng_day,
+                 last_updt_ts)
+              VALUES
+                (m.mrkt_id,
+                 m.sls_perd_id,
+                 m.sls_typ_id,
+                 m.sls_typ_grp_nm,
+                 m.bilng_day,
+                 m.last_updt_ts);
+          EXCEPTION
+            WHEN OTHERS THEN
+              ROLLBACK;
+              l_stus := 2;
+              app_plsql_log.info(l_module_name || ' FAILED, error code: ' ||
+                                 SQLCODE || ' error message: ' || SQLERRM ||
+                                 l_parameter_list);
+          END;
+          IF l_stus = 0 THEN
+            COMMIT;
+            app_plsql_log.info(l_module_name || ' COMMIT, status_code: ' ||
+                               to_char(l_stus) ||
+                               ' trend_alloc_hist_dtls (insert): ' ||
+                               l_ins_cnt || l_parameter_list);
+          ELSE
+            ROLLBACK;
+            app_plsql_log.info(l_module_name || ' ROLLBACK, status_code: ' ||
+                               to_char(l_stus) || l_parameter_list);
+          END IF;
+        END IF;
+      END IF;
+      -- join COLLECTIONS
+      l_tbl_hist_detail := l_tbl_bi24 MULTISET UNION l_tbl_dms;
     EXCEPTION
       WHEN OTHERS THEN
+        ROLLBACK;
         app_plsql_log.error(l_module_name || ' error code:' || SQLCODE ||
                             ' error message: ' || SQLERRM ||
                             l_parameter_list);
@@ -1569,27 +1760,17 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     --
     app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
     --
-    RETURN l_tbl_hist_head_aggr;
+    RETURN l_tbl_hist_detail;
   END get_head_details;
 
-  FUNCTION get_reproc_trnd(p_mrkt_id                IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                           p_sls_perd_id            IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_trg_perd_id            IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_sls_typ_id             IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                           p_bilng_day              IN dly_bilng_trnd.prcsng_dt%TYPE,
-                           p_sls_typ_id_from_config IN mrkt_config_item.mrkt_config_item_val_txt%TYPE,
-                           p_dbt_on_sls_perd_id     IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                           p_dbt_on_offr_perd_id    IN dly_bilng_trnd.offr_perd_id%TYPE,
-                           p_dbt_off_sls_perd_id    IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                           p_dbt_off_offr_perd_id   IN dly_bilng_trnd.offr_perd_id%TYPE,
-                           p_dms_on_sls_perd_id     IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_dms_on_offr_perd_id    IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-                           p_dms_off_sls_perd_id    IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_dms_off_offr_perd_id   IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-                           p_cash_value             IN NUMBER,
-                           p_r_factor               IN NUMBER,
-                           p_run_id                 IN NUMBER DEFAULT NULL,
-                           p_user_id                IN VARCHAR2 DEFAULT NULL)
+  FUNCTION get_reproc_trnd(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                           p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                           p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                           p_bilng_day   IN dly_bilng_trnd.prcsng_dt%TYPE,
+                           p_cash_value  IN NUMBER,
+                           p_r_factor    IN NUMBER,
+                           p_user_id     IN VARCHAR2 DEFAULT NULL,
+                           p_run_id      IN NUMBER DEFAULT NULL)
     RETURN t_reproc IS
     -- local variables
     l_table_reproc_trnd t_reproc;
@@ -1602,8 +1783,6 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                        to_char(p_mrkt_id) || ', ' ||
                                        'p_sls_perd_id: ' ||
                                        to_char(p_sls_perd_id) || ', ' ||
-                                       'p_trg_perd_id: ' ||
-                                       to_char(p_trg_perd_id) || ', ' ||
                                        'p_sls_typ_id: ' ||
                                        to_char(p_sls_typ_id) || ', ' ||
                                        'p_bilng_day: ' ||
@@ -1612,8 +1791,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                        to_char(p_cash_value) || ', ' ||
                                        'p_r_factor: ' ||
                                        to_char(p_r_factor) || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
     -- exception
     e_get_reproc_trnd EXCEPTION;
     --
@@ -1625,86 +1804,28 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
     -- forecasted - BIAS, BI24, FSC_CD
     BEGIN
-      SELECT p_mrkt_id,
-             p_sls_typ_id,
-             offr_sku_line_id,
-             p_dbt_on_sls_perd_id,
-             p_dbt_on_offr_perd_id,
-             p_dbt_off_sls_perd_id,
-             p_dbt_off_offr_perd_id,
-             p_dms_on_sls_perd_id,
-             p_dms_on_offr_perd_id,
-             p_dms_off_sls_perd_id,
-             p_dms_off_offr_perd_id,
-             -- On-Schedule
-             -- frcstd_unts_on
+      SELECT offr_sku_line_id,
+             offst_lbl_id,
+             sls_typ_lbl_id,
              round(SUM(CASE
-                         WHEN trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
-                              offr_perd_id = p_dbt_on_offr_perd_id THEN
+                         WHEN sct_unit_qty IS NOT NULL THEN
                           CASE
-                            WHEN sct_unit_qty IS NOT NULL THEN
-                             CASE
-                               WHEN total_unit_qty_by_fsc_cd = 0 THEN
-                                1 / total_cnt_by_fsc_cd
-                               ELSE
-                                (osl_unit_qty / total_unit_qty_by_fsc_cd) * sct_unit_qty
-                             END
+                            WHEN total_unit_qty_by_fsc_cd = 0 THEN
+                             1 / total_cnt_by_fsc_cd
                             ELSE
-                             p_r_factor * bias * bi24_adj * osl_unit_qty
+                             (osl_unit_qty / total_unit_qty_by_fsc_cd) * sct_unit_qty
                           END
                          ELSE
-                          0
-                       END)) frcstd_unts_on,
-             -- frcstd_sls_on
+                          p_r_factor * bias * bi24_adj * osl_unit_qty
+                       END)) units,
              round(SUM(CASE
-                         WHEN trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
-                              offr_perd_id = p_dbt_on_offr_perd_id THEN
-                          CASE
-                            WHEN sct_unit_qty IS NOT NULL THEN
-                             (osl_unit_qty / total_unit_qty_by_fsc_cd) * sct_unit_qty *
-                             (opp_sls_prc_amt / opp_nr_for_qty * opp_net_to_avon_fct)
-                            ELSE
-                             p_r_factor * bias * bi24_adj * osl_unit_qty *
-                             (opp_sls_prc_amt / opp_nr_for_qty * opp_net_to_avon_fct)
-                          END
+                         WHEN sct_unit_qty IS NOT NULL THEN
+                          (osl_unit_qty / total_unit_qty_by_fsc_cd) * sct_unit_qty *
+                          (opp_sls_prc_amt / opp_nr_for_qty * opp_net_to_avon_fct)
                          ELSE
-                          0
-                       END)) frcstd_sls_on,
-             -- Off-Schedule
-             -- frcstd_unts_off
-             round(SUM(CASE
-                         WHEN trnd_sls_perd_id = p_dbt_off_sls_perd_id AND
-                              offr_perd_id = p_dbt_off_offr_perd_id THEN
-                          CASE
-                            WHEN sct_unit_qty IS NOT NULL THEN
-                             CASE
-                               WHEN total_unit_qty_by_fsc_cd = 0 THEN
-                                1 / total_cnt_by_fsc_cd
-                               ELSE
-                                (osl_unit_qty / total_unit_qty_by_fsc_cd) * sct_unit_qty
-                             END
-                            ELSE
-                             p_r_factor * bias * bi24_adj * osl_unit_qty
-                          END
-                         ELSE
-                          0
-                       END)) frcstd_unts_off,
-             -- frcstd_sls_off
-             round(SUM(CASE
-                         WHEN trnd_sls_perd_id = p_dbt_off_sls_perd_id AND
-                              offr_perd_id = p_dbt_off_offr_perd_id THEN
-                          CASE
-                            WHEN sct_unit_qty IS NOT NULL THEN
-                             (osl_unit_qty / total_unit_qty_by_fsc_cd) * sct_unit_qty *
-                             (opp_sls_prc_amt / opp_nr_for_qty * opp_net_to_avon_fct)
-                            ELSE
-                             p_r_factor * bias * bi24_adj * osl_unit_qty *
-                             (opp_sls_prc_amt / opp_nr_for_qty * opp_net_to_avon_fct)
-                          END
-                         ELSE
-                          0
-                       END)) frcstd_sls_off,
-             -- additional...
+                          p_r_factor * bias * bi24_adj * osl_unit_qty *
+                          (opp_sls_prc_amt / opp_nr_for_qty * opp_net_to_avon_fct)
+                       END)) sales,
              veh_id,
              SUM(CASE
                    WHEN sct_unit_qty IS NOT NULL THEN
@@ -1729,48 +1850,109 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                     END
                    ELSE
                     p_r_factor * bias * bi24_adj * osl_tax_amt
-                 END) tax_amt,
-             CASE
-               WHEN trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
-                    offr_perd_id = p_dbt_on_offr_perd_id THEN
-                'ON'
-               ELSE
-                'OFF'
-             END on_off_flag
+                 END) tax_amt
         BULK COLLECT
         INTO l_table_reproc_trnd
-        FROM ( -- DBT - inner select
-              SELECT dly_bilng_trnd_offr_sku_line.offr_sku_line_id,
-                      -- DBT
-                      dly_bilng_trnd.trnd_sls_perd_id,
-                      dly_bilng_trnd.offr_perd_id,
-                      -- OSL
-                      nvl(dly_bilng_trnd_offr_sku_line.unit_qty, 0) osl_unit_qty,
-                      nvl(dly_bilng_trnd_offr_sku_line.comsn_amt, 0) osl_comsn_amt,
-                      nvl(dly_bilng_trnd_offr_sku_line.tax_amt, 0) osl_tax_amt,
-                      -- OPP
-                      nvl(offr_prfl_prc_point.sls_prc_amt, 0) opp_sls_prc_amt,
-                      decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
-                             0,
-                             1,
-                             offr_prfl_prc_point.nr_for_qty) opp_nr_for_qty,
-                      decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
-                             0,
-                             1,
-                             offr_prfl_prc_point.net_to_avon_fct) opp_net_to_avon_fct,
-                      SUM(dly_bilng_trnd_offr_sku_line.unit_qty) over(PARTITION BY p_mrkt_id, p_sls_perd_id, p_sls_typ_id, dly_bilng_trnd.fsc_cd) total_unit_qty_by_fsc_cd,
-                      COUNT(1) over(PARTITION BY p_mrkt_id, p_sls_perd_id, p_sls_typ_id, dly_bilng_trnd.fsc_cd) total_cnt_by_fsc_cd,
-                      -- BIAS
-                      nvl(bias_pct / 100, 1) bias,
-                      -- BI24_ADJ
-                      nvl(dly_bilng_adjstmnt.unit_qty /
-                          nvl(dly_bilng_trnd.unit_qty, 1),
-                          1) bi24_adj,
-                      -- FSC
-                      sct_fsc_ovrrd.sct_unit_qty,
-                      -- additional...
-                      offr.veh_id
-                FROM dly_bilng_trnd,
+        FROM (WITH dbt AS (SELECT dly_bilng_trnd.dly_bilng_id,
+                                  dly_bilng_trnd.unit_qty,
+                                  dly_bilng_trnd.fsc_cd,
+                                  dly_bilng_trnd.sku_id,
+                                  tc_trnd.offst_lbl_id,
+                                  tc_trnd.sls_typ_lbl_id,
+                                  tc_trnd.src_sls_typ_id,
+                                  tc_trnd.trgt_sls_perd_id,
+                                  tc_trnd.trgt_offr_perd_id
+                             FROM dly_bilng_trnd,
+                                  (SELECT src_sls_typ_id,
+                                          x_src_sls_typ_id,
+                                          offst_lbl_id,
+                                          sls_typ_lbl_id,
+                                          x_sls_typ_lbl_id,
+                                          pa_maps_public.perd_plus(p_mrkt_id,
+                                                                   p_sls_perd_id,
+                                                                   offst_val_src_sls) src_sls_perd_id,
+                                          pa_maps_public.perd_plus(p_mrkt_id,
+                                                                   p_sls_perd_id,
+                                                                   offst_val_trgt_sls) trgt_sls_perd_id,
+                                          pa_maps_public.perd_plus(p_mrkt_id,
+                                                                   p_sls_perd_id,
+                                                                   offst_val_src_offr) src_offr_perd_id,
+                                          pa_maps_public.perd_plus(p_mrkt_id,
+                                                                   p_sls_perd_id,
+                                                                   offst_val_trgt_offr) trgt_offr_perd_id,
+                                          r_factor
+                                     FROM (SELECT src_sls_typ_id,
+                                                  est_src_sls_typ_id AS x_src_sls_typ_id,
+                                                  offst_lbl_id,
+                                                  sls_typ_lbl_id,
+                                                  x_sls_typ_lbl_id,
+                                                  offst_val_src_sls,
+                                                  offst_val_trgt_sls,
+                                                  offst_val_src_offr,
+                                                  offst_val_trgt_offr,
+                                                  r_factor,
+                                                  eff_sls_perd_id,
+                                                  lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                                             FROM ta_config
+                                            WHERE mrkt_id = p_mrkt_id
+                                              AND trgt_sls_typ_id =
+                                                  p_sls_typ_id
+                                              AND upper(REPLACE(TRIM(sls_typ_grp_nm),
+                                                                '  ',
+                                                                ' ')) IN
+                                                  (SELECT TRIM(regexp_substr(col,
+                                                                             '[^,]+',
+                                                                             1,
+                                                                             LEVEL)) RESULT
+                                                     FROM (SELECT c_sls_typ_grp_nm_fc_dbt col
+                                                             FROM dual)
+                                                   CONNECT BY LEVEL <=
+                                                              length(regexp_replace(col,
+                                                                                    '[^,]+')) + 1)
+                                              AND eff_sls_perd_id <=
+                                                  p_sls_perd_id)
+                                    WHERE p_sls_perd_id BETWEEN
+                                          eff_sls_perd_id AND
+                                          nvl(next_eff_sls_perd_id,
+                                              p_sls_perd_id)) tc_trnd
+                            WHERE dly_bilng_trnd.mrkt_id = p_mrkt_id
+                              AND dly_bilng_trnd.trnd_sls_perd_id =
+                                  tc_trnd.src_sls_perd_id
+                              AND dly_bilng_trnd.offr_perd_id =
+                                  tc_trnd.src_offr_perd_id
+                              AND trunc(dly_bilng_trnd.prcsng_dt) <=
+                                  p_bilng_day
+                              AND dly_bilng_trnd.trnd_aloctn_auto_stus_id IN
+                                  (auto_matched,
+                                   auto_suggested_single,
+                                   auto_suggested_multi))
+               SELECT /*+ INDEX(DLY_BILNG_TRND_OFFR_SKU_LINE PK_DB_TRND_OFFR_SKU_LINE) */
+                dly_bilng_trnd_offr_sku_line.offr_sku_line_id,
+                dbt.offst_lbl_id,
+                dbt.sls_typ_lbl_id,
+                nvl(dly_bilng_trnd_offr_sku_line.unit_qty, 0) osl_unit_qty,
+                nvl(dly_bilng_trnd_offr_sku_line.comsn_amt, 0) osl_comsn_amt,
+                nvl(dly_bilng_trnd_offr_sku_line.tax_amt, 0) osl_tax_amt,
+                nvl(offr_prfl_prc_point.sls_prc_amt, 0) opp_sls_prc_amt,
+                decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
+                       0,
+                       1,
+                       offr_prfl_prc_point.nr_for_qty) opp_nr_for_qty,
+                decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                       0,
+                       1,
+                       offr_prfl_prc_point.net_to_avon_fct) opp_net_to_avon_fct,
+                SUM(dly_bilng_trnd_offr_sku_line.unit_qty) over(PARTITION BY p_mrkt_id, p_sls_perd_id, p_sls_typ_id, dbt.fsc_cd, dbt.offst_lbl_id) total_unit_qty_by_fsc_cd,
+                COUNT(1) over(PARTITION BY p_mrkt_id, p_sls_perd_id, p_sls_typ_id, dbt.fsc_cd, dbt.offst_lbl_id) total_cnt_by_fsc_cd,
+                -- BIAS
+                nvl(mrkt_perd_sku_bias.bias_pct / 100, 1) bias,
+                -- BI24_ADJ
+                nvl(dly_bilng_adjstmnt.unit_qty / nvl(dbt.unit_qty, 1), 1) bi24_adj,
+                -- FSC
+                sct_fsc_ovrrd.sct_unit_qty,
+                -- additional...
+                offr.veh_id
+                 FROM dbt,
                       sct_fsc_ovrrd,
                       dly_bilng_trnd_offr_sku_line,
                       offr_sku_line,
@@ -1778,63 +1960,35 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                       offr,
                       mrkt_perd_sku_bias,
                       dly_bilng_adjstmnt
-               WHERE 1 = 1
-                    -- filter: dly_bilng_trnd
-                 AND dly_bilng_trnd.mrkt_id = p_mrkt_id
-                 AND dly_bilng_trnd.trnd_sls_perd_id = p_sls_perd_id
-                 AND (( --on-schedule
-                      dly_bilng_trnd.trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
-                      dly_bilng_trnd.offr_perd_id = p_dbt_on_offr_perd_id) OR
-                     ( --off-schedule
-                      dly_bilng_trnd.trnd_sls_perd_id = p_dbt_off_sls_perd_id AND
-                      dly_bilng_trnd.offr_perd_id = p_dbt_off_offr_perd_id))
-                 AND trunc(dly_bilng_trnd.prcsng_dt) <= p_bilng_day
-                    -- join: dly_bilng_trnd -> sct_fsc_ovrrd
-                 AND p_mrkt_id = sct_fsc_ovrrd.mrkt_id(+)
-                 AND p_trg_perd_id = sct_fsc_ovrrd.sls_perd_id(+)
-                 AND p_sls_typ_id = sct_fsc_ovrrd.sls_typ_id(+)
-                 AND dly_bilng_trnd.fsc_cd = sct_fsc_ovrrd.fsc_cd(+)
-                    -- join: dly_bilng_trnd -> dly_bilng_trnd_offr_sku_line
-                 AND dly_bilng_trnd.dly_bilng_id =
-                     dly_bilng_trnd_offr_sku_line.dly_bilng_id
-                    -- filter: p_sls_typ_id
-                 AND dly_bilng_trnd_offr_sku_line.sls_typ_id =
-                     p_sls_typ_id_from_config
-                    -- additional filtering...
-                 AND dly_bilng_trnd_offr_sku_line.offr_sku_line_id =
-                     offr_sku_line.offr_sku_line_id
-                 AND offr_sku_line.dltd_ind <> 'Y'
-                 AND offr_sku_line.offr_prfl_prcpt_id =
-                     offr_prfl_prc_point.offr_prfl_prcpt_id
-                 AND offr_prfl_prc_point.offr_id = offr.offr_id
-                 AND offr.offr_typ = 'CMP'
-                 AND offr.ver_id = 0
-                    -- join: dly_bilng_trnd -> mrkt_perd_sku_bias
-                 AND p_mrkt_id = mrkt_perd_sku_bias.mrkt_id(+)
-                 AND p_trg_perd_id = mrkt_perd_sku_bias.sls_perd_id(+)
-                 AND dly_bilng_trnd.sku_id = mrkt_perd_sku_bias.sku_id(+)
-                    -- join: dly_bilng_trnd -> dly_bilng_adjstmnt
-                 AND dly_bilng_trnd.dly_bilng_id =
-                     dly_bilng_adjstmnt.dly_bilng_id(+))
-       GROUP BY p_mrkt_id,
-                p_sls_typ_id,
-                offr_sku_line_id,
-                p_dbt_on_sls_perd_id,
-                p_dbt_on_offr_perd_id,
-                p_dbt_off_sls_perd_id,
-                p_dbt_off_offr_perd_id,
-                p_dms_on_sls_perd_id,
-                p_dms_on_offr_perd_id,
-                p_dms_off_sls_perd_id,
-                p_dms_off_offr_perd_id,
-                veh_id,
-                CASE
-                  WHEN trnd_sls_perd_id = p_dbt_on_sls_perd_id AND
-                       offr_perd_id = p_dbt_on_offr_perd_id THEN
-                   'ON'
-                  ELSE
-                   'OFF'
-                END;
+                WHERE p_mrkt_id = sct_fsc_ovrrd.mrkt_id(+)
+                  AND dbt.trgt_sls_perd_id = sct_fsc_ovrrd.sls_perd_id(+)
+                  AND p_sls_typ_id = sct_fsc_ovrrd.sls_typ_id(+)
+                  AND to_number(dbt.fsc_cd) =
+                      to_number(sct_fsc_ovrrd.fsc_cd(+))
+                  AND dbt.offst_lbl_id = sct_fsc_ovrrd.offst_lbl_id(+)
+                  AND dbt.dly_bilng_id =
+                      dly_bilng_trnd_offr_sku_line.dly_bilng_id
+                  AND dly_bilng_trnd_offr_sku_line.sls_typ_id =
+                      dbt.src_sls_typ_id
+                  AND dly_bilng_trnd_offr_sku_line.offr_sku_line_id =
+                      offr_sku_line.offr_sku_line_id
+                  AND offr_sku_line.dltd_ind <> 'Y'
+                  AND offr_sku_line.offr_prfl_prcpt_id =
+                      offr_prfl_prc_point.offr_prfl_prcpt_id
+                  AND offr_prfl_prc_point.offr_id = offr.offr_id
+                  AND offr.offr_typ = 'CMP'
+                  AND offr.ver_id = 0
+                  AND p_mrkt_id = mrkt_perd_sku_bias.mrkt_id(+)
+                  AND dbt.trgt_sls_perd_id =
+                      mrkt_perd_sku_bias.sls_perd_id(+)
+                  AND dbt.sku_id = mrkt_perd_sku_bias.sku_id(+)
+                  AND p_sls_typ_id = mrkt_perd_sku_bias.sls_typ_id(+)
+                  AND dbt.dly_bilng_id = dly_bilng_adjstmnt.dly_bilng_id(+))
+                GROUP BY offr_sku_line_id,
+                         offst_lbl_id,
+                         sls_typ_lbl_id,
+                         veh_id;
+    
     EXCEPTION
       WHEN OTHERS THEN
         app_plsql_log.error(l_module_name || ' error code:' || SQLCODE ||
@@ -1850,26 +2004,18 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
 
   FUNCTION get_reproc_est(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
                           p_sls_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                          p_trg_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
                           p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
                           p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
-                          p_dbt_on_sls_perd_id   IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                          p_dbt_on_offr_perd_id  IN dly_bilng_trnd.offr_perd_id%TYPE,
-                          p_dbt_off_sls_perd_id  IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                          p_dbt_off_offr_perd_id IN dly_bilng_trnd.offr_perd_id%TYPE,
-                          p_dms_on_sls_perd_id   IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                          p_dms_on_offr_perd_id  IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
-                          p_dms_off_sls_perd_id  IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                          p_dms_off_offr_perd_id IN dstrbtd_mrkt_sls.offr_perd_id%TYPE,
                           p_cash_value           IN NUMBER,
                           p_r_factor             IN NUMBER,
                           p_use_offers_on_sched  IN CHAR DEFAULT 'N',
                           p_use_offers_off_sched IN CHAR DEFAULT 'N',
-                          p_run_id               IN NUMBER DEFAULT NULL,
-                          p_user_id              IN VARCHAR2 DEFAULT NULL)
+                          p_user_id              IN VARCHAR2 DEFAULT NULL,
+                          p_run_id               IN NUMBER DEFAULT NULL)
     RETURN t_reproc IS
     -- local variables
     l_table_reproc_est     t_reproc;
+    l_trg_perd_id          dstrbtd_mrkt_sls.sls_perd_id%TYPE;
     l_use_offers_on_sched  CHAR(1) := upper(nvl(p_use_offers_on_sched, 'N'));
     l_use_offers_off_sched CHAR(1) := upper(nvl(p_use_offers_off_sched, 'N'));
     -- for LOG
@@ -1881,8 +2027,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                        to_char(p_mrkt_id) || ', ' ||
                                        'p_sls_perd_id: ' ||
                                        to_char(p_sls_perd_id) || ', ' ||
-                                       'p_trg_perd_id: ' ||
-                                       to_char(p_trg_perd_id) || ', ' ||
+                                       'l_trg_perd_id: ' ||
+                                       to_char(l_trg_perd_id) || ', ' ||
                                        'p_sls_typ_id: ' ||
                                        to_char(p_sls_typ_id) || ', ' ||
                                        'p_bilng_day: ' ||
@@ -1891,8 +2037,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                        to_char(p_cash_value) || ', ' ||
                                        'p_r_factor: ' ||
                                        to_char(p_r_factor) || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
     -- exception
     e_get_reproc_est EXCEPTION;
     --
@@ -1902,185 +2048,201 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     app_plsql_output.set_run_id(l_run_id);
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
     app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
+    -- get TARGET period
+    BEGIN
+      SELECT MAX(trgt_sls_perd_id)
+        INTO l_trg_perd_id
+        FROM TABLE(pa_trend_alloc.get_ta_config(p_mrkt_id        => p_mrkt_id,
+                                                    p_sls_perd_id    => p_sls_perd_id,
+                                                    p_sls_typ_id     => p_sls_typ_id,
+                                                    p_sls_typ_grp_nm => c_sls_typ_grp_nm_fc_dbt));
+    EXCEPTION
+      WHEN OTHERS THEN
+        app_plsql_log.info(l_module_name ||
+                           ' warning: RECORD not found in CONFIG table: ta_config where mrkt_id=' ||
+                           to_char(p_mrkt_id) || ' and trgt_sls_typ_id = ' ||
+                           to_char(p_sls_typ_id) ||
+                           ' and sls_typ_grp_nm in (' ||
+                           c_sls_typ_grp_nm_fc_dbt || ')' ||
+                           ' and eff_sls_perd_id <= ' ||
+                           to_char(p_sls_perd_id) || l_parameter_list);
+        l_trg_perd_id := NULL;
+    END;
     -- forecasted - EST
     BEGIN
-      SELECT p_mrkt_id,
-             p_sls_typ_id,
-             dstrbtd_mrkt_sls.offr_sku_line_id,
-             p_dbt_on_sls_perd_id,
-             p_dbt_on_offr_perd_id,
-             p_dbt_off_sls_perd_id,
-             p_dbt_off_offr_perd_id,
-             p_dms_on_sls_perd_id,
-             p_dms_on_offr_perd_id,
-             p_dms_off_sls_perd_id,
-             p_dms_off_offr_perd_id,
-             -- On-Schedule
-             -- frcstd_unts_on
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id THEN
-                          nvl(sct_fsc_ovrrd.sct_unit_qty,
-                              decode(l_use_offers_on_sched,
-                                     'Y',
-                                     dstrbtd_mrkt_sls.unit_qty,
-                                     0))
-                         ELSE
-                          0
-                       END)) est_unts_on,
-             -- frcstd_sls_on
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id THEN
-                          nvl(sct_fsc_ovrrd.sct_unit_qty,
-                              decode(l_use_offers_on_sched,
-                                     'Y',
-                                     dstrbtd_mrkt_sls.unit_qty,
-                                     0)) *
-                          (nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
-                           decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
-                                  0,
-                                  1,
-                                  offr_prfl_prc_point.nr_for_qty) *
-                           decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
-                                  0,
-                                  1,
-                                  offr_prfl_prc_point.net_to_avon_fct) /
-                           decode(dstrbtd_mrkt_sls.unit_qty,
-                                  0,
-                                  1,
-                                  dstrbtd_mrkt_sls.unit_qty))
-                         ELSE
-                          0
-                       END)) est_sls_on,
-             -- Off-Schedule
-             -- frcstd_unts_off
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id THEN
-                          nvl(sct_fsc_ovrrd.sct_unit_qty,
-                              decode(l_use_offers_off_sched,
-                                     'Y',
-                                     dstrbtd_mrkt_sls.unit_qty,
-                                     0))
-                         ELSE
-                          0
-                       END)) est_unts_off,
-             -- frcstd_sls_off
-             round(SUM(CASE
-                         WHEN dstrbtd_mrkt_sls.sls_perd_id = p_dms_off_sls_perd_id AND
-                              dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id THEN
-                          nvl(sct_fsc_ovrrd.sct_unit_qty,
-                              decode(l_use_offers_on_sched,
-                                     'Y',
-                                     dstrbtd_mrkt_sls.unit_qty,
-                                     0)) *
-                          (nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
-                           decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
-                                  0,
-                                  1,
-                                  offr_prfl_prc_point.nr_for_qty) *
-                           decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
-                                  0,
-                                  1,
-                                  offr_prfl_prc_point.net_to_avon_fct) /
-                           decode(dstrbtd_mrkt_sls.unit_qty,
-                                  0,
-                                  1,
-                                  dstrbtd_mrkt_sls.unit_qty))
-                         ELSE
-                          0
-                       END)) est_sls_off,
-             -- additional...
-             offr.veh_id,
+      SELECT x.offr_sku_line_id,
+             x.offst_lbl_id,
+             x.sls_typ_lbl_id,
+             round(SUM(nvl(sct_fsc_ovrrd.sct_unit_qty,
+                           CASE
+                             WHEN x.lbl_desc = 'ON-SCHEDULE' AND
+                                  l_use_offers_on_sched = 'Y' THEN
+                              nvl(x.unit_qty, 0)
+                             WHEN x.lbl_desc = 'ON-SCHEDULE' AND
+                                  l_use_offers_on_sched <> 'Y' THEN
+                              0
+                             WHEN x.lbl_desc = 'OFF-SCHEDULE' AND
+                                  l_use_offers_off_sched = 'Y' THEN
+                              nvl(x.unit_qty, 0)
+                             WHEN x.lbl_desc = 'OFF-SCHEDULE' AND
+                                  l_use_offers_off_sched <> 'Y' THEN
+                              0
+                           END))) units,
+             round(SUM(nvl(sct_fsc_ovrrd.sct_unit_qty,
+                           CASE
+                             WHEN x.lbl_desc = 'ON-SCHEDULE' AND
+                                  l_use_offers_on_sched = 'Y' THEN
+                              nvl(x.unit_qty, 0)
+                             WHEN x.lbl_desc = 'ON-SCHEDULE' AND
+                                  l_use_offers_on_sched <> 'Y' THEN
+                              0
+                             WHEN x.lbl_desc = 'OFF-SCHEDULE' AND
+                                  l_use_offers_off_sched = 'Y' THEN
+                              nvl(x.unit_qty, 0)
+                             WHEN x.lbl_desc = 'OFF-SCHEDULE' AND
+                                  l_use_offers_off_sched <> 'Y' THEN
+                              0
+                           END) *
+                       (nvl(x.sls_prc_amt, 0) /
+                        decode(nvl(x.nr_for_qty, 0), 0, 1, x.nr_for_qty) *
+                        decode(nvl(x.net_to_avon_fct, 0),
+                               0,
+                               1,
+                               x.net_to_avon_fct) /
+                        decode(nvl(x.unit_qty, 0), 0, 1, x.unit_qty)))) sales,
+             x.veh_id,
              NULL comsn_amt,
-             NULL tax_amt,
-             CASE
-               WHEN dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
-                    dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id THEN
-                'ON'
-               ELSE
-                'OFF'
-             END on_off_flag
+             NULL tax_amt
         BULK COLLECT
         INTO l_table_reproc_est
-        FROM dstrbtd_mrkt_sls,
-             dly_bilng_trnd_offr_sku_line,
-             offr_sku_line,
-             offr_prfl_prc_point,
-             offr,
-             --dly_bilng_trnd,
-             sct_fsc_ovrrd,
-             (SELECT mrkt_id,
-                     MAX(fsc_cd) max_fsc_cd,
-                     from_strt_perd_id,
-                     to_strt_perd_id,
-                     sku_id
-                FROM (SELECT mrkt_id,
-                             fsc_cd,
-                             strt_perd_id from_strt_perd_id,
-                             nvl(lead(strt_perd_id, 1)
-                                 over(PARTITION BY mrkt_id,
-                                      fsc_cd ORDER BY strt_perd_id),
-                                 99999999) to_strt_perd_id,
+        FROM (SELECT dstrbtd_mrkt_sls.offr_sku_line_id,
+                     dstrbtd_mrkt_sls.unit_qty,
+                     tc_est.offst_lbl_id,
+                     tc_est.sls_typ_lbl_id,
+                     tc_est.lbl_desc,
+                     offr_prfl_prc_point.sls_prc_amt,
+                     offr_prfl_prc_point.nr_for_qty,
+                     offr_prfl_prc_point.net_to_avon_fct,
+                     offr.veh_id,
+                     mrkt_tmp_fsc.max_fsc_cd
+                FROM dstrbtd_mrkt_sls,
+                     dly_bilng_trnd_offr_sku_line,
+                     offr_sku_line,
+                     offr_prfl_prc_point,
+                     offr,
+                     (SELECT tc.src_sls_typ_id,
+                             tc.x_src_sls_typ_id,
+                             tc.offst_lbl_id,
+                             tc.sls_typ_lbl_id,
+                             tc.x_sls_typ_lbl_id,
+                             tc.src_sls_perd_id,
+                             tc.trgt_sls_perd_id,
+                             tc.src_offr_perd_id,
+                             tc.trgt_offr_perd_id,
+                             tc.r_factor,
+                             upper(td.lbl_desc) AS lbl_desc
+                        FROM (SELECT src_sls_typ_id,
+                                     x_src_sls_typ_id,
+                                     offst_lbl_id,
+                                     sls_typ_lbl_id,
+                                     x_sls_typ_lbl_id,
+                                     pa_maps_public.perd_plus(p_mrkt_id   => p_mrkt_id,
+                                                              p_perd1     => p_sls_perd_id,
+                                                              p_perd_diff => offst_val_src_sls) src_sls_perd_id,
+                                     pa_maps_public.perd_plus(p_mrkt_id   => p_mrkt_id,
+                                                              p_perd1     => p_sls_perd_id,
+                                                              p_perd_diff => offst_val_trgt_sls) trgt_sls_perd_id,
+                                     pa_maps_public.perd_plus(p_mrkt_id   => p_mrkt_id,
+                                                              p_perd1     => p_sls_perd_id,
+                                                              p_perd_diff => offst_val_src_offr) src_offr_perd_id,
+                                     pa_maps_public.perd_plus(p_mrkt_id   => p_mrkt_id,
+                                                              p_perd1     => p_sls_perd_id,
+                                                              p_perd_diff => offst_val_trgt_offr) trgt_offr_perd_id,
+                                     r_factor
+                                FROM (SELECT src_sls_typ_id,
+                                             est_src_sls_typ_id AS x_src_sls_typ_id,
+                                             offst_lbl_id,
+                                             sls_typ_lbl_id,
+                                             x_sls_typ_lbl_id,
+                                             offst_val_src_sls,
+                                             offst_val_trgt_sls,
+                                             offst_val_src_offr,
+                                             offst_val_trgt_offr,
+                                             r_factor,
+                                             eff_sls_perd_id,
+                                             lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                                        FROM ta_config
+                                       WHERE mrkt_id = p_mrkt_id
+                                         AND trgt_sls_typ_id = p_sls_typ_id
+                                         AND upper(REPLACE(TRIM(sls_typ_grp_nm),
+                                                           '  ',
+                                                           ' ')) IN
+                                             (SELECT TRIM(regexp_substr(col,
+                                                                        '[^,]+',
+                                                                        1,
+                                                                        LEVEL)) RESULT
+                                                FROM (SELECT c_sls_typ_grp_nm_fc_dbt col
+                                                        FROM dual)
+                                              CONNECT BY LEVEL <=
+                                                         length(regexp_replace(col,
+                                                                               '[^,]+')) + 1)
+                                         AND eff_sls_perd_id <= p_sls_perd_id)
+                               WHERE p_sls_perd_id BETWEEN eff_sls_perd_id AND
+                                     nvl(next_eff_sls_perd_id, p_sls_perd_id)) tc,
+                             ta_dict td
+                       WHERE td.lbl_id = tc.offst_lbl_id) tc_est,
+                     (SELECT mrkt_id,
+                             MAX(fsc_cd) max_fsc_cd,
+                             from_strt_perd_id,
+                             to_strt_perd_id,
                              sku_id
-                        FROM mrkt_fsc
-                       WHERE p_mrkt_id = mrkt_fsc.mrkt_id
-                         AND p_trg_perd_id >= mrkt_fsc.strt_perd_id
-                         AND 'N' = mrkt_fsc.dltd_ind)
-               GROUP BY mrkt_id, from_strt_perd_id, to_strt_perd_id, sku_id) mrkt_tmp_fsc
-       WHERE 1 = 1
-            -- filter: mrkt_id, 
-         AND dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
-         AND dstrbtd_mrkt_sls.sls_perd_id = p_trg_perd_id
-         AND ( --on-schedule
-              dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id OR
-             --off-schedule
-              dstrbtd_mrkt_sls.offr_perd_id = p_dms_off_offr_perd_id)
-         AND dstrbtd_mrkt_sls.sls_typ_id = 1 /* only ESTIMATE */
-            -- dstrbtd_mrkt_sls -> offr_sku_line
-            -- and additional filtering...
-         AND dstrbtd_mrkt_sls.offr_sku_line_id =
-             offr_sku_line.offr_sku_line_id
-         AND offr_sku_line.dltd_ind <> 'Y'
-         AND offr_sku_line.offr_prfl_prcpt_id =
-             offr_prfl_prc_point.offr_prfl_prcpt_id
-         AND offr_prfl_prc_point.offr_id = offr.offr_id
-         AND offr.offr_typ = 'CMP'
-         AND offr.ver_id = 0
-            -- join: dly_bilng_trnd_offr_sku_line -> dly_bilng_trnd
-         AND offr_sku_line.offr_sku_line_id =
-             dly_bilng_trnd_offr_sku_line.offr_sku_line_id(+)
-         AND dly_bilng_trnd_offr_sku_line.offr_sku_line_id IS NULL
-            --
-         AND p_mrkt_id = mrkt_tmp_fsc.mrkt_id
-         AND p_trg_perd_id >= mrkt_tmp_fsc.from_strt_perd_id
-         AND p_trg_perd_id < mrkt_tmp_fsc.to_strt_perd_id
-         AND offr_sku_line.sku_id = mrkt_tmp_fsc.sku_id
-            --
-         AND p_mrkt_id = sct_fsc_ovrrd.mrkt_id(+)
-         AND p_trg_perd_id = sct_fsc_ovrrd.sls_perd_id(+)
+                        FROM (SELECT mrkt_id,
+                                     fsc_cd,
+                                     strt_perd_id from_strt_perd_id,
+                                     nvl(lead(strt_perd_id, 1)
+                                         over(partition by MRKT_ID,
+                                              sku_id ORDER BY strt_perd_id),
+                                         99999999) to_strt_perd_id,
+                                     sku_id
+                                FROM mrkt_fsc
+                               WHERE p_mrkt_id = mrkt_fsc.mrkt_id
+                                 AND l_trg_perd_id >= mrkt_fsc.strt_perd_id
+                                 AND 'N' = mrkt_fsc.dltd_ind)
+                       GROUP BY mrkt_id,
+                                from_strt_perd_id,
+                                to_strt_perd_id,
+                                sku_id) mrkt_tmp_fsc
+               WHERE dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
+                 AND dstrbtd_mrkt_sls.sls_perd_id = tc_est.trgt_sls_perd_id
+                 AND dstrbtd_mrkt_sls.offr_perd_id =
+                     tc_est.trgt_offr_perd_id
+                 AND dstrbtd_mrkt_sls.sls_typ_id = tc_est.x_src_sls_typ_id
+                 AND dstrbtd_mrkt_sls.offr_sku_line_id =
+                     offr_sku_line.offr_sku_line_id
+                 AND offr_sku_line.dltd_ind <> 'Y'
+                 AND offr_sku_line.offr_prfl_prcpt_id =
+                     offr_prfl_prc_point.offr_prfl_prcpt_id
+                 AND offr_prfl_prc_point.offr_id = offr.offr_id
+                 AND offr.offr_typ = 'CMP'
+                 AND offr.ver_id = 0
+                 AND offr_sku_line.offr_sku_line_id =
+                     dly_bilng_trnd_offr_sku_line.offr_sku_line_id(+)
+                 AND dly_bilng_trnd_offr_sku_line.offr_sku_line_id IS NULL
+                    --
+                 AND p_mrkt_id = mrkt_tmp_fsc.mrkt_id
+                 AND l_trg_perd_id >= mrkt_tmp_fsc.from_strt_perd_id
+                 AND l_trg_perd_id < mrkt_tmp_fsc.to_strt_perd_id
+                 AND offr_sku_line.sku_id = mrkt_tmp_fsc.sku_id) x,
+             sct_fsc_ovrrd
+       WHERE p_mrkt_id = sct_fsc_ovrrd.mrkt_id(+)
+         AND l_trg_perd_id = sct_fsc_ovrrd.sls_perd_id(+)
          AND p_sls_typ_id = sct_fsc_ovrrd.sls_typ_id(+)
-         AND mrkt_tmp_fsc.max_fsc_cd = sct_fsc_ovrrd.fsc_cd(+)
-       GROUP BY p_mrkt_id,
-                p_sls_typ_id,
-                dstrbtd_mrkt_sls.offr_sku_line_id,
-                p_dbt_on_sls_perd_id,
-                p_dbt_on_offr_perd_id,
-                p_dbt_off_sls_perd_id,
-                p_dbt_off_offr_perd_id,
-                p_dms_on_sls_perd_id,
-                p_dms_on_offr_perd_id,
-                p_dms_off_sls_perd_id,
-                p_dms_off_offr_perd_id,
-                offr.veh_id,
-                CASE
-                  WHEN dstrbtd_mrkt_sls.sls_perd_id = p_dms_on_sls_perd_id AND
-                       dstrbtd_mrkt_sls.offr_perd_id = p_dms_on_offr_perd_id THEN
-                   'ON'
-                  ELSE
-                   'OFF'
-                END;
+         AND x.offst_lbl_id = sct_fsc_ovrrd.offst_lbl_id(+)
+         AND to_number(x.max_fsc_cd) = to_number(sct_fsc_ovrrd.fsc_cd(+))
+       GROUP BY x.offr_sku_line_id,
+                x.offst_lbl_id,
+                x.sls_typ_lbl_id,
+                x.veh_id;
     EXCEPTION
       WHEN OTHERS THEN
         app_plsql_log.error(l_module_name || ' error code:' || SQLCODE ||
@@ -2094,51 +2256,193 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     RETURN l_table_reproc_est;
   END get_reproc_est;
 
-  FUNCTION get_trend_alloc_reproc_ln(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                     p_sls_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_trg_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                                     p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
-                                     p_cash_value           IN NUMBER,
-                                     p_r_factor             IN NUMBER,
-                                     p_use_offers_on_sched  IN CHAR DEFAULT 'N',
-                                     p_use_offers_off_sched IN CHAR DEFAULT 'N',
-                                     p_run_id               IN NUMBER DEFAULT NULL,
-                                     p_user_id              IN VARCHAR2 DEFAULT NULL)
-    RETURN obj_trend_alloc_hist_head_line IS
+  FUNCTION get_reproc_est2(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                           p_sls_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                           p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                           p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
+                           p_cash_value           IN NUMBER,
+                           p_r_factor             IN NUMBER,
+                           p_use_offers_on_sched  IN CHAR DEFAULT 'N',
+                           p_use_offers_off_sched IN CHAR DEFAULT 'N',
+                           p_user_id              IN VARCHAR2 DEFAULT NULL,
+                           p_run_id               IN NUMBER DEFAULT NULL)
+    RETURN t_reproc_est2 IS
     -- local variables
-    l_table_reproc t_reproc;
-    l_periods      r_periods;
-    -- lookup: mrkt_config_item_val_txt
-    l_sls_typ_id_from_config mrkt_config_item.mrkt_config_item_val_txt%TYPE;
-    -- BI24 and r_factor
-    l_bi24_r_factor r_bi24_r_factor;
-    -- FORCASTED
-    l_frcstd_unts_on  NUMBER;
-    l_frcstd_sls_on   NUMBER;
-    l_frcstd_unts_off NUMBER;
-    l_frcstd_sls_off  NUMBER;
-    -- DAILY BILLING TREND
-    l_trnd_unts_on  NUMBER;
-    l_trnd_sls_on   NUMBER;
-    l_trnd_unts_off NUMBER;
-    l_trnd_sls_off  NUMBER;
-    -- ESTIMATE and (OVRRD)
-    l_est_unts_on  NUMBER;
-    l_est_sls_on   NUMBER;
-    l_est_unts_off NUMBER;
-    l_est_sls_off  NUMBER;
+    l_table_reproc_est2    t_reproc_est2;
+    l_trg_perd_id          dstrbtd_mrkt_sls.sls_perd_id%TYPE;
+    l_use_offers_on_sched  CHAR(1) := upper(nvl(p_use_offers_on_sched, 'N'));
+    l_use_offers_off_sched CHAR(1) := upper(nvl(p_use_offers_off_sched, 'N'));
     -- for LOG
     l_run_id         NUMBER := nvl(p_run_id,
                                    app_plsql_output.generate_new_run_id);
     l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
-    l_module_name    VARCHAR2(30) := 'GET_TREND_ALLOC_REPROC_LN';
+    l_module_name    VARCHAR2(30) := 'GET_REPROC_EST2';
     l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
                                        to_char(p_mrkt_id) || ', ' ||
                                        'p_sls_perd_id: ' ||
                                        to_char(p_sls_perd_id) || ', ' ||
-                                       'p_trg_perd_id: ' ||
-                                       to_char(p_trg_perd_id) || ', ' ||
+                                       'l_trg_perd_id: ' ||
+                                       to_char(l_trg_perd_id) || ', ' ||
+                                       'p_sls_typ_id: ' ||
+                                       to_char(p_sls_typ_id) || ', ' ||
+                                       'p_bilng_day: ' ||
+                                       to_char(p_bilng_day, 'yyyymmdd') || ', ' ||
+                                       'p_cash_value: ' ||
+                                       to_char(p_cash_value) || ', ' ||
+                                       'p_r_factor: ' ||
+                                       to_char(p_r_factor) || ', ' ||
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
+    -- exception
+    e_get_reproc_est2 EXCEPTION;
+    --
+  BEGIN
+    --
+    app_plsql_log.register(g_package_name || '.' || l_module_name);
+    app_plsql_output.set_run_id(l_run_id);
+    app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
+    app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
+    -- forecasted - EST2
+    BEGIN
+      WITH tc_dms AS
+       (SELECT src_sls_typ_id,
+               x_src_sls_typ_id,
+               offst_lbl_id,
+               sls_typ_lbl_id,
+               x_sls_typ_lbl_id,
+               pa_maps_public.perd_plus(p_mrkt_id,
+                                        p_sls_perd_id,
+                                        offst_val_src_sls) src_sls_perd_id,
+               pa_maps_public.perd_plus(p_mrkt_id,
+                                        p_sls_perd_id,
+                                        offst_val_trgt_sls) trgt_sls_perd_id,
+               pa_maps_public.perd_plus(p_mrkt_id,
+                                        p_sls_perd_id,
+                                        offst_val_src_offr) src_offr_perd_id,
+               pa_maps_public.perd_plus(p_mrkt_id,
+                                        p_sls_perd_id,
+                                        offst_val_trgt_offr) trgt_offr_perd_id,
+               r_factor
+          FROM (SELECT src_sls_typ_id,
+                       est_src_sls_typ_id AS x_src_sls_typ_id,
+                       offst_lbl_id,
+                       sls_typ_lbl_id,
+                       x_sls_typ_lbl_id,
+                       offst_val_src_sls,
+                       offst_val_trgt_sls,
+                       offst_val_src_offr,
+                       offst_val_trgt_offr,
+                       r_factor,
+                       eff_sls_perd_id,
+                       lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                  FROM ta_config
+                 WHERE mrkt_id = p_mrkt_id
+                   AND trgt_sls_typ_id = p_sls_typ_id
+                   AND upper(REPLACE(TRIM(sls_typ_grp_nm), '  ', ' ')) IN
+                       (SELECT TRIM(regexp_substr(col, '[^,]+', 1, LEVEL)) RESULT
+                          FROM (SELECT c_sls_typ_grp_nm_fc_dms col FROM dual)
+                        CONNECT BY LEVEL <=
+                                   length(regexp_replace(col, '[^,]+')) + 1)
+                   AND eff_sls_perd_id <= p_sls_perd_id)
+         WHERE p_sls_perd_id BETWEEN eff_sls_perd_id AND
+               nvl(next_eff_sls_perd_id, p_sls_perd_id))
+      SELECT dstrbtd_mrkt_sls.offr_sku_line_id,
+             tc_dms.offst_lbl_id,
+             tc_dms.x_sls_typ_lbl_id,
+             round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty, 0))) units_bi24,
+             round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty, 0) *
+                       nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                       decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
+                              0,
+                              1,
+                              offr_prfl_prc_point.nr_for_qty) *
+                       decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                              0,
+                              1,
+                              offr_prfl_prc_point.net_to_avon_fct))) sales_bi24,
+             tc_dms.sls_typ_lbl_id,
+             round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty * tc_dms.r_factor, 0))) units_forecasted,
+             round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty * tc_dms.r_factor, 0) *
+                       nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                       decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
+                              0,
+                              1,
+                              offr_prfl_prc_point.nr_for_qty) *
+                       decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                              0,
+                              1,
+                              offr_prfl_prc_point.net_to_avon_fct))) sales_forecasted,
+             offr.veh_id,
+             NULL comsn_amt,
+             NULL tax_amt
+        BULK COLLECT
+        INTO l_table_reproc_est2
+        FROM dstrbtd_mrkt_sls,
+             offr_sku_line,
+             offr_prfl_prc_point,
+             offr,
+             tc_dms
+       WHERE dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
+         AND dstrbtd_mrkt_sls.sls_perd_id = tc_dms.src_sls_perd_id
+         AND dstrbtd_mrkt_sls.offr_perd_id = tc_dms.src_offr_perd_id
+         AND dstrbtd_mrkt_sls.sls_typ_id = tc_dms.src_sls_typ_id
+         AND dstrbtd_mrkt_sls.offr_sku_line_id =
+             offr_sku_line.offr_sku_line_id
+         AND offr_sku_line.dltd_ind <> 'Y'
+         AND offr_sku_line.offr_prfl_prcpt_id =
+             offr_prfl_prc_point.offr_prfl_prcpt_id
+         AND offr_prfl_prc_point.offr_id = offr.offr_id
+         AND offr.offr_typ = 'CMP'
+         AND offr.ver_id = 0
+       GROUP BY dstrbtd_mrkt_sls.offr_sku_line_id,
+                tc_dms.offst_lbl_id,
+                tc_dms.x_sls_typ_lbl_id,
+                tc_dms.sls_typ_lbl_id,
+                offr.veh_id;
+    EXCEPTION
+      WHEN OTHERS THEN
+        app_plsql_log.error(l_module_name || ' error code:' || SQLCODE ||
+                            ' error message: ' || SQLERRM ||
+                            l_parameter_list);
+        RAISE e_get_reproc_est2;
+    END;
+    --
+    app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
+    --
+    RETURN l_table_reproc_est2;
+  END get_reproc_est2;
+
+  FUNCTION get_trend_alloc_re_proc(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                                   p_campgn_perd_id       IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                                   p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                                   p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
+                                   p_cash_value           IN NUMBER DEFAULT NULL,
+                                   p_r_factor             IN NUMBER DEFAULT NULL,
+                                   p_use_offers_on_sched  IN CHAR DEFAULT 'N',
+                                   p_use_offers_off_sched IN CHAR DEFAULT 'N',
+                                   p_user_id              IN VARCHAR2 DEFAULT NULL)
+    RETURN pa_trend_alloc_hist_hd_table
+    PIPELINED AS
+    PRAGMA AUTONOMOUS_TRANSACTION;
+    -- local variables
+    l_tbl_bi24         t_hist_detail := t_hist_detail();
+    l_tbl_reproc_trnd  t_reproc := t_reproc();
+    l_tbl_reproc_est   t_reproc := t_reproc();
+    l_tbl_reproc_est2  t_reproc_est2 := t_reproc_est2();
+    l_tbl_reproc       t_hist_head;
+    l_bi24_r_factor    NUMBER;
+    l_offst_lbl_id_on  NUMBER;
+    l_offst_lbl_id_off NUMBER;
+    l_periods          r_periods;
+    c_key              VARCHAR2(128);
+    -- for LOG
+    l_run_id         NUMBER := app_plsql_output.generate_new_run_id;
+    l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
+    l_module_name    VARCHAR2(30) := 'GET_TREND_ALLOC_REPROC';
+    l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
+                                       to_char(p_mrkt_id) || ', ' ||
+                                       'p_campgn_perd_id: ' ||
+                                       to_char(p_campgn_perd_id) || ', ' ||
                                        'p_sls_typ_id: ' ||
                                        to_char(p_sls_typ_id) || ', ' ||
                                        'p_bilng_day: ' ||
@@ -2151,8 +2455,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                        p_use_offers_on_sched || ', ' ||
                                        'p_use_offers_off_sched: ' ||
                                        p_use_offers_off_sched || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
     --
   BEGIN
     --
@@ -2160,179 +2464,248 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     app_plsql_output.set_run_id(l_run_id);
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
     app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
-    -- get sls_typ_id_from_config
-    l_sls_typ_id_from_config := get_sls_typ_id_from_config(p_mrkt_id,
-                                                           l_run_id,
-                                                           l_user_id);
     -- get CURRENT periods
     l_periods := get_periods(p_mrkt_id       => p_mrkt_id,
-                             p_orig_perd_id  => p_sls_perd_id,
-                             p_bilng_perd_id => p_sls_perd_id,
+                             p_orig_perd_id  => p_campgn_perd_id,
+                             p_bilng_perd_id => p_campgn_perd_id,
                              p_sls_typ_id    => p_sls_typ_id,
                              p_bilng_day     => p_bilng_day,
-                             p_run_id        => l_run_id,
-                             p_user_id       => l_user_id);
+                             p_user_id       => l_user_id,
+                             p_run_id        => l_run_id);
     -- cash value
     IF p_cash_value IS NOT NULL THEN
-      l_periods.sct_cash_val := p_cash_value;
+      l_periods.sct_cash_value := p_cash_value;
     END IF;
-    -- get BI24, r_factor
-    l_bi24_r_factor := get_bi24_r_factor(p_mrkt_id                => p_mrkt_id,
-                                         p_dbt_bilng_day          => p_bilng_day,
-                                         p_sls_typ_id_from_config => l_sls_typ_id_from_config,
-                                         p_dbt_on_sls_perd_id     => l_periods.dbt_on_sls_perd_id,
-                                         p_dbt_on_offr_perd_id    => l_periods.dbt_on_offr_perd_id,
-                                         p_dbt_off_sls_perd_id    => l_periods.dbt_off_sls_perd_id,
-                                         p_dbt_off_offr_perd_id   => l_periods.dbt_off_offr_perd_id,
-                                         p_dms_on_sls_perd_id     => l_periods.dms_on_sls_perd_id,
-                                         p_dms_on_offr_perd_id    => l_periods.dms_on_offr_perd_id,
-                                         p_dms_off_sls_perd_id    => l_periods.dms_off_sls_perd_id,
-                                         p_dms_off_offr_perd_id   => l_periods.dms_off_offr_perd_id,
-                                         p_sct_cash_val           => l_periods.sct_cash_val,
-                                         p_r_factor               => NULL /*p_r_factor*/,
-                                         p_sls_typ_id             => p_sls_typ_id,
-                                         p_run_id                 => l_run_id,
-                                         p_user_id                => l_user_id);
+    -- BI24
+    l_tbl_bi24      := get_bi24(p_mrkt_id              => p_mrkt_id,
+                                p_sls_perd_id          => p_campgn_perd_id,
+                                p_sls_typ_id           => p_sls_typ_id,
+                                p_bilng_day            => p_bilng_day,
+                                p_offst_lbl_id         => NULL,
+                                p_cash_value           => l_periods.sct_cash_value,
+                                p_r_factor             => l_periods.sct_r_factor,
+                                p_x_sls_typ_lbl_id_flg => 'Y',
+                                p_user_id              => l_user_id,
+                                p_run_id               => l_run_id);
+    l_bi24_r_factor := 0;
+    SELECT offst_lbl_id_on, offst_lbl_id_off
+      INTO l_offst_lbl_id_on, l_offst_lbl_id_off
+      FROM (SELECT tc.offst_lbl_id AS offst_lbl_id_on,
+                   lead(tc.offst_lbl_id) over(ORDER BY upper(td.lbl_desc) DESC) AS offst_lbl_id_off,
+                   row_number() over(ORDER BY upper(td.lbl_desc) DESC) AS rn
+              FROM (SELECT src_sls_typ_id,
+                           x_src_sls_typ_id,
+                           offst_lbl_id,
+                           sls_typ_lbl_id,
+                           x_sls_typ_lbl_id r_factor
+                      FROM (SELECT src_sls_typ_id,
+                                   est_src_sls_typ_id AS x_src_sls_typ_id,
+                                   offst_lbl_id,
+                                   sls_typ_lbl_id,
+                                   x_sls_typ_lbl_id,
+                                   offst_val_src_sls,
+                                   offst_val_trgt_sls,
+                                   offst_val_src_offr,
+                                   offst_val_trgt_offr,
+                                   r_factor,
+                                   eff_sls_perd_id,
+                                   lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                              FROM ta_config
+                             WHERE mrkt_id = p_mrkt_id
+                               AND trgt_sls_typ_id = p_sls_typ_id
+                               AND upper(REPLACE(TRIM(sls_typ_grp_nm),
+                                                 '  ',
+                                                 ' ')) = c_sls_typ_grp_nm_bi24
+                               AND eff_sls_perd_id <= p_campgn_perd_id)
+                     WHERE p_campgn_perd_id BETWEEN eff_sls_perd_id AND
+                           nvl(next_eff_sls_perd_id, p_campgn_perd_id)) tc,
+                   ta_dict td
+             WHERE td.lbl_id = tc.offst_lbl_id
+               AND upper(td.lbl_desc) IN ('ON-SCHEDULE', 'OFF-SCHEDULE'))
+     WHERE rn = 1;
+    -- SUM (BI24)
+    IF l_tbl_bi24.count > 0 THEN
+      FOR i IN l_tbl_bi24.first .. l_tbl_bi24.last LOOP
+        c_key := to_char(l_tbl_bi24(i).offst_lbl_id) || '_' ||
+                 to_char(l_tbl_bi24(i).sls_typ_lbl_id);
+        l_tbl_reproc(c_key).offst_lbl_id := l_tbl_bi24(i).offst_lbl_id;
+        l_tbl_reproc(c_key).units := nvl(l_tbl_reproc(c_key).units, 0) + l_tbl_bi24(i)
+                                    .units;
+        l_tbl_reproc(c_key).sales := nvl(l_tbl_reproc(c_key).sales, 0) + l_tbl_bi24(i)
+                                    .sales;
+        l_tbl_reproc(c_key).sls_typ_lbl_id := l_tbl_bi24(i).sls_typ_lbl_id;
+        IF l_tbl_bi24(i).offst_lbl_id = l_offst_lbl_id_on THEN
+          l_bi24_r_factor := l_bi24_r_factor + l_tbl_bi24(i).sales;
+        END IF;
+      END LOOP;
+    END IF;
+    -- calculate R_FACTOR
+    SELECT l_periods.sct_cash_value /
+           decode(nvl(l_bi24_r_factor, 0), 0, 1, l_bi24_r_factor)
+      INTO l_bi24_r_factor
+      FROM dual;
+    -- FORCE rewrite BI24 into cache table
+    BEGIN
+      UPDATE trend_alloc_hist_dtls
+         SET r_factor = l_bi24_r_factor, cash_value = l_periods.sct_cash_value
+       WHERE mrkt_id = p_mrkt_id
+         AND sls_perd_id = p_campgn_perd_id
+         AND sls_typ_id = p_sls_typ_id
+         --AND sls_typ_grp_nm = c_sls_typ_grp_nm_bi24
+         AND bilng_day = p_bilng_day;
+    EXCEPTION
+      WHEN OTHERS THEN
+        ROLLBACK;
+        app_plsql_log.info(l_module_name || ' FAILED, error code: ' ||
+                           SQLCODE || ' error message: ' || SQLERRM ||
+                           l_parameter_list);
+    END;
+    COMMIT;
     -- FORECASTED
     -- TRND
-    l_table_reproc := get_reproc_trnd(p_mrkt_id,
-                                      p_sls_perd_id,
-                                      p_trg_perd_id,
-                                      p_sls_typ_id,
-                                      p_bilng_day,
-                                      l_sls_typ_id_from_config,
-                                      l_periods.dbt_on_sls_perd_id,
-                                      l_periods.dbt_on_offr_perd_id,
-                                      l_periods.dbt_off_sls_perd_id,
-                                      l_periods.dbt_off_offr_perd_id,
-                                      l_periods.dms_on_sls_perd_id,
-                                      l_periods.dms_on_offr_perd_id,
-                                      l_periods.dms_off_sls_perd_id,
-                                      l_periods.dms_off_offr_perd_id,
-                                      l_periods.sct_cash_val,
-                                      l_bi24_r_factor.r_factor,
-                                      l_run_id,
-                                      l_user_id);
-    --
-    l_trnd_unts_on  := 0;
-    l_trnd_sls_on   := 0;
-    l_trnd_unts_off := 0;
-    l_trnd_sls_off  := 0;
-    IF l_table_reproc.count > 0 THEN
-      FOR i IN l_table_reproc.first .. l_table_reproc.last LOOP
-        l_trnd_unts_on  := l_trnd_unts_on +
-                           nvl(l_table_reproc(i).frcstd_unts_on, 0);
-        l_trnd_sls_on   := l_trnd_sls_on +
-                           nvl(l_table_reproc(i).frcstd_sls_on, 0);
-        l_trnd_unts_off := l_trnd_unts_off +
-                           nvl(l_table_reproc(i).frcstd_unts_off, 0);
-        l_trnd_sls_off  := l_trnd_sls_off +
-                           nvl(l_table_reproc(i).frcstd_sls_off, 0);
+    l_tbl_reproc_trnd := get_reproc_trnd(p_mrkt_id     => p_mrkt_id,
+                                         p_sls_perd_id => p_campgn_perd_id,
+                                         p_sls_typ_id  => p_sls_typ_id,
+                                         p_bilng_day   => p_bilng_day,
+                                         p_cash_value  => l_periods.sct_cash_value,
+                                         p_r_factor    => l_bi24_r_factor,
+                                         p_user_id     => l_user_id,
+                                         p_run_id      => l_run_id);
+    -- SUM (TRND)
+    IF l_tbl_reproc_trnd.count > 0 THEN
+      FOR i IN l_tbl_reproc_trnd.first .. l_tbl_reproc_trnd.last LOOP
+        c_key := to_char(l_tbl_reproc_trnd(i).offst_lbl_id) || '_' ||
+                 to_char(l_tbl_reproc_trnd(i).sls_typ_lbl_id);
+        l_tbl_reproc(c_key).offst_lbl_id := l_tbl_reproc_trnd(i)
+                                            .offst_lbl_id;
+        l_tbl_reproc(c_key).units := nvl(l_tbl_reproc(c_key).units, 0) + l_tbl_reproc_trnd(i)
+                                    .units;
+        l_tbl_reproc(c_key).sales := nvl(l_tbl_reproc(c_key).sales, 0) + l_tbl_reproc_trnd(i)
+                                    .sales;
+        l_tbl_reproc(c_key).sls_typ_lbl_id := l_tbl_reproc_trnd(i)
+                                              .sls_typ_lbl_id;
       END LOOP;
+      l_tbl_reproc_trnd.delete;
     END IF;
-    -- EST and OVRRD
-    -- cleanup
-    IF l_table_reproc.count > 0 THEN
-      l_table_reproc.delete;
-    END IF;
-    l_table_reproc := get_reproc_est(p_mrkt_id,
-                                     p_sls_perd_id,
-                                     p_trg_perd_id,
-                                     p_sls_typ_id,
-                                     p_bilng_day,
-                                     l_periods.dbt_on_sls_perd_id,
-                                     l_periods.dbt_on_offr_perd_id,
-                                     l_periods.dbt_off_sls_perd_id,
-                                     l_periods.dbt_off_offr_perd_id,
-                                     l_periods.dms_on_sls_perd_id,
-                                     l_periods.dms_on_offr_perd_id,
-                                     l_periods.dms_off_sls_perd_id,
-                                     l_periods.dms_off_offr_perd_id,
-                                     l_periods.sct_cash_val,
-                                     l_bi24_r_factor.r_factor,
-                                     p_use_offers_on_sched,
-                                     p_use_offers_off_sched,
-                                     l_run_id,
-                                     l_user_id);
-    --
-    l_est_unts_on  := 0;
-    l_est_sls_on   := 0;
-    l_est_unts_off := 0;
-    l_est_sls_off  := 0;
-    IF l_table_reproc.count > 0 THEN
-      FOR i IN l_table_reproc.first .. l_table_reproc.last LOOP
-        l_est_unts_on  := l_est_unts_on +
-                          nvl(l_table_reproc(i).frcstd_unts_on, 0);
-        l_est_sls_on   := l_est_sls_on +
-                          nvl(l_table_reproc(i).frcstd_sls_on, 0);
-        l_est_unts_off := l_est_unts_off +
-                          nvl(l_table_reproc(i).frcstd_unts_off, 0);
-        l_est_sls_off  := l_est_sls_off +
-                          nvl(l_table_reproc(i).frcstd_sls_off, 0);
+    -- EST
+    l_tbl_reproc_est := get_reproc_est(p_mrkt_id              => p_mrkt_id,
+                                       p_sls_perd_id          => p_campgn_perd_id,
+                                       p_sls_typ_id           => p_sls_typ_id,
+                                       p_bilng_day            => p_bilng_day,
+                                       p_cash_value           => l_periods.sct_cash_value,
+                                       p_r_factor             => l_bi24_r_factor,
+                                       p_use_offers_on_sched  => p_use_offers_on_sched,
+                                       p_use_offers_off_sched => p_use_offers_off_sched,
+                                       p_user_id              => l_user_id,
+                                       p_run_id               => l_run_id);
+    -- SUM (EST)
+    IF l_tbl_reproc_est.count > 0 THEN
+      FOR i IN l_tbl_reproc_est.first .. l_tbl_reproc_est.last LOOP
+        c_key := to_char(l_tbl_reproc_est(i).offst_lbl_id) || '_' ||
+                 to_char(l_tbl_reproc_est(i).sls_typ_lbl_id);
+        IF (p_use_offers_on_sched = 'Y' AND l_tbl_reproc_est(i)
+           .offst_lbl_id = l_offst_lbl_id_on) OR
+           (p_use_offers_off_sched = 'Y' AND l_tbl_reproc_est(i)
+           .offst_lbl_id = l_offst_lbl_id_off) THEN
+          l_tbl_reproc(c_key).offst_lbl_id := l_tbl_reproc_est(i)
+                                              .offst_lbl_id;
+          l_tbl_reproc(c_key).units := nvl(l_tbl_reproc(c_key).units, 0) + l_tbl_reproc_est(i)
+                                      .units;
+          l_tbl_reproc(c_key).sales := nvl(l_tbl_reproc(c_key).sales, 0) + l_tbl_reproc_est(i)
+                                      .sales;
+          l_tbl_reproc(c_key).sls_typ_lbl_id := l_tbl_reproc_est(i)
+                                                .sls_typ_lbl_id;
+        END IF;
       END LOOP;
+      l_tbl_reproc_est.delete;
     END IF;
-    -- cleanup
-    IF l_table_reproc.count > 0 THEN
-      l_table_reproc.delete;
-    END IF;
-    -- On-Schedule
-    IF p_use_offers_on_sched = 'Y' THEN
-      l_frcstd_unts_on := nvl(l_trnd_unts_on, 0) + nvl(l_est_unts_on, 0);
-      l_frcstd_sls_on  := nvl(l_trnd_sls_on, 0) + nvl(l_est_sls_on, 0);
-    ELSE
-      l_frcstd_unts_on := nvl(l_trnd_unts_on, 0);
-      l_frcstd_sls_on  := nvl(l_trnd_sls_on, 0);
-    END IF;
-    -- Off-Schedule
-    IF p_use_offers_off_sched = 'Y' THEN
-      l_frcstd_unts_off := nvl(l_trnd_unts_off, 0) + nvl(l_est_unts_off, 0);
-      l_frcstd_sls_off  := nvl(l_trnd_sls_off, 0) + nvl(l_est_sls_off, 0);
-    ELSE
-      l_frcstd_unts_off := nvl(l_trnd_unts_off, 0);
-      l_frcstd_sls_off  := nvl(l_trnd_sls_off, 0);
+    -- EST2
+    l_tbl_reproc_est2 := get_reproc_est2(p_mrkt_id              => p_mrkt_id,
+                                         p_sls_perd_id          => p_campgn_perd_id,
+                                         p_sls_typ_id           => p_sls_typ_id,
+                                         p_bilng_day            => p_bilng_day,
+                                         p_cash_value           => l_periods.sct_cash_value,
+                                         p_r_factor             => l_bi24_r_factor,
+                                         p_use_offers_on_sched  => p_use_offers_on_sched,
+                                         p_use_offers_off_sched => p_use_offers_off_sched,
+                                         p_user_id              => l_user_id,
+                                         p_run_id               => l_run_id);
+    -- SUM (EST2)
+    IF l_tbl_reproc_est2.count > 0 THEN
+      FOR i IN l_tbl_reproc_est2.first .. l_tbl_reproc_est2.last LOOP
+        -- BI24
+        c_key := to_char(l_tbl_reproc_est2(i).offst_lbl_id) || '_' ||
+                 to_char(l_tbl_reproc_est2(i).x_sls_typ_lbl_id);
+        l_tbl_reproc(c_key).offst_lbl_id := l_tbl_reproc_est2(i)
+                                            .offst_lbl_id;
+        l_tbl_reproc(c_key).units := nvl(l_tbl_reproc(c_key).units, 0) + l_tbl_reproc_est2(i)
+                                    .units_bi24;
+        l_tbl_reproc(c_key).sales := nvl(l_tbl_reproc(c_key).sales, 0) + l_tbl_reproc_est2(i)
+                                    .sales_bi24;
+        l_tbl_reproc(c_key).sls_typ_lbl_id := l_tbl_reproc_est2(i)
+                                              .x_sls_typ_lbl_id;
+        -- FORECASTED
+        c_key := to_char(l_tbl_reproc_est2(i).offst_lbl_id) || '_' ||
+                 to_char(l_tbl_reproc_est2(i).sls_typ_lbl_id);
+        l_tbl_reproc(c_key).offst_lbl_id := l_tbl_reproc_est2(i)
+                                            .offst_lbl_id;
+        l_tbl_reproc(c_key).units := nvl(l_tbl_reproc(c_key).units, 0) + l_tbl_reproc_est2(i)
+                                    .units_forecasted;
+        l_tbl_reproc(c_key).sales := nvl(l_tbl_reproc(c_key).sales, 0) + l_tbl_reproc_est2(i)
+                                    .sales_forecasted;
+        l_tbl_reproc(c_key).sls_typ_lbl_id := l_tbl_reproc_est2(i)
+                                              .sls_typ_lbl_id;
+      END LOOP;
+      l_tbl_reproc_est2.delete;
     END IF;
     --
     app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
     --
-    RETURN obj_trend_alloc_hist_head_line(p_sls_perd_id,
-                                          p_trg_perd_id,
-                                          p_bilng_day,
-                                          l_bi24_r_factor.bi24_unts_on,
-                                          l_bi24_r_factor.bi24_sls_on,
-                                          l_bi24_r_factor.bi24_unts_off,
-                                          l_bi24_r_factor.bi24_sls_off,
-                                          l_periods.sct_cash_val,
-                                          l_bi24_r_factor.r_factor,
-                                          NULL,
-                                          NULL,
-                                          NULL,
-                                          NULL,
-                                          l_frcstd_unts_on,
-                                          l_frcstd_sls_on,
-                                          l_frcstd_unts_off,
-                                          l_frcstd_sls_off,
-                                          NULL,
-                                          NULL,
-                                          NULL,
-                                          NULL);
-  END get_trend_alloc_reproc_ln;
+    -- PIPE (HEAD)
+    IF l_tbl_reproc.count > 0 THEN
+      c_key := l_tbl_reproc.first;
+      WHILE c_key IS NOT NULL LOOP
+        PIPE ROW(pa_trend_alloc_hist_hd_line(p_campgn_perd_id,
+                                             l_periods.trg_perd_id,
+                                             p_bilng_day,
+                                             l_tbl_reproc            (c_key)
+                                             .offst_lbl_id,
+                                             l_periods.sct_cash_value,
+                                             l_bi24_r_factor,
+                                             l_tbl_reproc            (c_key)
+                                             .sls_typ_lbl_id,
+                                             l_tbl_reproc            (c_key)
+                                             .units,
+                                             l_tbl_reproc            (c_key)
+                                             .sales));
+        c_key := l_tbl_reproc.next(c_key);
+      END LOOP;
+      l_tbl_reproc.delete;
+    END IF;
+  END get_trend_alloc_re_proc;
 
-  FUNCTION get_trend_alloc_hist_dtls(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                     p_sls_perd_id IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
-                                     p_trg_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                     p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                                     p_bilng_day   IN dly_bilng.prcsng_dt%TYPE,
-                                     p_run_id      IN NUMBER DEFAULT NULL,
-                                     p_user_id     IN VARCHAR2 DEFAULT NULL)
-    RETURN obj_trend_alloc_hist_dt_table
+  FUNCTION get_trend_alloc_hist_dtls(p_mrkt_id      IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                                     p_sls_perd_id  IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
+                                     p_trg_perd_id  IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                                     p_sls_typ_id   IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                                     p_bilng_day    IN dly_bilng.prcsng_dt%TYPE,
+                                     p_offst_lbl_id IN ta_dict.lbl_id%TYPE DEFAULT NULL,
+                                     p_user_id      IN VARCHAR2 DEFAULT NULL)
+    RETURN pa_trend_alloc_hist_dt_table
     PIPELINED IS
     -- local variables
-    l_tbl_hist_head_aggr     t_hist_head_aggr;
-    l_periods                r_periods;
-    l_sls_typ_id_from_config dly_bilng_trnd_offr_sku_line.sls_typ_id%TYPE;
+    l_tbl_hist_detail t_hist_detail := t_hist_detail();
+    l_tbl_hist_dtl2   t_hist_dtl2;
+    l_periods         r_periods;
+    l_catgry_id       prfl.catgry_id%TYPE;
+    l_brnd_id         prfl.brnd_id%TYPE;
+    l_sgmt_id         prfl.sgmt_id%TYPE;
+    l_form_id         prfl.form_id%TYPE;
+    l_prfl_cd         sku.prfl_cd%TYPE;
+    l_fsc_cd          mrkt_fsc.fsc_cd%TYPE;
+    c_key             VARCHAR2(128);
     -- for LOG
-    l_run_id         NUMBER := nvl(p_run_id,
-                                   app_plsql_output.generate_new_run_id);
+    l_run_id         NUMBER := app_plsql_output.generate_new_run_id;
     l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
     l_module_name    VARCHAR2(30) := 'GET_TREND_ALLOC_HIST_DTLS';
     l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
@@ -2343,191 +2716,165 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                        to_char(p_trg_perd_id) || ', ' ||
                                        'p_sls_typ_id: ' ||
                                        to_char(p_sls_typ_id) || ', ' ||
-                                       'p_prcsng_dt: ' ||
-                                       to_char(p_bilng_day) || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
+                                       'p_bilng_day: ' ||
+                                       to_char(p_bilng_day, 'yyyy-mm-dd') || ', ' ||
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
     --
   BEGIN
     app_plsql_log.register(g_package_name || '.' || l_module_name);
     app_plsql_output.set_run_id(l_run_id);
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
     app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
-    -- sls_typ_id_from_config
-    l_sls_typ_id_from_config := get_sls_typ_id_from_config(p_mrkt_id,
-                                                           l_run_id,
-                                                           l_user_id);
     -- get CURRENT periods
     l_periods := get_periods(p_mrkt_id       => p_mrkt_id,
                              p_orig_perd_id  => p_sls_perd_id,
                              p_bilng_perd_id => p_sls_perd_id,
                              p_sls_typ_id    => p_sls_typ_id,
                              p_bilng_day     => p_bilng_day,
-                             p_run_id        => l_run_id,
-                             p_user_id       => l_user_id);
+                             p_user_id       => l_user_id,
+                             p_run_id        => l_run_id);
     -- get_head_details
-    l_tbl_hist_head_aggr := get_head_details(p_mrkt_id,
-                                             p_sls_perd_id,
-                                             p_trg_perd_id,
-                                             p_sls_typ_id,
-                                             p_bilng_day,
-                                             l_sls_typ_id_from_config,
-                                             l_periods.dbt_on_sls_perd_id,
-                                             l_periods.dbt_on_offr_perd_id,
-                                             l_periods.dbt_off_sls_perd_id,
-                                             l_periods.dbt_off_offr_perd_id,
-                                             l_periods.dms_on_sls_perd_id,
-                                             l_periods.dms_on_offr_perd_id,
-                                             l_periods.dms_off_sls_perd_id,
-                                             l_periods.dms_off_offr_perd_id,
-                                             l_run_id,
-                                             l_user_id);
+    l_tbl_hist_detail := get_head_details(p_mrkt_id      => p_mrkt_id,
+                                          p_sls_perd_id  => p_sls_perd_id,
+                                          p_sls_typ_id   => p_sls_typ_id,
+                                          p_bilng_day    => p_bilng_day,
+                                          p_offst_lbl_id => NULL,
+                                          p_cash_value   => l_periods.sct_cash_value,
+                                          p_r_factor     => l_periods.sct_r_factor,
+                                          p_user_id      => l_user_id,
+                                          p_run_id       => l_run_id);
     --
-    IF l_tbl_hist_head_aggr.count > 0 THEN
-      FOR i IN l_tbl_hist_head_aggr.first .. l_tbl_hist_head_aggr.last LOOP
-        FOR i_prd_sch IN (SELECT mrkt_veh.lcl_veh_desc_txt,
-                                 catgry.catgry_nm,
-                                 pa_maps_public.get_mstr_fsc_cd(p_mrkt_id,
-                                                                sku.sku_id,
-                                                                p_sls_perd_id) ||
-                                 ' - ' ||
-                                 pa_maps_public.get_fsc_desc(p_mrkt_id,
-                                                             p_sls_perd_id,
-                                                             pa_maps_public.get_mstr_fsc_cd(p_mrkt_id,
-                                                                                            sku.sku_id,
-                                                                                            p_sls_perd_id)) fsc_nm,
-                                 pa_maps_public.get_mstr_fsc_cd(p_mrkt_id,
-                                                                sku.sku_id,
-                                                                p_sls_perd_id) fsc_cd,
-                                 v_brnd.brnd_nm,
-                                 sgmt.sgmt_nm,
-                                 form.form_desc_txt,
-                                 form_grp.form_grp_desc_txt,
-                                 promtn.promtn_desc_txt,
-                                 promtn_clm.promtn_clm_desc_txt,
-                                 sls_cls.sls_cls_desc_txt,
-                                 prfl.prfl_cd,
-                                 prfl.prfl_nm,
-                                 sku.sku_id,
-                                 sku.sku_nm
-                            FROM mrkt_veh,
-                                 catgry,
-                                 sku,
-                                 v_brnd,
-                                 sgmt,
-                                 form,
-                                 form_grp,
-                                 promtn,
-                                 promtn_clm,
-                                 sls_cls,
-                                 prfl
-                           WHERE l_tbl_hist_head_aggr(i)
-                           .p_sku_id = sku.sku_id
-                              AND sku.prfl_cd = prfl.prfl_cd
-                              AND prfl.catgry_id = catgry.catgry_id
-                              AND mrkt_veh.mrkt_id = l_tbl_hist_head_aggr(i)
-                                 .mrkt_id
-                              AND mrkt_veh.veh_id = l_tbl_hist_head_aggr(i)
-                                 .veh_id
-                              AND prfl.brnd_id = v_brnd.brnd_id
-                              AND prfl.sgmt_id = sgmt.sgmt_id
-                              AND prfl.form_id = form.form_id
-                              AND form.form_grp_id = form_grp.form_grp_id
-                              AND l_tbl_hist_head_aggr(i)
-                                 .promtn_id = promtn.promtn_id(+)
-                              AND l_tbl_hist_head_aggr(i)
-                                 .promtn_clm_id = promtn_clm.promtn_clm_id(+)
-                              AND l_tbl_hist_head_aggr(i)
-                                 .sls_cls_cd = sls_cls.sls_cls_cd
-                           ORDER BY sku.sku_id) LOOP
-          PIPE ROW(obj_trend_alloc_hist_dt_line(i_prd_sch.lcl_veh_desc_txt,
-                                                i_prd_sch.catgry_nm,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .offr_desc_txt,
-                                                i_prd_sch.fsc_nm,
-                                                i_prd_sch.fsc_cd,
-                                                i_prd_sch.brnd_nm,
-                                                i_prd_sch.sgmt_nm,
-                                                i_prd_sch.form_desc_txt,
-                                                i_prd_sch.form_grp_desc_txt,
-                                                i_prd_sch.promtn_desc_txt,
-                                                i_prd_sch.promtn_clm_desc_txt,
-                                                i_prd_sch.sls_cls_desc_txt,
-                                                i_prd_sch.prfl_cd,
-                                                i_prd_sch.prfl_nm,
-                                                i_prd_sch.sku_id,
-                                                i_prd_sch.sku_nm,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .bi24_unts_on,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .bi24_sls_on,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .bi24_unts_off,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .bi24_sls_off,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .estimate_unts_on,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .estimate_sls_on,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .estimate_unts_off,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .estimate_sls_off,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .trend_unts_on,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .trend_sls_on,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .trend_unts_off,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .trend_sls_off,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .actual_unts_on,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .actual_sls_on,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .actual_unts_off,
-                                                l_tbl_hist_head_aggr         (i)
-                                                .actual_sls_off));
-        END LOOP;
+    IF l_tbl_hist_detail.count > 0 THEN
+      FOR i IN l_tbl_hist_detail.first .. l_tbl_hist_detail.last LOOP
+        IF l_tbl_hist_detail(i)
+         .offst_lbl_id =
+            nvl(p_offst_lbl_id, l_tbl_hist_detail(i).offst_lbl_id) THEN
+          -- GET MISSING ID'S and sum by sku_id
+          SELECT prfl.catgry_id,
+                 prfl.brnd_id,
+                 prfl.sgmt_id,
+                 prfl.form_id,
+                 sku.prfl_cd,
+                 pa_maps_public.get_mstr_fsc_cd(p_mrkt_id,
+                                                sku.sku_id,
+                                                p_sls_perd_id)
+            INTO l_catgry_id,
+                 l_brnd_id,
+                 l_sgmt_id,
+                 l_form_id,
+                 l_prfl_cd,
+                 l_fsc_cd
+            FROM sku, prfl
+           WHERE l_tbl_hist_detail(i).sku_id = sku.sku_id
+              AND sku.prfl_cd = prfl.prfl_cd;
+          c_key := to_char(l_catgry_id) || '_' || to_char(l_brnd_id) || '_' ||
+                   to_char(l_sgmt_id) || '_' || to_char(l_form_id) || '_' ||
+                   to_char(l_tbl_hist_detail(i).sku_id) || '_' ||
+                   to_char(l_tbl_hist_detail(i).offst_lbl_id) || '_' ||
+                   to_char(l_tbl_hist_detail(i).sls_typ_lbl_id);
+          l_tbl_hist_dtl2(c_key).dtl_id := i;
+          l_tbl_hist_dtl2(c_key).catgry_id := l_catgry_id;
+          l_tbl_hist_dtl2(c_key).brnd_id := l_brnd_id;
+          l_tbl_hist_dtl2(c_key).sgmt_id := l_sgmt_id;
+          l_tbl_hist_dtl2(c_key).form_id := l_form_id;
+          l_tbl_hist_dtl2(c_key).prfl_cd := l_prfl_cd;
+          l_tbl_hist_dtl2(c_key).fsc_cd := l_fsc_cd;
+          l_tbl_hist_dtl2(c_key).promtn_id := l_tbl_hist_detail(i).promtn_id;
+          l_tbl_hist_dtl2(c_key).promtn_clm_id := l_tbl_hist_detail(i)
+                                                  .promtn_clm_id;
+          l_tbl_hist_dtl2(c_key).sls_cls_cd := l_tbl_hist_detail(i)
+                                               .sls_cls_cd;
+          l_tbl_hist_dtl2(c_key).veh_id := l_tbl_hist_detail(i).veh_id;
+          l_tbl_hist_dtl2(c_key).sku_id := l_tbl_hist_detail(i).sku_id;
+          l_tbl_hist_dtl2(c_key).offr_id := l_tbl_hist_detail(i).offr_id;
+          l_tbl_hist_dtl2(c_key).offst_lbl_id := l_tbl_hist_detail(i)
+                                                 .offst_lbl_id;
+          l_tbl_hist_dtl2(c_key).cash_value := l_tbl_hist_detail(i)
+                                               .cash_value;
+          l_tbl_hist_dtl2(c_key).r_factor := l_tbl_hist_detail(i).r_factor;
+          l_tbl_hist_dtl2(c_key).units := nvl(l_tbl_hist_dtl2(c_key).units,
+                                              0) + l_tbl_hist_detail(i)
+                                         .units;
+          l_tbl_hist_dtl2(c_key).sales := nvl(l_tbl_hist_dtl2(c_key).sales,
+                                              0) + l_tbl_hist_detail(i)
+                                         .sales;
+          l_tbl_hist_dtl2(c_key).sls_typ_lbl_id := l_tbl_hist_detail(i)
+                                                   .sls_typ_lbl_id;
+        END IF;
       END LOOP;
-      l_tbl_hist_head_aggr.delete;
+      IF l_tbl_hist_dtl2.count > 0 THEN
+        c_key := l_tbl_hist_dtl2.first;
+        WHILE c_key IS NOT NULL LOOP
+          PIPE ROW(pa_trend_alloc_hist_dt_line(l_tbl_hist_dtl2(c_key)
+                                               .sku_id,
+                                               l_tbl_hist_dtl2(c_key)
+                                               .catgry_id,
+                                               l_tbl_hist_dtl2(c_key)
+                                               .brnd_id,
+                                               l_tbl_hist_dtl2(c_key)
+                                               .sgmt_id,
+                                               l_tbl_hist_dtl2(c_key)
+                                               .form_id,
+                                               l_tbl_hist_dtl2(c_key)
+                                               .prfl_cd,
+                                               l_tbl_hist_dtl2(c_key)
+                                               .promtn_id,
+                                               l_tbl_hist_dtl2(c_key)
+                                               .promtn_clm_id,
+                                               l_tbl_hist_dtl2(c_key)
+                                               .sls_cls_cd,
+                                               l_tbl_hist_dtl2(c_key).veh_id,
+                                               l_tbl_hist_dtl2(c_key).fsc_cd,
+                                               l_tbl_hist_dtl2(c_key)
+                                               .offr_id,
+                                               l_tbl_hist_dtl2(c_key)
+                                               .offst_lbl_id,
+                                               l_tbl_hist_dtl2(c_key)
+                                               .cash_value,
+                                               l_tbl_hist_dtl2(c_key)
+                                               .r_factor,
+                                               l_tbl_hist_dtl2(c_key)
+                                               .sls_typ_lbl_id,
+                                               l_tbl_hist_dtl2(c_key).units,
+                                               l_tbl_hist_dtl2(c_key).sales));
+          c_key := l_tbl_hist_dtl2.next(c_key);
+        END LOOP;
+      END IF;
+      l_tbl_hist_dtl2.delete;
+      l_tbl_hist_detail.delete;
     END IF;
     app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
   END get_trend_alloc_hist_dtls;
 
   PROCEDURE save_trend_alloctn(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                               p_sls_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                               p_trg_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                               p_campgn_perd_id       IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
                                p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
                                p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
                                p_cash_value           IN mrkt_sls_perd.sct_cash_val%TYPE,
                                p_r_factor             IN mrkt_sls_perd.sct_r_factor%TYPE,
                                p_use_offers_on_sched  IN CHAR,
                                p_use_offers_off_sched IN CHAR,
-                               p_run_id               IN NUMBER DEFAULT NULL,
                                p_user_id              IN VARCHAR2 DEFAULT NULL,
+                               p_run_id               IN NUMBER DEFAULT NULL,
                                p_stus                 OUT NUMBER) IS
     PRAGMA AUTONOMOUS_TRANSACTION;
     -- local variables
-    l_ins_cnt      NUMBER;
-    l_cycl_cnt     NUMBER;
-    l_table_reproc t_reproc;
-    --
-    l_mrkt_perd_exists        NUMBER;
-    l_sct_cash_val            mrkt_sls_perd.sct_cash_val%TYPE;
-    l_sct_r_factor            mrkt_sls_perd.sct_r_factor%TYPE;
-    l_sct_onsch_est_bi24_ind  mrkt_sls_perd.sct_onsch_est_bi24_ind%TYPE;
-    l_sct_offsch_est_bi24_ind mrkt_sls_perd.sct_offsch_est_bi24_ind%TYPE;
-    l_sct_sls_typ_id          mrkt_sls_perd.sct_sls_typ_id%TYPE;
-    l_sct_prcsng_dt           mrkt_sls_perd.sct_prcsng_dt%TYPE;
-    l_est_bilng_dt            mrkt_sls_perd.est_bilng_dt%TYPE;
-    l_bst_bilng_dt            mrkt_sls_perd.bst_bilng_dt%TYPE;
-    l_max_prcsng_dt           mrkt_sls_perd.sct_prcsng_dt%TYPE;
-    -- PERIODS
-    l_periods r_periods;
-    -- lookup: mrkt_config_item_val_txt
-    l_sls_typ_id_from_config mrkt_config_item.mrkt_config_item_val_txt%TYPE;
+    l_ins_cnt                      NUMBER;
+    l_cycl_cnt                     NUMBER;
+    l_tbl_reproc                   t_reproc := t_reproc();
+    l_tbl_reproc_est2              t_reproc_est2 := t_reproc_est2();
+    l_tbl_save                     t_save;
+    l_sls_perd_id_in_mrkt_sls_perd NUMBER;
+    l_sct_cash_value               mrkt_sls_perd.sct_cash_val%TYPE;
+    l_sct_r_factor                 mrkt_sls_perd.sct_r_factor%TYPE;
+    l_sct_onsch_est_bi24_ind       mrkt_sls_perd.sct_onsch_est_bi24_ind%TYPE;
+    l_sct_offsch_est_bi24_ind      mrkt_sls_perd.sct_offsch_est_bi24_ind%TYPE;
+    l_sct_sls_typ_id               mrkt_sls_perd.sct_sls_typ_id%TYPE;
+    l_sct_prcsng_dt                mrkt_sls_perd.sct_prcsng_dt%TYPE;
+    l_est_bilng_dt                 mrkt_sls_perd.est_bilng_dt%TYPE;
+    l_bst_bilng_dt                 mrkt_sls_perd.bst_bilng_dt%TYPE;
+    l_max_prcsng_dt                mrkt_sls_perd.sct_prcsng_dt%TYPE;
     -- for LOG
     l_run_id         NUMBER := nvl(p_run_id,
                                    app_plsql_output.generate_new_run_id);
@@ -2535,10 +2882,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     l_module_name    VARCHAR2(30) := 'SAVE_TREND_ALLOCTN';
     l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
                                        to_char(p_mrkt_id) || ', ' ||
-                                       'p_sls_perd_id: ' ||
-                                       to_char(p_sls_perd_id) || ', ' ||
-                                       'p_trg_perd_id: ' ||
-                                       to_char(p_trg_perd_id) || ', ' ||
+                                       'p_campgn_perd_id: ' ||
+                                       to_char(p_campgn_perd_id) || ', ' ||
                                        'p_sls_typ_id: ' ||
                                        to_char(p_sls_typ_id) || ', ' ||
                                        'p_bilng_day: ' ||
@@ -2551,8 +2896,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                        p_use_offers_on_sched || ', ' ||
                                        'p_use_offers_off_sched: ' ||
                                        p_use_offers_off_sched || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
     --
   BEGIN
     --
@@ -2563,37 +2908,51 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     --
     p_stus := 0;
     --
-    SELECT COUNT(*)
-      INTO l_mrkt_perd_exists
-      FROM mrkt_sls_perd
-     WHERE mrkt_id = p_mrkt_id
-       AND sls_perd_id = p_trg_perd_id;
-    IF l_mrkt_perd_exists = 1 THEN
+    BEGIN
+      -- set values last used for calculation into mrkt_sls_perd table, if changed
+      SELECT sls_perd_id,
+             sct_cash_val,
+             sct_r_factor,
+             sct_prcsng_dt,
+             est_bilng_dt,
+             bst_bilng_dt,
+             sct_onsch_est_bi24_ind,
+             sct_offsch_est_bi24_ind,
+             sct_sls_typ_id
+        INTO l_sls_perd_id_in_mrkt_sls_perd,
+             l_sct_cash_value,
+             l_sct_r_factor,
+             l_sct_prcsng_dt,
+             l_est_bilng_dt,
+             l_bst_bilng_dt,
+             l_sct_onsch_est_bi24_ind,
+             l_sct_offsch_est_bi24_ind,
+             l_sct_sls_typ_id
+        FROM mrkt_sls_perd
+       WHERE mrkt_id = p_mrkt_id
+         AND sls_perd_id =
+             (SELECT MAX(trgt_sls_perd_id)
+                FROM TABLE(pa_trend_alloc.get_ta_config(p_mrkt_id        => p_mrkt_id,
+                                                            p_sls_perd_id    => p_campgn_perd_id,
+                                                            p_sls_typ_id     => p_sls_typ_id,
+                                                            p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24)));
+    EXCEPTION
+      WHEN OTHERS THEN
+        app_plsql_log.info(l_module_name ||
+                           ' there is NOTHING to PROCESS in MRKT_SLS_PERD for mrkt_id=' ||
+                           to_char(p_mrkt_id) ||
+                           ' and >>> p_campgn_perd_id=' ||
+                           to_char(p_campgn_perd_id) || ' <<<' ||
+                           l_parameter_list);
+        l_sls_perd_id_in_mrkt_sls_perd := NULL;
+        p_stus                         := 2;
+    END;
+    IF l_sls_perd_id_in_mrkt_sls_perd IS NOT NULL THEN
       BEGIN
         -- protecting delete and insert process
         p_stus := 2;
-        -- set values last used for calculation into mrkt_sls_perd table, if changed
-        SELECT sct_cash_val,
-               sct_r_factor,
-               sct_prcsng_dt,
-               est_bilng_dt,
-               bst_bilng_dt,
-               sct_onsch_est_bi24_ind,
-               sct_offsch_est_bi24_ind,
-               sct_sls_typ_id
-          INTO l_sct_cash_val,
-               l_sct_r_factor,
-               l_sct_prcsng_dt,
-               l_est_bilng_dt,
-               l_bst_bilng_dt,
-               l_sct_onsch_est_bi24_ind,
-               l_sct_offsch_est_bi24_ind,
-               l_sct_sls_typ_id
-          FROM mrkt_sls_perd
-         WHERE mrkt_id = p_mrkt_id
-           AND sls_perd_id = p_trg_perd_id;
         IF NOT
-            (l_sct_cash_val = p_cash_value AND l_sct_r_factor = p_r_factor AND
+            (l_sct_cash_value = p_cash_value AND l_sct_r_factor = p_r_factor AND
             l_sct_onsch_est_bi24_ind = p_use_offers_on_sched AND
             l_sct_offsch_est_bi24_ind = p_use_offers_off_sched AND
             l_sct_sls_typ_id = p_sls_typ_id) THEN
@@ -2605,7 +2964,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                  sct_sls_typ_id          = p_sls_typ_id,
                  last_updt_user_id       = l_user_id
            WHERE mrkt_id = p_mrkt_id
-             AND sls_perd_id = p_trg_perd_id;
+             AND sls_perd_id = l_sls_perd_id_in_mrkt_sls_perd;
           -- create historic record    
           INSERT INTO cash_val_rf_hist
             (mrkt_id,
@@ -2618,7 +2977,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
              last_updt_user_id)
           VALUES
             (p_mrkt_id,
-             p_trg_perd_id,
+             l_sls_perd_id_in_mrkt_sls_perd,
              p_cash_value,
              p_r_factor,
              p_use_offers_on_sched,
@@ -2631,9 +2990,11 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
           INTO l_max_prcsng_dt
           FROM dly_bilng_trnd
          WHERE mrkt_id = p_mrkt_id
-           AND trnd_sls_perd_id = p_sls_perd_id
-           AND prcsng_dt <= p_bilng_day;
-        IF l_sct_cash_val <> p_cash_value THEN
+           AND trnd_sls_perd_id = p_campgn_perd_id
+           AND prcsng_dt <= p_bilng_day
+           AND trnd_aloctn_auto_stus_id IN
+               (auto_matched, auto_suggested_single, auto_suggested_multi);
+        IF l_sct_cash_value <> p_cash_value THEN
           l_sct_prcsng_dt := l_max_prcsng_dt;
         END IF;
         IF p_sls_typ_id IN (marketing_est_id, supply_est_id) THEN
@@ -2648,55 +3009,123 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                bst_bilng_dt      = l_bst_bilng_dt,
                last_updt_user_id = l_user_id
          WHERE mrkt_id = p_mrkt_id
-           AND sls_perd_id = p_trg_perd_id;
-        -- get sls_typ_id_from_config
-        l_sls_typ_id_from_config := get_sls_typ_id_from_config(p_mrkt_id,
-                                                               l_run_id,
-                                                               l_user_id);
-        -- get CURRENT periods
-        l_periods := get_periods(p_mrkt_id       => p_mrkt_id,
-                                 p_orig_perd_id  => p_sls_perd_id,
-                                 p_bilng_perd_id => p_sls_perd_id,
-                                 p_sls_typ_id    => p_sls_typ_id,
-                                 p_bilng_day     => p_bilng_day,
-                                 p_run_id        => l_run_id,
-                                 p_user_id       => l_user_id);
+           AND sls_perd_id = l_sls_perd_id_in_mrkt_sls_perd;
         -- drop all previously existing records from DMS
         DELETE FROM dstrbtd_mrkt_sls
-         WHERE mrkt_id = p_mrkt_id
-           AND ((sls_perd_id = l_periods.dms_on_sls_perd_id AND
-               offr_perd_id = l_periods.dms_on_offr_perd_id) OR
-               (sls_perd_id = l_periods.dms_off_sls_perd_id AND
-               offr_perd_id = l_periods.dms_off_offr_perd_id))
-           AND sls_typ_id = p_sls_typ_id;
+         WHERE (mrkt_id, sls_perd_id, offr_perd_id, sls_typ_id) IN
+               (SELECT DISTINCT p_mrkt_id,
+                                pa_maps_public.perd_plus(p_mrkt_id,
+                                                         p_campgn_perd_id,
+                                                         offst_val_trgt_sls) trgt_sls_perd_id,
+                                pa_maps_public.perd_plus(p_mrkt_id,
+                                                         p_campgn_perd_id,
+                                                         offst_val_trgt_offr) trgt_offr_perd_id,
+                                p_sls_typ_id
+                  FROM (SELECT src_sls_typ_id,
+                               est_src_sls_typ_id AS x_src_sls_typ_id,
+                               offst_lbl_id,
+                               sls_typ_lbl_id,
+                               x_sls_typ_lbl_id,
+                               offst_val_src_sls,
+                               offst_val_trgt_sls,
+                               offst_val_src_offr,
+                               offst_val_trgt_offr,
+                               r_factor,
+                               eff_sls_perd_id,
+                               lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                          FROM ta_config
+                         WHERE mrkt_id = p_mrkt_id
+                           AND trgt_sls_typ_id = p_sls_typ_id
+                           AND upper(REPLACE(TRIM(sls_typ_grp_nm), '  ', ' ')) IN
+                               (SELECT TRIM(regexp_substr(col,
+                                                          '[^,]+',
+                                                          1,
+                                                          LEVEL)) RESULT
+                                  FROM (SELECT c_sls_typ_grp_nm_dms || ', ' ||
+                                               c_sls_typ_grp_nm_fc_dbt || ', ' ||
+                                               c_sls_typ_grp_nm_fc_dms col
+                                          FROM dual)
+                                CONNECT BY LEVEL <=
+                                           length(regexp_replace(col, '[^,]+')) + 1)
+                           AND eff_sls_perd_id <= p_campgn_perd_id)
+                 WHERE p_campgn_perd_id BETWEEN eff_sls_perd_id AND
+                       nvl(next_eff_sls_perd_id, p_campgn_perd_id));
         app_plsql_log.info(l_module_name || ' ' || SQL%ROWCOUNT ||
                            ' records DELETED from dstrbtd_mrkt_sls' ||
                            l_parameter_list);
         -- FORECASTED
+        FOR i IN (SELECT DISTINCT offst_lbl_id,
+                                  pa_maps_public.perd_plus(p_mrkt_id,
+                                                           p_campgn_perd_id,
+                                                           offst_val_trgt_sls) trgt_sls_perd_id,
+                                  pa_maps_public.perd_plus(p_mrkt_id,
+                                                           p_campgn_perd_id,
+                                                           offst_val_trgt_offr) trgt_offr_perd_id
+                    FROM (SELECT src_sls_typ_id,
+                                 est_src_sls_typ_id AS x_src_sls_typ_id,
+                                 offst_lbl_id,
+                                 sls_typ_lbl_id,
+                                 x_sls_typ_lbl_id,
+                                 offst_val_src_sls,
+                                 offst_val_trgt_sls,
+                                 offst_val_src_offr,
+                                 offst_val_trgt_offr,
+                                 r_factor,
+                                 eff_sls_perd_id,
+                                 lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                            FROM ta_config
+                           WHERE mrkt_id = p_mrkt_id
+                             AND trgt_sls_typ_id = p_sls_typ_id
+                             AND upper(REPLACE(TRIM(sls_typ_grp_nm),
+                                               '  ',
+                                               ' ')) IN
+                                 (SELECT TRIM(regexp_substr(col,
+                                                            '[^,]+',
+                                                            1,
+                                                            LEVEL)) RESULT
+                                    FROM (SELECT c_sls_typ_grp_nm_dms || ', ' ||
+                                                 c_sls_typ_grp_nm_fc_dbt || ', ' ||
+                                                 c_sls_typ_grp_nm_fc_dms col
+                                            FROM dual)
+                                  CONNECT BY LEVEL <=
+                                             length(regexp_replace(col,
+                                                                   '[^,]+')) + 1)
+                             AND eff_sls_perd_id <= p_campgn_perd_id)
+                   WHERE p_campgn_perd_id BETWEEN eff_sls_perd_id AND
+                         nvl(next_eff_sls_perd_id, p_campgn_perd_id)) LOOP
+          l_tbl_save(i.offst_lbl_id).offst_lbl_id := i.offst_lbl_id;
+          l_tbl_save(i.offst_lbl_id).trgt_sls_perd_id := i.trgt_sls_perd_id;
+          l_tbl_save(i.offst_lbl_id).trgt_offr_perd_id := i.trgt_offr_perd_id;
+        END LOOP;
+        -- FORCE rewrite BI24 into cache table
+        BEGIN
+          UPDATE trend_alloc_hist_dtls
+             SET r_factor = p_r_factor, cash_value = p_cash_value
+           WHERE mrkt_id = p_mrkt_id
+             AND sls_perd_id = p_campgn_perd_id
+             AND sls_typ_id = p_sls_typ_id
+             AND bilng_day = p_bilng_day;
+        EXCEPTION
+          WHEN OTHERS THEN
+            ROLLBACK;
+            app_plsql_log.info(l_module_name || ' FAILED, error code: ' ||
+                               SQLCODE || ' error message: ' || SQLERRM ||
+                               l_parameter_list);
+        END;
+        COMMIT;
         -- TRND
-        l_table_reproc := get_reproc_trnd(p_mrkt_id                => p_mrkt_id,
-                                          p_sls_perd_id            => p_sls_perd_id,
-                                          p_trg_perd_id            => p_trg_perd_id,
-                                          p_sls_typ_id             => p_sls_typ_id,
-                                          p_bilng_day              => p_bilng_day,
-                                          p_sls_typ_id_from_config => l_sls_typ_id_from_config,
-                                          p_dbt_on_sls_perd_id     => l_periods.dbt_on_sls_perd_id,
-                                          p_dbt_on_offr_perd_id    => l_periods.dbt_on_offr_perd_id,
-                                          p_dbt_off_sls_perd_id    => l_periods.dbt_off_sls_perd_id,
-                                          p_dbt_off_offr_perd_id   => l_periods.dbt_off_offr_perd_id,
-                                          p_dms_on_sls_perd_id     => l_periods.dms_on_sls_perd_id,
-                                          p_dms_on_offr_perd_id    => l_periods.dms_on_offr_perd_id,
-                                          p_dms_off_sls_perd_id    => l_periods.dms_off_sls_perd_id,
-                                          p_dms_off_offr_perd_id   => l_periods.dms_off_offr_perd_id,
-                                          p_cash_value             => p_cash_value,
-                                          p_r_factor               => p_r_factor,
-                                          p_run_id                 => l_run_id,
-                                          p_user_id                => l_user_id);
-        --insert_dms(l_table_reproc, 'T', l_user_id);
-        IF l_table_reproc.count > 0 THEN
+        l_tbl_reproc := get_reproc_trnd(p_mrkt_id     => p_mrkt_id,
+                                        p_sls_perd_id => p_campgn_perd_id,
+                                        p_sls_typ_id  => p_sls_typ_id,
+                                        p_bilng_day   => p_bilng_day,
+                                        p_cash_value  => p_cash_value,
+                                        p_r_factor    => p_r_factor,
+                                        p_user_id     => l_user_id,
+                                        p_run_id      => l_run_id);
+        IF l_tbl_reproc.count > 0 THEN
           l_cycl_cnt := 0;
           l_ins_cnt  := 0;
-          FOR i IN l_table_reproc.first .. l_table_reproc.last LOOP
+          FOR i IN l_tbl_reproc.first .. l_tbl_reproc.last LOOP
             l_cycl_cnt := l_cycl_cnt + 1;
             p_stus     := 2;
             BEGIN
@@ -2717,82 +3146,52 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                  creat_user_id,
                  last_updt_user_id)
               VALUES
-                (l_table_reproc(i).mrkt_id,
-                 CASE WHEN TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN l_table_reproc(i)
-                 .dms_on_sls_perd_id ELSE l_table_reproc(i)
-                 .dms_off_sls_perd_id END,
-                 l_table_reproc(i).offr_sku_line_id,
-                 l_table_reproc(i).sls_typ_id,
+                (p_mrkt_id,
+                 l_tbl_save(l_tbl_reproc(i).offst_lbl_id).trgt_sls_perd_id,
+                 l_tbl_reproc(i).offr_sku_line_id,
+                 p_sls_typ_id,
                  billing_sls_srce_id,
-                 CASE WHEN TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN l_table_reproc(i)
-                 .dms_on_offr_perd_id ELSE l_table_reproc(i)
-                 .dms_off_offr_perd_id END,
+                 l_tbl_save(l_tbl_reproc(i).offst_lbl_id).trgt_offr_perd_id,
                  final_sls_stus_cd,
-                 l_table_reproc(i).veh_id,
-                 CASE WHEN TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN l_table_reproc(i)
-                 .frcstd_unts_on ELSE l_table_reproc(i).frcstd_unts_off END,
-                 l_table_reproc(i).comsn_amt,
-                 l_table_reproc(i).tax_amt,
+                 l_tbl_reproc(i).veh_id,
+                 l_tbl_reproc(i).units,
+                 l_tbl_reproc(i).comsn_amt,
+                 l_tbl_reproc(i).tax_amt,
                  default_cost_amt,
                  (SELECT CASE
                            WHEN nvl(opp.sls_prc_amt, 0) = 0 THEN
                             0
                            WHEN nvl(opp.nr_for_qty, 0) = 0 THEN
                             0
-                           WHEN nvl(CASE
-                                      WHEN TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN
-                                       l_table_reproc(i).frcstd_unts_on
-                                      ELSE
-                                       l_table_reproc(i).frcstd_unts_off
-                                    END,
-                                    0) = 0 THEN
+                           WHEN nvl(l_tbl_reproc(i).units, 0) = 0 THEN
                             0
                            ELSE
-                            ((opp.sls_prc_amt / opp.nr_for_qty * CASE
-                              WHEN TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN
-                               l_table_reproc(i).frcstd_unts_on
-                              ELSE
-                               l_table_reproc(i).frcstd_unts_off
-                            END) - l_table_reproc(i).comsn_amt - l_table_reproc(i)
-                            .tax_amt) / (opp.sls_prc_amt / opp.nr_for_qty * CASE
-                              WHEN TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN
-                               l_table_reproc(i).frcstd_unts_on
-                              ELSE
-                               l_table_reproc(i).frcstd_unts_off
-                            END)
+                            ((opp.sls_prc_amt / opp.nr_for_qty * l_tbl_reproc(i)
+                            .units) - l_tbl_reproc(i).comsn_amt - l_tbl_reproc(i)
+                            .tax_amt) / (opp.sls_prc_amt / opp.nr_for_qty * l_tbl_reproc(i)
+                            .units)
                          END
                     FROM offr_prfl_prc_point opp, offr_sku_line osl
-                   WHERE osl.offr_sku_line_id = l_table_reproc(i)
+                   WHERE osl.offr_sku_line_id = l_tbl_reproc(i)
                         .offr_sku_line_id
                      AND opp.offr_prfl_prcpt_id = osl.offr_prfl_prcpt_id),
-                 p_user_id,
-                 p_user_id);
-              -- count REAL insert
+                 l_user_id,
+                 l_user_id);
               l_ins_cnt := l_ins_cnt + 1;
               p_stus    := 0;
             EXCEPTION
-              WHEN OTHERS
-              -- log
-               THEN
-                app_plsql_log.error('ERROR at INSERT INTO dstrbtd_mrkt_sls (T) ' || l_table_reproc(i)
-                                    .mrkt_id || ', ' || CASE WHEN
-                                    TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN l_table_reproc(i)
-                                    .dms_on_sls_perd_id ELSE l_table_reproc(i)
-                                    .dms_off_sls_perd_id
-                                    END || ', ' || l_table_reproc(i)
-                                    .offr_sku_line_id || ', ' || l_table_reproc(i)
-                                    .sls_typ_id || ', ' ||
-                                    billing_sls_srce_id || ', ' || CASE WHEN
-                                    TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN l_table_reproc(i)
-                                    .dms_on_offr_perd_id ELSE l_table_reproc(i)
-                                    .dms_off_offr_perd_id
-                                    END || ', ' || final_sls_stus_cd || ', ' || l_table_reproc(i)
-                                    .veh_id || ', ' || CASE WHEN
-                                    TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN l_table_reproc(i)
-                                    .frcstd_unts_on ELSE l_table_reproc(i)
-                                    .frcstd_unts_off
-                                    END || ', ' || l_table_reproc(i)
-                                    .comsn_amt || ', ' || l_table_reproc(i)
+              WHEN OTHERS THEN
+                app_plsql_log.error('ERROR at INSERT INTO dstrbtd_mrkt_sls (T) ' ||
+                                    p_mrkt_id || ', ' || l_tbl_save(l_tbl_reproc(i).offst_lbl_id)
+                                    .trgt_sls_perd_id || ', ' || l_tbl_reproc(i)
+                                    .offr_sku_line_id || ', ' ||
+                                    p_sls_typ_id || ', ' ||
+                                    billing_sls_srce_id || ', ' || l_tbl_save(l_tbl_reproc(i).offst_lbl_id)
+                                    .trgt_offr_perd_id || ', ' ||
+                                    final_sls_stus_cd || ', ' || l_tbl_reproc(i)
+                                    .veh_id || ', ' || l_tbl_reproc(i)
+                                    .units || ', ' || l_tbl_reproc(i)
+                                    .comsn_amt || ', ' || l_tbl_reproc(i)
                                     .tax_amt || ', ' || default_cost_amt);
                 RAISE;
             END;
@@ -2800,33 +3199,23 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
           app_plsql_log.info(l_module_name || ' trnd (cycle): ' ||
                              l_cycl_cnt || ' trnd (insert): ' || l_ins_cnt ||
                              l_parameter_list);
+          l_tbl_reproc.delete;
         END IF;
-        -- EST and OVRRD
-        l_table_reproc.delete;
-        l_table_reproc := get_reproc_est(p_mrkt_id              => p_mrkt_id,
-                                         p_sls_perd_id          => p_sls_perd_id,
-                                         p_trg_perd_id          => p_trg_perd_id,
-                                         p_sls_typ_id           => p_sls_typ_id,
-                                         p_bilng_day            => p_bilng_day,
-                                         p_dbt_on_sls_perd_id   => l_periods.dbt_on_sls_perd_id,
-                                         p_dbt_on_offr_perd_id  => l_periods.dbt_on_offr_perd_id,
-                                         p_dbt_off_sls_perd_id  => l_periods.dbt_off_sls_perd_id,
-                                         p_dbt_off_offr_perd_id => l_periods.dbt_off_offr_perd_id,
-                                         p_dms_on_sls_perd_id   => l_periods.dms_on_sls_perd_id,
-                                         p_dms_on_offr_perd_id  => l_periods.dms_on_offr_perd_id,
-                                         p_dms_off_sls_perd_id  => l_periods.dms_off_sls_perd_id,
-                                         p_dms_off_offr_perd_id => l_periods.dms_off_offr_perd_id,
-                                         p_cash_value           => p_cash_value,
-                                         p_r_factor             => p_r_factor,
-                                         p_use_offers_on_sched  => p_use_offers_on_sched,
-                                         p_use_offers_off_sched => p_use_offers_off_sched,
-                                         p_run_id               => l_run_id,
-                                         p_user_id              => l_user_id);
-        --insert_dms(l_table_reproc, 'E', l_user_id);
-        IF l_table_reproc.count > 0 THEN
+        -- EST
+        l_tbl_reproc := get_reproc_est(p_mrkt_id              => p_mrkt_id,
+                                       p_sls_perd_id          => p_campgn_perd_id,
+                                       p_sls_typ_id           => p_sls_typ_id,
+                                       p_bilng_day            => p_bilng_day,
+                                       p_cash_value           => p_cash_value,
+                                       p_r_factor             => p_r_factor,
+                                       p_use_offers_on_sched  => p_use_offers_on_sched,
+                                       p_use_offers_off_sched => p_use_offers_off_sched,
+                                       p_user_id              => l_user_id,
+                                       p_run_id               => l_run_id);
+        IF l_tbl_reproc.count > 0 THEN
           l_cycl_cnt := 0;
           l_ins_cnt  := 0;
-          FOR i IN l_table_reproc.first .. l_table_reproc.last LOOP
+          FOR i IN l_tbl_reproc.first .. l_tbl_reproc.last LOOP
             l_cycl_cnt := l_cycl_cnt + 1;
             p_stus     := 2;
             BEGIN
@@ -2847,82 +3236,52 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                  creat_user_id,
                  last_updt_user_id)
               VALUES
-                (l_table_reproc(i).mrkt_id,
-                 CASE WHEN TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN l_table_reproc(i)
-                 .dms_on_sls_perd_id ELSE l_table_reproc(i)
-                 .dms_off_sls_perd_id END,
-                 l_table_reproc(i).offr_sku_line_id,
-                 l_table_reproc(i).sls_typ_id,
+                (p_mrkt_id,
+                 l_tbl_save(l_tbl_reproc(i).offst_lbl_id).trgt_sls_perd_id,
+                 l_tbl_reproc(i).offr_sku_line_id,
+                 p_sls_typ_id,
                  billing_sls_srce_id,
-                 CASE WHEN TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN l_table_reproc(i)
-                 .dms_on_offr_perd_id ELSE l_table_reproc(i)
-                 .dms_off_offr_perd_id END,
+                 l_tbl_save(l_tbl_reproc(i).offst_lbl_id).trgt_offr_perd_id,
                  final_sls_stus_cd,
-                 l_table_reproc(i).veh_id,
-                 CASE WHEN TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN l_table_reproc(i)
-                 .frcstd_unts_on ELSE l_table_reproc(i).frcstd_unts_off END,
-                 l_table_reproc(i).comsn_amt,
-                 l_table_reproc(i).tax_amt,
+                 l_tbl_reproc(i).veh_id,
+                 l_tbl_reproc(i).units,
+                 l_tbl_reproc(i).comsn_amt,
+                 l_tbl_reproc(i).tax_amt,
                  default_cost_amt,
                  (SELECT CASE
                            WHEN nvl(opp.sls_prc_amt, 0) = 0 THEN
                             0
                            WHEN nvl(opp.nr_for_qty, 0) = 0 THEN
                             0
-                           WHEN nvl(CASE
-                                      WHEN TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN
-                                       l_table_reproc(i).frcstd_unts_on
-                                      ELSE
-                                       l_table_reproc(i).frcstd_unts_off
-                                    END,
-                                    0) = 0 THEN
+                           WHEN nvl(l_tbl_reproc(i).units, 0) = 0 THEN
                             0
                            ELSE
-                            ((opp.sls_prc_amt / opp.nr_for_qty * CASE
-                              WHEN TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN
-                               l_table_reproc(i).frcstd_unts_on
-                              ELSE
-                               l_table_reproc(i).frcstd_unts_off
-                            END) - l_table_reproc(i).comsn_amt - l_table_reproc(i)
-                            .tax_amt) / (opp.sls_prc_amt / opp.nr_for_qty * CASE
-                              WHEN TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN
-                               l_table_reproc(i).frcstd_unts_on
-                              ELSE
-                               l_table_reproc(i).frcstd_unts_off
-                            END)
+                            ((opp.sls_prc_amt / opp.nr_for_qty * l_tbl_reproc(i)
+                            .units) - l_tbl_reproc(i).comsn_amt - l_tbl_reproc(i)
+                            .tax_amt) / (opp.sls_prc_amt / opp.nr_for_qty * l_tbl_reproc(i)
+                            .units)
                          END
                     FROM offr_prfl_prc_point opp, offr_sku_line osl
-                   WHERE osl.offr_sku_line_id = l_table_reproc(i)
+                   WHERE osl.offr_sku_line_id = l_tbl_reproc(i)
                         .offr_sku_line_id
                      AND opp.offr_prfl_prcpt_id = osl.offr_prfl_prcpt_id),
-                 p_user_id,
-                 p_user_id);
-              -- count REAL insert
+                 l_user_id,
+                 l_user_id);
               l_ins_cnt := l_ins_cnt + 1;
               p_stus    := 0;
             EXCEPTION
-              WHEN OTHERS
-              -- log
-               THEN
-                app_plsql_log.error('ERROR at INSERT INTO dstrbtd_mrkt_sls (E) ' || l_table_reproc(i)
-                                    .mrkt_id || ', ' || CASE WHEN
-                                    TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN l_table_reproc(i)
-                                    .dms_on_sls_perd_id ELSE l_table_reproc(i)
-                                    .dms_off_sls_perd_id
-                                    END || ', ' || l_table_reproc(i)
-                                    .offr_sku_line_id || ', ' || l_table_reproc(i)
-                                    .sls_typ_id || ', ' ||
-                                    billing_sls_srce_id || ', ' || CASE WHEN
-                                    TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN l_table_reproc(i)
-                                    .dms_on_offr_perd_id ELSE l_table_reproc(i)
-                                    .dms_off_offr_perd_id
-                                    END || ', ' || final_sls_stus_cd || ', ' || l_table_reproc(i)
-                                    .veh_id || ', ' || CASE WHEN
-                                    TRIM(l_table_reproc(i).on_off_flag) = 'ON' THEN l_table_reproc(i)
-                                    .frcstd_unts_on ELSE l_table_reproc(i)
-                                    .frcstd_unts_off
-                                    END || ', ' || l_table_reproc(i)
-                                    .comsn_amt || ', ' || l_table_reproc(i)
+              WHEN OTHERS THEN
+                app_plsql_log.error('ERROR at INSERT INTO dstrbtd_mrkt_sls (E) ' ||
+                                    p_mrkt_id || ', ' || l_tbl_save(l_tbl_reproc(i).offst_lbl_id)
+                                    .trgt_sls_perd_id || ', ' || l_tbl_reproc(i)
+                                    .offr_sku_line_id || ', ' ||
+                                    p_sls_typ_id || ', ' ||
+                                    billing_sls_srce_id || ', ' || l_tbl_save(l_tbl_reproc(i).offst_lbl_id)
+                                    .trgt_offr_perd_id || ', ' ||
+                                    final_sls_stus_cd || ', ' || l_tbl_reproc(i)
+                                    .veh_id || ', ' || l_tbl_reproc(i)
+                                    .units || ', ' || l_tbl_reproc(i)
+                                    .comsn_amt || ', ' || l_tbl_reproc(i)
                                     .tax_amt || ', ' || default_cost_amt);
                 RAISE;
             END;
@@ -2930,6 +3289,100 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
           app_plsql_log.info(l_module_name || ' est (cycle): ' ||
                              l_cycl_cnt || ' est (insert): ' || l_ins_cnt ||
                              l_parameter_list);
+          l_tbl_reproc.delete;
+        END IF;
+        -- EST2
+        l_tbl_reproc_est2 := get_reproc_est2(p_mrkt_id              => p_mrkt_id,
+                                             p_sls_perd_id          => p_campgn_perd_id,
+                                             p_sls_typ_id           => p_sls_typ_id,
+                                             p_bilng_day            => p_bilng_day,
+                                             p_cash_value           => p_cash_value,
+                                             p_r_factor             => p_r_factor,
+                                             p_use_offers_on_sched  => p_use_offers_on_sched,
+                                             p_use_offers_off_sched => p_use_offers_off_sched,
+                                             p_user_id              => l_user_id,
+                                             p_run_id               => l_run_id);
+        IF l_tbl_reproc_est2.count > 0 THEN
+          l_cycl_cnt := 0;
+          l_ins_cnt  := 0;
+          FOR i IN l_tbl_reproc_est2.first .. l_tbl_reproc_est2.last LOOP
+            l_cycl_cnt := l_cycl_cnt + 1;
+            p_stus     := 2;
+            BEGIN
+              INSERT INTO dstrbtd_mrkt_sls
+                (mrkt_id,
+                 sls_perd_id,
+                 offr_sku_line_id,
+                 sls_typ_id,
+                 sls_srce_id,
+                 offr_perd_id,
+                 sls_stus_cd,
+                 veh_id,
+                 unit_qty,
+                 comsn_amt,
+                 tax_amt,
+                 cost_amt,
+                 net_to_avon_fct,
+                 creat_user_id,
+                 last_updt_user_id)
+              VALUES
+                (p_mrkt_id,
+                 l_tbl_save(l_tbl_reproc_est2(i).offst_lbl_id)
+                 .trgt_sls_perd_id,
+                 l_tbl_reproc_est2(i).offr_sku_line_id,
+                 p_sls_typ_id,
+                 billing_sls_srce_id,
+                 l_tbl_save(l_tbl_reproc_est2(i).offst_lbl_id)
+                 .trgt_offr_perd_id,
+                 final_sls_stus_cd,
+                 l_tbl_reproc_est2(i).veh_id,
+                 l_tbl_reproc_est2(i).units_forecasted,
+                 l_tbl_reproc_est2(i).comsn_amt,
+                 l_tbl_reproc_est2(i).tax_amt,
+                 default_cost_amt,
+                 (SELECT CASE
+                           WHEN nvl(opp.sls_prc_amt, 0) = 0 THEN
+                            0
+                           WHEN nvl(opp.nr_for_qty, 0) = 0 THEN
+                            0
+                           WHEN nvl(l_tbl_reproc_est2(i).units_forecasted, 0) = 0 THEN
+                            0
+                           ELSE
+                            ((opp.sls_prc_amt / opp.nr_for_qty * l_tbl_reproc_est2(i)
+                            .units_forecasted) - l_tbl_reproc_est2(i)
+                            .comsn_amt - l_tbl_reproc_est2(i).tax_amt) /
+                            (opp.sls_prc_amt / opp.nr_for_qty * l_tbl_reproc_est2(i)
+                            .units_forecasted)
+                         END
+                    FROM offr_prfl_prc_point opp, offr_sku_line osl
+                   WHERE osl.offr_sku_line_id = l_tbl_reproc_est2(i)
+                        .offr_sku_line_id
+                     AND opp.offr_prfl_prcpt_id = osl.offr_prfl_prcpt_id),
+                 l_user_id,
+                 l_user_id);
+              l_ins_cnt := l_ins_cnt + 1;
+              p_stus    := 0;
+            EXCEPTION
+              WHEN OTHERS THEN
+                app_plsql_log.error('ERROR at INSERT INTO dstrbtd_mrkt_sls (E2) ' ||
+                                    p_mrkt_id || ', ' || l_tbl_save(l_tbl_reproc_est2(i).offst_lbl_id)
+                                    .trgt_sls_perd_id || ', ' || l_tbl_reproc_est2(i)
+                                    .offr_sku_line_id || ', ' ||
+                                    p_sls_typ_id || ', ' ||
+                                    billing_sls_srce_id || ', ' || l_tbl_save(l_tbl_reproc_est2(i).offst_lbl_id)
+                                    .trgt_offr_perd_id || ', ' ||
+                                    final_sls_stus_cd || ', ' || l_tbl_reproc_est2(i)
+                                    .veh_id || ', ' || l_tbl_reproc_est2(i)
+                                    .units_forecasted || ', ' || l_tbl_reproc_est2(i)
+                                    .comsn_amt || ', ' || l_tbl_reproc_est2(i)
+                                    .tax_amt || ', ' || default_cost_amt);
+                RAISE;
+            END;
+          END LOOP;
+          app_plsql_log.info(l_module_name || ' est2 (cycle): ' ||
+                             l_cycl_cnt || ' est2 (insert): ' || l_ins_cnt ||
+                             l_parameter_list);
+          l_tbl_reproc_est2.delete;
         END IF;
       EXCEPTION
         WHEN OTHERS THEN
@@ -2948,12 +3401,6 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
         app_plsql_log.info(l_module_name || ' ROLLBACK, status_code: ' ||
                            to_char(p_stus) || l_parameter_list);
       END IF;
-    ELSE
-      ROLLBACK;
-      app_plsql_log.info(l_module_name ||
-                         ' there is NOTHING to PROCESS in MRKT_SLS_PERD for mrkt_id=' ||
-                         to_char(p_mrkt_id) || ' and sls_perd_id=' ||
-                         to_char(p_trg_perd_id) || l_parameter_list);
     END IF;
     --
     app_plsql_log.info(l_module_name || ' end, status_code: ' ||
@@ -2961,246 +3408,90 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     --
   END save_trend_alloctn;
 
-  FUNCTION get_saved_trend_head(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                p_trg_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                                p_bilng_day   IN dly_bilng_trnd.prcsng_dt%TYPE,
-                                p_run_id      IN NUMBER DEFAULT NULL,
-                                p_user_id     IN VARCHAR2 DEFAULT NULL)
-    RETURN obj_trend_alloc_hist_hd_table
-    PIPELINED AS
+  PROCEDURE set_sct_autclc(p_mrkt_id        IN mrkt_sls_perd.mrkt_id%TYPE,
+                           p_campgn_perd_id IN mrkt_sls_perd.sls_perd_id%TYPE,
+                           p_sls_typ_id     IN mrkt_sls_perd.sct_sls_typ_id%TYPE,
+                           p_autclc_ind     IN mrkt_sls_perd.sct_autclc_est_ind%TYPE,
+                           p_user_id        IN VARCHAR2 DEFAULT NULL,
+                           p_stus           OUT NUMBER) IS
+    PRAGMA AUTONOMOUS_TRANSACTION;
     -- local variables
-    l_periods            r_periods;
-    l_tbl_hist_head_aggr t_hist_head_aggr;
-    -- added
-    l_last_dms dstrbtd_mrkt_sls.last_updt_ts%TYPE;
-    -- added end
-    -- for HEAD aggr
-    l_bi24_unts_on      NUMBER;
-    l_bi24_sls_on       NUMBER;
-    l_bi24_unts_off     NUMBER;
-    l_bi24_sls_off      NUMBER;
-    l_estimate_unts_on  NUMBER;
-    l_estimate_sls_on   NUMBER;
-    l_estimate_unts_off NUMBER;
-    l_estimate_sls_off  NUMBER;
-    l_trend_unts_on     NUMBER;
-    l_trend_sls_on      NUMBER;
-    l_trend_unts_off    NUMBER;
-    l_trend_sls_off     NUMBER;
-    l_actual_unts_on    NUMBER;
-    l_actual_sls_on     NUMBER;
-    l_actual_unts_off   NUMBER;
-    l_actual_sls_off    NUMBER;
-    -- once
-    l_sls_typ_id_from_config dly_bilng_trnd_offr_sku_line.sls_typ_id%TYPE;
+    l_autclc_est_ind               mrkt_sls_perd.sct_autclc_est_ind%TYPE;
+    l_autclc_bst_ind               mrkt_sls_perd.sct_autclc_bst_ind%TYPE;
+    l_sls_perd_id_in_mrkt_sls_perd mrkt_sls_perd.sls_perd_id%TYPE;
     -- for LOG
-    l_run_id         NUMBER := nvl(p_run_id,
-                                   app_plsql_output.generate_new_run_id);
+    l_run_id         NUMBER := app_plsql_output.generate_new_run_id;
     l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
-    l_module_name    VARCHAR2(30) := 'GET_SAVED_TREND_HEAD';
-    l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
-                                       to_char(p_mrkt_id) || ', ' ||
-                                       'p_sls_perd_id: ' ||
-                                       to_char(p_sls_perd_id) || ', ' ||
-                                       'p_trg_perd_id: ' ||
-                                       to_char(p_trg_perd_id) || ', ' ||
-                                       'p_sls_typ_id: ' ||
-                                       to_char(p_sls_typ_id) || ', ' ||
-                                       'p_bilng_day: ' ||
-                                       to_char(p_bilng_day, 'yyyy-mm-dd') || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
-    --
+    l_module_name    VARCHAR2(30) := 'SET_SCT_AUTCLC';
+    l_parameter_list VARCHAR2(2048);
   BEGIN
     app_plsql_log.register(g_package_name || '.' || l_module_name);
     app_plsql_output.set_run_id(l_run_id);
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
-    app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
-    -- added
+    l_parameter_list := ' (mrkt_id: ' || to_char(p_mrkt_id) || ', ' ||
+                        'p_campgn_perd_id: ' || to_char(p_campgn_perd_id) || ', ' ||
+                        'sls_typ_id: ' || to_char(p_sls_typ_id) || ', ' ||
+                        'autclc_ind: ' || to_char(p_autclc_ind) || ', ' ||
+                        'p_user_id: ' || l_user_id || ', ' || 'p_run_id: ' ||
+                        to_char(l_run_id) || ')';
+    app_plsql_log.info(l_module_name || ' start ' || l_parameter_list);
+    p_stus := 0;
     BEGIN
-      SELECT last_updt_ts
-        INTO l_last_dms
-        FROM dstrbtd_mrkt_sls
+      SELECT sct_autclc_est_ind, sct_autclc_bst_ind, sls_perd_id
+        INTO l_autclc_est_ind,
+             l_autclc_bst_ind,
+             l_sls_perd_id_in_mrkt_sls_perd
+        FROM mrkt_sls_perd
        WHERE mrkt_id = p_mrkt_id
-         AND sls_perd_id = p_trg_perd_id
-         AND sls_typ_id = p_sls_typ_id
-         AND rownum <= 1;
+         AND sls_perd_id =
+             (SELECT MAX(trgt_sls_perd_id)
+                FROM TABLE(pa_trend_alloc.get_ta_config(p_mrkt_id        => p_mrkt_id,
+                                                            p_sls_perd_id    => p_campgn_perd_id,
+                                                            p_sls_typ_id     => p_sls_typ_id,
+                                                            p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24)));
+      --
+      CASE
+        WHEN p_sls_typ_id IN (marketing_est_id, supply_est_id) THEN
+          l_autclc_est_ind := p_autclc_ind;
+          IF l_autclc_bst_ind IS NOT NULL THEN
+            l_autclc_bst_ind := 'N';
+          END IF;
+        WHEN p_sls_typ_id IN (marketing_bst_id, supply_bst_id) THEN
+          l_autclc_bst_ind := p_autclc_ind;
+          IF l_autclc_est_ind IS NOT NULL THEN
+            l_autclc_est_ind := 'N';
+          END IF;
+        WHEN p_sls_typ_id IN (marketing_fst_id, supply_fst_id) THEN
+          IF l_autclc_est_ind IS NOT NULL THEN
+            l_autclc_est_ind := 'N';
+          END IF;
+          IF l_autclc_bst_ind IS NOT NULL THEN
+            l_autclc_bst_ind := 'N';
+          END IF;
+        ELSE
+          p_stus := 3;
+      END CASE;
+      IF p_stus = 0 THEN
+        UPDATE mrkt_sls_perd
+           SET sct_sls_typ_id     = p_sls_typ_id,
+               sct_autclc_est_ind = l_autclc_est_ind,
+               sct_autclc_bst_ind = l_autclc_bst_ind
+         WHERE mrkt_id = p_mrkt_id
+           AND sls_perd_id = l_sls_perd_id_in_mrkt_sls_perd;
+        --
+        COMMIT;
+      ELSE
+        ROLLBACK;
+      END IF;
     EXCEPTION
       WHEN no_data_found THEN
-        l_last_dms := NULL;
+        p_stus := 1;
       WHEN OTHERS THEN
-        app_plsql_log.info(l_module_name ||
-                           ' warning: Other exception when selecting from: dstrbtd_mrkt_sls where mrkt_id=' ||
-                           to_char(p_mrkt_id) || ' and sls_perd_id=' ||
-                           to_char(p_trg_perd_id) || ' and sls_typ_id=' ||
-                           to_char(p_sls_typ_id) || 'error code: ' ||
-                           SQLCODE || ' error message: ' || SQLERRM ||
-                           l_parameter_list);
-        l_last_dms := NULL;
+        p_stus := 2;
     END;
-    CASE
-      WHEN l_last_dms IS NOT NULL THEN
-        -- sls_typ_id_from_config
-        l_sls_typ_id_from_config := get_sls_typ_id_from_config(p_mrkt_id,
-                                                               l_run_id,
-                                                               l_user_id);
-        -- iterations
-        -- get CURRENT periods
-        l_periods := get_periods(p_mrkt_id       => p_mrkt_id,
-                                 p_orig_perd_id  => p_sls_perd_id,
-                                 p_bilng_perd_id => p_sls_perd_id,
-                                 p_sls_typ_id    => p_sls_typ_id,
-                                 p_bilng_day     => p_bilng_day,
-                                 p_run_id        => l_run_id,
-                                 p_user_id       => l_user_id);
-        -- get_head_details
-        l_tbl_hist_head_aggr := get_head_details(p_mrkt_id,
-                                                 p_sls_perd_id,
-                                                 p_trg_perd_id,
-                                                 p_sls_typ_id,
-                                                 l_periods.dbt_bilng_day,
-                                                 l_sls_typ_id_from_config,
-                                                 l_periods.dbt_on_sls_perd_id,
-                                                 l_periods.dbt_on_offr_perd_id,
-                                                 l_periods.dbt_off_sls_perd_id,
-                                                 l_periods.dbt_off_offr_perd_id,
-                                                 l_periods.dms_on_sls_perd_id,
-                                                 l_periods.dms_on_offr_perd_id,
-                                                 l_periods.dms_off_sls_perd_id,
-                                                 l_periods.dms_off_offr_perd_id,
-                                                 l_run_id,
-                                                 l_user_id);
-        --
-        l_bi24_unts_on      := 0;
-        l_bi24_sls_on       := 0;
-        l_bi24_unts_off     := 0;
-        l_bi24_sls_off      := 0;
-        l_trend_unts_on     := 0;
-        l_trend_sls_on      := 0;
-        l_trend_unts_off    := 0;
-        l_trend_sls_off     := 0;
-        l_estimate_unts_on  := 0;
-        l_estimate_sls_on   := 0;
-        l_estimate_unts_off := 0;
-        l_estimate_sls_off  := 0;
-        l_actual_unts_on    := 0;
-        l_actual_sls_on     := 0;
-        l_actual_unts_off   := 0;
-        l_actual_sls_off    := 0;
-        IF l_tbl_hist_head_aggr.count > 0 THEN
-          FOR i IN l_tbl_hist_head_aggr.first .. l_tbl_hist_head_aggr.last LOOP
-            l_bi24_unts_on      := l_bi24_unts_on +
-                                   nvl(l_tbl_hist_head_aggr(i).bi24_unts_on,
-                                       0);
-            l_bi24_sls_on       := l_bi24_sls_on +
-                                   nvl(l_tbl_hist_head_aggr(i).bi24_sls_on,
-                                       0);
-            l_bi24_unts_off     := l_bi24_unts_off +
-                                   nvl(l_tbl_hist_head_aggr(i).bi24_unts_off,
-                                       0);
-            l_bi24_sls_off      := l_bi24_sls_off +
-                                   nvl(l_tbl_hist_head_aggr(i).bi24_sls_off,
-                                       0);
-            l_trend_unts_on     := l_trend_unts_on +
-                                   nvl(l_tbl_hist_head_aggr(i).trend_unts_on,
-                                       0);
-            l_trend_sls_on      := l_trend_sls_on +
-                                   nvl(l_tbl_hist_head_aggr(i).trend_sls_on,
-                                       0);
-            l_trend_unts_off    := l_trend_unts_off +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .trend_unts_off,
-                                       0);
-            l_trend_sls_off     := l_trend_sls_off +
-                                   nvl(l_tbl_hist_head_aggr(i).trend_sls_off,
-                                       0);
-            l_estimate_unts_on  := l_estimate_unts_on +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .estimate_unts_on,
-                                       0);
-            l_estimate_sls_on   := l_estimate_sls_on +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .estimate_sls_on,
-                                       0);
-            l_estimate_unts_off := l_estimate_unts_off +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .estimate_unts_off,
-                                       0);
-            l_estimate_sls_off  := l_estimate_sls_off +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .estimate_sls_off,
-                                       0);
-            l_actual_unts_on    := l_actual_unts_on +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .actual_unts_on,
-                                       0);
-            l_actual_sls_on     := l_actual_sls_on +
-                                   nvl(l_tbl_hist_head_aggr(i).actual_sls_on,
-                                       0);
-            l_actual_unts_off   := l_actual_unts_off +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .actual_unts_off,
-                                       0);
-            l_actual_sls_off    := l_actual_sls_off +
-                                   nvl(l_tbl_hist_head_aggr(i)
-                                       .actual_sls_off,
-                                       0);
-          END LOOP;
-        END IF;
-        PIPE ROW(obj_trend_alloc_hist_head_line(l_periods.dbt_on_sls_perd_id /*sls_perd_id*/,
-                                                l_periods.dms_on_sls_perd_id /*trg_perd_id*/,
-                                                l_periods.dbt_bilng_day /*bilng_day*/,
-                                                l_bi24_unts_on,
-                                                l_bi24_sls_on,
-                                                l_bi24_unts_off,
-                                                l_bi24_sls_off,
-                                                l_periods.sct_cash_val /*cash_vlu*/,
-                                                l_periods.sct_r_factor /*r_factor*/,
-                                                l_estimate_unts_on,
-                                                l_estimate_sls_on,
-                                                l_estimate_unts_off,
-                                                l_estimate_sls_off,
-                                                l_trend_unts_on,
-                                                l_trend_sls_on,
-                                                l_trend_unts_off,
-                                                l_trend_sls_off,
-                                                l_actual_unts_on,
-                                                l_actual_sls_on,
-                                                l_actual_unts_off,
-                                                l_actual_sls_off));
-        IF l_tbl_hist_head_aggr.count > 0 THEN
-          l_tbl_hist_head_aggr.delete;
-        END IF;
-        -- added
-      ELSE
-        PIPE ROW(obj_trend_alloc_hist_head_line(NULL /*sls_perd_id*/,
-                                                NULL /*trg_perd_id*/,
-                                                NULL /*bilng_day*/,
-                                                NULL,
-                                                NULL,
-                                                NULL,
-                                                NULL,
-                                                NULL /*cash_vlu*/,
-                                                NULL /*r_factor*/,
-                                                NULL,
-                                                NULL,
-                                                NULL,
-                                                NULL,
-                                                NULL,
-                                                NULL,
-                                                NULL,
-                                                NULL,
-                                                NULL,
-                                                NULL,
-                                                NULL,
-                                                NULL));
-      
-    END CASE;
-    -- added end
-    app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
-  END get_saved_trend_head;
+    app_plsql_log.info(l_module_name || ' end, status_code: ' ||
+                       to_char(p_stus) || l_parameter_list);
+  END set_sct_autclc;
 
   ---------------------------------------------
   -- inherited from WEDEV.TRND_ALOCTN package -
@@ -3252,8 +3543,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                      p_sls_aloc_auto_stus_id IN CHAR,
                      p_sls_aloc_manl_stus_id IN CHAR,
                      p_forc_mtch_ind         IN CHAR,
-                     p_run_id                IN NUMBER DEFAULT NULL,
-                     p_user_id               IN VARCHAR2 DEFAULT NULL) IS
+                     p_user_id               IN VARCHAR2 DEFAULT NULL,
+                     p_run_id                IN NUMBER DEFAULT NULL) IS
     -- local variables
     v_gta_ovr_rid dly_bilng_offr_sku_line.gta_ovrrd_ind%TYPE;
     -- GTA FIX
@@ -3426,8 +3717,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                         'p_sls_aloc_manl_stus_id: ' ||
                         p_sls_aloc_manl_stus_id || ', ' ||
                         'p_forc_mtch_ind: ' || p_forc_mtch_ind || ', ' ||
-                        'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                        'p_user_id: ' || l_user_id || ')';
+                        'p_user_id: ' || l_user_id || ', ' || 'p_run_id: ' ||
+                        to_char(l_run_id) || ')';
     app_plsql_log.register(g_package_name || '.' || l_module_name);
     app_plsql_output.set_run_id(l_run_id);
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
@@ -3509,14 +3800,17 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     END IF;
   END check_veh_sls_chnl;
 
-  PROCEDURE process_jobs(p_run_id  IN NUMBER DEFAULT NULL,
-                         p_user_id IN VARCHAR2 DEFAULT NULL) IS
+  PROCEDURE process_jobs(p_user_id IN VARCHAR2 DEFAULT NULL,
+                         p_run_id  IN NUMBER DEFAULT NULL) IS
     PRAGMA AUTONOMOUS_TRANSACTION;
     -- local variables
-    l_stus                   NUMBER;
-    l_sls_typ_id_from_config dly_bilng_trnd_offr_sku_line.sls_typ_id%TYPE;
-    l_periods                r_periods;
-    l_bi24_r_factor          r_bi24_r_factor;
+    l_tbl_bi24             t_hist_detail := t_hist_detail();
+    l_offst_lbl_id_on      NUMBER;
+    l_offst_lbl_id_off     NUMBER;
+    l_periods              r_periods;
+    l_bi24_r_factor        NUMBER;
+    l_stus                 NUMBER;
+    l_campaign_sls_perd_id mrkt_sls_perd.sls_perd_id%TYPE;
     -- for LOG
     l_run_id         NUMBER := nvl(p_run_id,
                                    app_plsql_output.generate_new_run_id);
@@ -3532,18 +3826,14 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     ---------------------------------------
     FOR rec IN (SELECT mrkt_sls_perd.mrkt_id,
                        mrkt_sls_perd.sct_sls_typ_id,
-                       pa_manl_trend_adjstmnt.get_sales_campaign(p_mrkt_id      => mrkt_sls_perd.mrkt_id,
-                                                                 p_trgt_perd_id => mrkt_sls_perd.sls_perd_id,
-                                                                 p_sls_typ_id   => mrkt_sls_perd.sct_sls_typ_id) sls_perd_id,
                        mrkt_sls_perd.sls_perd_id trg_perd_id,
                        mrkt_sls_perd.sct_prcsng_dt bilng_day,
-                       nvl(mrkt_sls_perd.sct_cash_val, 0) sct_cash_val,
+                       nvl(mrkt_sls_perd.sct_cash_val, 0) sct_cash_value,
                        nvl(mrkt_sls_perd.sct_r_factor, 0) sct_r_factor,
                        nvl(mrkt_sls_perd.sct_onsch_est_bi24_ind, 0) sct_onsch_est_bi24_ind,
                        nvl(mrkt_sls_perd.sct_offsch_est_bi24_ind, 0) sct_offsch_est_bi24_ind
                   FROM mrkt_config_item, mrkt_sls_perd
-                 WHERE 1 = 1
-                   AND (mrkt_sls_perd.sct_autclc_bst_ind = 'Y' OR
+                 WHERE (mrkt_sls_perd.sct_autclc_bst_ind = 'Y' OR
                        mrkt_sls_perd.sct_autclc_est_ind = 'Y')
                    AND mrkt_sls_perd.sct_sls_typ_id IS NOT NULL
                    AND mrkt_sls_perd.mrkt_id = mrkt_config_item.mrkt_id
@@ -3551,12 +3841,11 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                    AND mrkt_config_item.mrkt_config_item_val_txt = 'Y'
                  ORDER BY mrkt_sls_perd.mrkt_id, mrkt_sls_perd.sls_perd_id) LOOP
       l_parameter_list := ' (rec: mrkt_id:' || to_char(rec.mrkt_id) || ', ' ||
-                          'sls_perd_id: ' || to_char(rec.sls_perd_id) || ', ' ||
                           'trg_perd_id: ' || to_char(rec.trg_perd_id) || ', ' ||
                           'sct_sls_typ_id: ' || to_char(rec.sct_sls_typ_id) || ', ' ||
                           'bilng_day: ' || to_char(rec.bilng_day) || ', ' ||
-                          'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                          'p_user_id: ' || l_user_id || ')';
+                          'p_user_id: ' || l_user_id || ', ' ||
+                          'p_run_id: ' || to_char(l_run_id) || ')';
       app_plsql_log.info(l_module_name || ' - TREND SALES CALCULATE start' ||
                          l_parameter_list);
       UPDATE mrkt_sls_perd
@@ -3564,62 +3853,136 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
              sct_aloctn_strt_ts = SYSDATE,
              sct_aloctn_end_ts  = NULL
        WHERE mrkt_id = rec.mrkt_id
-         AND sls_perd_id = rec.sls_perd_id
-         AND sct_sls_typ_id = rec.sct_sls_typ_id;
-      -- get sls_typ_id_from_config
-      l_sls_typ_id_from_config := get_sls_typ_id_from_config(rec.mrkt_id,
-                                                             l_run_id,
-                                                             l_user_id);
+         AND sls_perd_id = rec.trg_perd_id;
+      COMMIT;
+      -- get CAMPAIGN sls_perd_id
+      BEGIN
+        SELECT DISTINCT campaign_sls_perd_id
+          INTO l_campaign_sls_perd_id
+          FROM (SELECT mrkt_id,
+                       sls_typ_id,
+                       trg_perd_id,
+                       campaign_sls_perd_id,
+                       offst_lbl_id,
+                       sls_typ_grp_nm,
+                       eff_sls_perd_id,
+                       lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                  FROM (SELECT DISTINCT rec.mrkt_id mrkt_id,
+                                        rec.sct_sls_typ_id sls_typ_id,
+                                        rec.trg_perd_id trg_perd_id,
+                                        pa_maps_public.perd_plus(rec.mrkt_id,
+                                                                 rec.trg_perd_id,
+                                                                 (-1) *
+                                                                 offst_val_trgt_sls) campaign_sls_perd_id,
+                                        offst_lbl_id,
+                                        sls_typ_grp_nm,
+                                        eff_sls_perd_id
+                          FROM ta_config
+                         WHERE mrkt_id = rec.mrkt_id
+                           AND trgt_sls_typ_id = rec.sct_sls_typ_id
+                           AND upper(REPLACE(TRIM(sls_typ_grp_nm), '  ', ' ')) =
+                               c_sls_typ_grp_nm_bi24
+                           AND eff_sls_perd_id <=
+                               pa_maps_public.perd_plus(rec.mrkt_id,
+                                                        rec.trg_perd_id,
+                                                        (-1) *
+                                                        offst_val_trgt_sls)))
+         WHERE campaign_sls_perd_id BETWEEN eff_sls_perd_id AND
+               nvl(next_eff_sls_perd_id, campaign_sls_perd_id);
+      EXCEPTION
+        WHEN OTHERS THEN
+          l_campaign_sls_perd_id := NULL;
+      END;
       -- get CURRENT periods
       l_periods := get_periods(p_mrkt_id       => rec.mrkt_id,
-                               p_orig_perd_id  => rec.sls_perd_id,
-                               p_bilng_perd_id => rec.sls_perd_id,
+                               p_orig_perd_id  => l_campaign_sls_perd_id,
+                               p_bilng_perd_id => l_campaign_sls_perd_id,
                                p_sls_typ_id    => rec.sct_sls_typ_id,
                                p_bilng_day     => rec.bilng_day,
-                               p_run_id        => l_run_id,
-                               p_user_id       => l_user_id);
-      -- cash value
-      IF rec.sct_cash_val IS NOT NULL THEN
-        l_periods.sct_cash_val := rec.sct_cash_val;
+                               p_user_id       => l_user_id,
+                               p_run_id        => l_run_id);
+      -- cash_value
+      IF rec.sct_cash_value IS NOT NULL THEN
+        l_periods.sct_cash_value := rec.sct_cash_value;
       END IF;
       -- get BI24, r_factor
-      l_bi24_r_factor := get_bi24_r_factor(p_mrkt_id                => rec.mrkt_id,
-                                           p_dbt_bilng_day          => rec.bilng_day,
-                                           p_sls_typ_id_from_config => l_sls_typ_id_from_config,
-                                           p_dbt_on_sls_perd_id     => l_periods.dbt_on_sls_perd_id,
-                                           p_dbt_on_offr_perd_id    => l_periods.dbt_on_offr_perd_id,
-                                           p_dbt_off_sls_perd_id    => l_periods.dbt_off_sls_perd_id,
-                                           p_dbt_off_offr_perd_id   => l_periods.dbt_off_offr_perd_id,
-                                           p_dms_on_sls_perd_id     => l_periods.dms_on_sls_perd_id,
-                                           p_dms_on_offr_perd_id    => l_periods.dms_on_offr_perd_id,
-                                           p_dms_off_sls_perd_id    => l_periods.dms_off_sls_perd_id,
-                                           p_dms_off_offr_perd_id   => l_periods.dms_off_offr_perd_id,
-                                           p_sct_cash_val           => l_periods.sct_cash_val,
-                                           p_r_factor               => rec.sct_r_factor,
-                                           p_sls_typ_id             => rec.sct_sls_typ_id,
-                                           p_run_id                 => l_run_id,
-                                           p_user_id                => l_user_id);
-    
+      l_tbl_bi24      := get_bi24(p_mrkt_id              => rec.mrkt_id,
+                                  p_sls_perd_id          => l_campaign_sls_perd_id,
+                                  p_sls_typ_id           => rec.sct_sls_typ_id,
+                                  p_bilng_day            => rec.bilng_day,
+                                  p_offst_lbl_id         => NULL,
+                                  p_cash_value           => l_periods.sct_cash_value,
+                                  p_r_factor             => NULL,
+                                  p_x_sls_typ_lbl_id_flg => 'N',
+                                  p_user_id              => l_user_id,
+                                  p_run_id               => l_run_id);
+      l_bi24_r_factor := 0;
+      SELECT offst_lbl_id_on, offst_lbl_id_off
+        INTO l_offst_lbl_id_on, l_offst_lbl_id_off
+        FROM (SELECT tc.offst_lbl_id AS offst_lbl_id_on,
+                     lead(tc.offst_lbl_id) over(ORDER BY upper(td.lbl_desc) DESC) AS offst_lbl_id_off,
+                     row_number() over(ORDER BY upper(td.lbl_desc) DESC) AS rn
+                FROM (SELECT src_sls_typ_id,
+                             x_src_sls_typ_id,
+                             offst_lbl_id,
+                             sls_typ_lbl_id,
+                             x_sls_typ_lbl_id r_factor
+                        FROM (SELECT src_sls_typ_id,
+                                     est_src_sls_typ_id AS x_src_sls_typ_id,
+                                     offst_lbl_id,
+                                     sls_typ_lbl_id,
+                                     x_sls_typ_lbl_id,
+                                     offst_val_src_sls,
+                                     offst_val_trgt_sls,
+                                     offst_val_src_offr,
+                                     offst_val_trgt_offr,
+                                     r_factor,
+                                     eff_sls_perd_id,
+                                     lead(eff_sls_perd_id, 1) over(PARTITION BY offst_lbl_id, sls_typ_grp_nm ORDER BY eff_sls_perd_id) AS next_eff_sls_perd_id
+                                FROM ta_config
+                               WHERE mrkt_id = rec.mrkt_id
+                                 AND trgt_sls_typ_id = rec.sct_sls_typ_id
+                                 AND upper(REPLACE(TRIM(sls_typ_grp_nm),
+                                                   '  ',
+                                                   ' ')) =
+                                     c_sls_typ_grp_nm_bi24
+                                 AND eff_sls_perd_id <= l_campaign_sls_perd_id)
+                       WHERE l_campaign_sls_perd_id BETWEEN eff_sls_perd_id AND
+                             nvl(next_eff_sls_perd_id, l_campaign_sls_perd_id)) tc,
+                     ta_dict td
+               WHERE td.lbl_id = tc.offst_lbl_id
+                 AND upper(td.lbl_desc) IN ('ON-SCHEDULE', 'OFF-SCHEDULE'))
+       WHERE rn = 1;
+      -- SUM (BI24)
+      IF l_tbl_bi24.count > 0 THEN
+        FOR i IN l_tbl_bi24.first .. l_tbl_bi24.last LOOP
+          IF l_tbl_bi24(i).offst_lbl_id = l_offst_lbl_id_on THEN
+            l_bi24_r_factor := l_bi24_r_factor + l_tbl_bi24(i).sales;
+          END IF;
+        END LOOP;
+      END IF;
+      SELECT l_periods.sct_cash_value /
+             decode(nvl(l_bi24_r_factor, 0), 0, 1, l_bi24_r_factor)
+        INTO l_bi24_r_factor
+        FROM dual;
       -- SAVE
       l_stus := 0;
       save_trend_alloctn(p_mrkt_id              => rec.mrkt_id,
-                         p_sls_perd_id          => rec.sls_perd_id,
-                         p_trg_perd_id          => rec.trg_perd_id,
+                         p_campgn_perd_id       => l_campaign_sls_perd_id,
                          p_sls_typ_id           => rec.sct_sls_typ_id,
                          p_bilng_day            => rec.bilng_day,
-                         p_cash_value           => l_periods.sct_cash_val,
-                         p_r_factor             => l_bi24_r_factor.r_factor,
+                         p_cash_value           => l_periods.sct_cash_value,
+                         p_r_factor             => l_bi24_r_factor,
                          p_use_offers_on_sched  => rec.sct_onsch_est_bi24_ind,
                          p_use_offers_off_sched => rec.sct_offsch_est_bi24_ind,
-                         p_run_id               => l_run_id,
                          p_user_id              => l_user_id,
+                         p_run_id               => l_run_id,
                          p_stus                 => l_stus);
       IF l_stus = 0 THEN
         UPDATE mrkt_sls_perd
            SET sct_aloctn_end_ts = SYSDATE
          WHERE mrkt_id = rec.mrkt_id
-           AND sls_perd_id = rec.sls_perd_id
-           AND sct_sls_typ_id = rec.sct_sls_typ_id;
+           AND sls_perd_id = rec.trg_perd_id;
         --
         COMMIT;
       ELSE
@@ -3638,8 +4001,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
   -- ----------------------------------------------------------------------- --
   PROCEDURE clc_catgry_sls(p_mrkt_id     IN mrkt.mrkt_id%TYPE,
                            p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_run_id      IN NUMBER DEFAULT NULL,
-                           p_user_id     IN VARCHAR2 DEFAULT NULL) IS
+                           p_user_id     IN VARCHAR2 DEFAULT NULL,
+                           p_run_id      IN NUMBER DEFAULT NULL) IS
     PRAGMA AUTONOMOUS_TRANSACTION;
     -- for LOG
     l_run_id         NUMBER := nvl(p_run_id,
@@ -3649,8 +4012,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id:' || to_char(p_mrkt_id) || ', ' ||
                                        'p_sls_perd_id: ' ||
                                        to_char(p_sls_perd_id) || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
   BEGIN
     app_plsql_log.register(g_package_name || '.' || l_module_name);
     app_plsql_output.set_run_id(l_run_id);
@@ -3746,8 +4109,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
   PROCEDURE auto_procs(p_mrkt_id     IN mrkt.mrkt_id%TYPE,
                        p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
                        p_user_nm     IN VARCHAR,
-                       p_run_id      IN NUMBER DEFAULT NULL,
-                       p_user_id     IN VARCHAR2 DEFAULT NULL) IS
+                       p_user_id     IN VARCHAR2 DEFAULT NULL,
+                       p_run_id      IN NUMBER DEFAULT NULL) IS
     TYPE t_dly_bilng_id IS TABLE OF dly_bilng_trnd.dly_bilng_id%TYPE;
     TYPE t_sku_id IS TABLE OF sku.sku_id%TYPE INDEX BY BINARY_INTEGER;
     TYPE t_bilng_line_nr IS TABLE OF CHAR(1) INDEX BY dly_bilng_trnd.bilng_line_nr%TYPE;
@@ -3795,8 +4158,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                        'p_sls_perd_id: ' ||
                                        to_char(p_sls_perd_id) || ', ' ||
                                        'p_user_nm: ' || p_user_nm || ', ' ||
-                                       'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                                       'p_user_id: ' || l_user_id || ')';
+                                       'p_user_id: ' || l_user_id || ', ' ||
+                                       'p_run_id: ' || to_char(l_run_id) || ')';
     PRAGMA AUTONOMOUS_TRANSACTION;
   BEGIN
     -- AUTO_PROCS Procedure
@@ -4766,29 +5129,29 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                auto_matched,
                manual_not_processed,
                'N',
-               l_run_id,
-               l_user_id);
+               l_user_id,
+               l_run_id);
       crct_gta(p_mrkt_id,
                p_sls_perd_id,
                auto_suggested_single,
                manual_not_processed,
                'N',
-               l_run_id,
-               l_user_id);
+               l_user_id,
+               l_run_id);
       crct_gta(p_mrkt_id,
                p_sls_perd_id,
                auto_suggested_multi,
                manual_not_processed,
                'N',
-               l_run_id,
-               l_user_id);
+               l_user_id,
+               l_run_id);
       UPDATE dly_bilng_trnd
          SET dly_bilng_trnd.trnd_aloctn_manul_stus_id = manual_matched
        WHERE mrkt_id = p_mrkt_id
          AND trnd_sls_perd_id = p_sls_perd_id
          AND dly_bilng_trnd.trnd_aloctn_auto_stus_id IN
              (auto_matched, auto_suggested_single, auto_suggested_multi);
-      clc_catgry_sls(p_mrkt_id, p_sls_perd_id, l_run_id, l_user_id);
+      clc_catgry_sls(p_mrkt_id, p_sls_perd_id, l_user_id, l_run_id);
       UPDATE mrkt_trnd_sls_perd
          SET trnd_aloctn_auto_user_id = p_user_nm,
              trnd_aloctn_auto_end_ts  = SYSDATE
@@ -4826,8 +5189,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                           sls_perd_id,
                           MAX(dly_bilng_id) AS max_dly_bilng_id
                      FROM dly_bilng
-                    WHERE 1 = 1
-                      AND mrkt_id IN
+                    WHERE mrkt_id IN
                           (SELECT mrkt_id
                              FROM mrkt_config_item
                             WHERE config_item_id = 12005
@@ -4846,101 +5208,2030 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                           'sls_perd_id: ' || to_char(rec.sls_perd_id) || ', ' ||
                           'max_dly_bilng_id: ' ||
                           to_char(rec.max_dly_bilng_id) || ', ' ||
-                          'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                          'p_user_id: ' || l_user_id || ')';
+                          'p_user_id: ' || l_user_id || ', ' ||
+                          'p_run_id: ' || to_char(l_run_id) || ')';
       app_plsql_log.info(l_module_name || ' TREND AUTO JOB START' ||
                          l_parameter_list);
       auto_procs(p_mrkt_id     => rec.mrkt_id,
                  p_sls_perd_id => rec.sls_perd_id,
                  p_user_nm     => 'TREND JOB',
-                 p_run_id      => l_run_id,
-                 p_user_id     => l_user_id);
+                 p_user_id     => l_user_id,
+                 p_run_id      => l_run_id);
       app_plsql_log.info(l_module_name || ' TREND AUTO JOB END' ||
                          l_parameter_list);
     END LOOP;
     -- process_jobs
-    process_jobs(p_run_id => l_run_id, p_user_id => l_user_id);
+    process_jobs(p_user_id => l_user_id, p_run_id => l_run_id);
     app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
   END process_jobs_new_periods;
   --
-  PROCEDURE set_sct_autclc(p_mrkt_id     IN mrkt_sls_perd.mrkt_id%TYPE,
-                           p_trg_perd_id IN mrkt_sls_perd.sls_perd_id%TYPE,
-                           p_sls_typ_id  IN mrkt_sls_perd.sct_sls_typ_id%TYPE,
-                           p_autclc_ind  IN mrkt_sls_perd.sct_autclc_est_ind%TYPE,
-                           p_run_id      IN NUMBER DEFAULT NULL,
-                           p_user_id     IN VARCHAR2 DEFAULT NULL,
-                           p_stus        OUT NUMBER) IS
-    PRAGMA AUTONOMOUS_TRANSACTION;
-    -- for LOG
-    l_run_id         NUMBER := nvl(p_run_id,
-                                   app_plsql_output.generate_new_run_id);
-    l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
-    l_module_name    VARCHAR2(30) := 'SET_SCT_AUTCLC';
-    l_parameter_list VARCHAR2(2048);
-    -- local variables
-    l_autclc_est_ind mrkt_sls_perd.sct_autclc_est_ind%TYPE;
-    l_autclc_bst_ind mrkt_sls_perd.sct_autclc_bst_ind%TYPE;
+
+  ---------------------------------------------
+  -- inherited from WEDEV.TRND_ALOCTN package -
+  ---------------------------------------------
+
+  ------------------ procedure heads -------------------------
+
+  PROCEDURE unplnd_offr_recrds(p_mrkt_id     IN mrkt.mrkt_id%TYPE,
+                               p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                               RESULT        OUT tbl_sa_unplnd_offr_vw);
+
+  PROCEDURE offr_perds(p_mrkt_id     IN mrkt.mrkt_id%TYPE,
+                       p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                       RESULT        OUT tbl_perd_id);
+
+  PROCEDURE unplnd_offr_brchmt_plcmt(p_mrkt_id      mrkt.mrkt_id%TYPE,
+                                     p_offr_perd_id dstrbtd_mrkt_sls.offr_perd_id%TYPE,
+                                     p_veh_id       mrkt_veh.veh_id%TYPE);
+
+  ------------------ procedure bodies ------------------------
+
+  PROCEDURE unplan_offr_creation(p_mrkt_id     IN NUMBER,
+                                 p_sls_perd_id IN NUMBER,
+                                 p_stus        OUT NUMBER) IS
+    RESULT tbl_sa_unplnd_offr_vw;
   BEGIN
-    app_plsql_log.register(g_package_name || '.' || l_module_name);
-    app_plsql_output.set_run_id(l_run_id);
-    app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
-    l_parameter_list := ' (mrkt_id: ' || to_char(p_mrkt_id) || ', ' ||
-                        'trg_perd_id: ' || to_char(p_trg_perd_id) || ', ' ||
-                        'sls_typ_id: ' || to_char(p_sls_typ_id) || ', ' ||
-                        'autclc_ind: ' || to_char(p_autclc_ind) || ', ' ||
-                        'p_run_id: ' || to_char(l_run_id) || ', ' ||
-                        'p_user_id: ' || l_user_id || ')';
-    app_plsql_log.info(l_module_name || ' start ' || l_parameter_list);
-    p_stus := 0;
+    app_plsql_output.set_run_id(870);
+    app_plsql_log.set_context(1977, 'unplan_offr_creation', 870);
+    app_plsql_log.info('unplan_offr_creation starts: ' || SYSDATE);
+    app_plsql_log.info('params: ' || p_mrkt_id || '-' || p_sls_perd_id || '-');
+  
     BEGIN
-      SELECT sct_autclc_est_ind, sct_autclc_bst_ind
-        INTO l_autclc_est_ind, l_autclc_bst_ind
-        FROM mrkt_sls_perd
+    
+      UPDATE mrkt_sls_perd
+         SET creat_unplnd_offr_strt_ts = SYSDATE,
+             creat_unplnd_offr_end_ts  = NULL
        WHERE mrkt_id = p_mrkt_id
-         AND sls_perd_id = p_trg_perd_id;
-      --
-      CASE
-        WHEN p_sls_typ_id IN (marketing_est_id, supply_est_id) THEN
-          l_autclc_est_ind := p_autclc_ind;
-          IF l_autclc_bst_ind IS NOT NULL THEN
-            l_autclc_bst_ind := 'N';
-          END IF;
-        WHEN p_sls_typ_id IN (marketing_bst_id, supply_bst_id) THEN
-          l_autclc_bst_ind := p_autclc_ind;
-          IF l_autclc_est_ind IS NOT NULL THEN
-            l_autclc_est_ind := 'N';
-          END IF;
-        WHEN p_sls_typ_id IN (marketing_fst_id, supply_fst_id) THEN
-          IF l_autclc_est_ind IS NOT NULL THEN
-            l_autclc_est_ind := 'N';
-          END IF;
-          IF l_autclc_bst_ind IS NOT NULL THEN
-            l_autclc_bst_ind := 'N';
-          END IF;
-        ELSE
-          p_stus := 3;
-      END CASE;
-      IF p_stus = 0 THEN
-        UPDATE mrkt_sls_perd
-           SET sct_sls_typ_id     = p_sls_typ_id,
-               sct_autclc_est_ind = l_autclc_est_ind,
-               sct_autclc_bst_ind = l_autclc_bst_ind
-         WHERE mrkt_id = p_mrkt_id
-           AND sls_perd_id = p_trg_perd_id;
-        --
-        COMMIT;
-      ELSE
-        ROLLBACK;
-      END IF;
+         AND sls_perd_id = p_sls_perd_id;
+    
+      COMMIT;
+    
+      unplnd_offr_recrds(p_mrkt_id, p_sls_perd_id, RESULT);
+    
+      UPDATE mrkt_sls_perd
+         SET creat_unplnd_offr_end_ts = SYSDATE
+       WHERE mrkt_id = p_mrkt_id
+         AND sls_perd_id = p_sls_perd_id;
+    
+      COMMIT;
+    
     EXCEPTION
-      WHEN no_data_found THEN
-        p_stus := 1;
       WHEN OTHERS THEN
-        p_stus := 2;
+      
+        UPDATE mrkt_sls_perd
+           SET creat_unplnd_offr_strt_ts = NULL,
+               creat_unplnd_offr_end_ts  = NULL
+         WHERE mrkt_id = p_mrkt_id
+           AND sls_perd_id = p_sls_perd_id;
+      
+        COMMIT;
     END;
-    app_plsql_log.info(l_module_name || ' end, status_code: ' ||
-                       to_char(p_stus) || l_parameter_list);
-  END set_sct_autclc;
+    p_stus := 0;
+    app_plsql_log.info('unplan_offr_creation ends: ' || SYSDATE);
+    NULL;
+  
+  END unplan_offr_creation;
+
+  PROCEDURE offr_perds(p_mrkt_id     IN mrkt.mrkt_id%TYPE,
+                       p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                       RESULT        OUT tbl_perd_id) AS
+    r NUMBER;
+    i NUMBER;
+  BEGIN
+    RESULT := tbl_perd_id();
+    i      := 0;
+    FOR r IN (SELECT mrkt_perd.perd_id
+                FROM mrkt_perd
+               WHERE mrkt_id = p_mrkt_id
+                 AND perd_id BETWEEN
+                     (SELECT MIN(dly_bilng.offr_perd_id)
+                        FROM dly_bilng
+                       WHERE dly_bilng.mrkt_id = p_mrkt_id
+                         AND dly_bilng.sls_perd_id = p_sls_perd_id)
+                 AND (SELECT MAX(dly_bilng.offr_perd_id)
+                        FROM dly_bilng
+                       WHERE dly_bilng.mrkt_id = p_mrkt_id
+                         AND dly_bilng.sls_perd_id = p_sls_perd_id)
+                 AND mrkt_perd.perd_typ = 'SC') LOOP
+      i := i + 1;
+      result.extend;
+      RESULT(i) := r.perd_id;
+    END LOOP;
+  END;
+
+  PROCEDURE unplnd_offr_brchmt_plcmt(p_mrkt_id      mrkt.mrkt_id%TYPE,
+                                     p_offr_perd_id dstrbtd_mrkt_sls.offr_perd_id%TYPE,
+                                     p_veh_id       mrkt_veh.veh_id%TYPE) IS
+  BEGIN
+    FOR rec IN (SELECT p_mrkt_id mrkt_id,
+                       p_offr_perd_id offr_perd_id,
+                       0 ver_id,
+                       seq.nextval mrkt_veh_perd_sctn_id,
+                       rownum sctn_seq_nr,
+                       p_veh_id veh_id,
+                       brchr_plcmt.brchr_plcmt_id brchr_plcmt_id,
+                       2 pg_cnt,
+                       'Unplanned - ' || brchr_plcmt.brchr_plcmt_nm sctn_nm,
+                       rownum * 2 strtg_page_nr,
+                       0 strtg_page_side_nr
+                  FROM (SELECT brchr_plcmt.*
+                          FROM brchr_plcmt
+                         ORDER BY brchr_plcmt.brchr_plcmt_nm) brchr_plcmt
+                 WHERE (brchr_plcmt.brchr_plcmt_id,
+                        'Unplanned - ' || brchr_plcmt.brchr_plcmt_nm) NOT IN
+                       (SELECT mrkt_veh_perd_sctn.brchr_plcmt_id,
+                               mrkt_veh_perd_sctn.sctn_nm
+                          FROM mrkt_veh_perd_sctn
+                         WHERE mrkt_veh_perd_sctn.mrkt_id = p_mrkt_id
+                           AND mrkt_veh_perd_sctn.veh_id = p_veh_id
+                           AND mrkt_veh_perd_sctn.offr_perd_id =
+                               p_offr_perd_id
+                           AND ver_id = 0)) LOOP
+      BEGIN
+        INSERT INTO mrkt_veh_perd_sctn
+          (mrkt_id,
+           offr_perd_id,
+           ver_id,
+           mrkt_veh_perd_sctn_id,
+           sctn_seq_nr,
+           veh_id,
+           brchr_plcmt_id,
+           pg_cnt,
+           sctn_nm,
+           strtg_page_nr,
+           strtg_page_side_nr)
+        VALUES
+          (rec.mrkt_id,
+           rec.offr_perd_id,
+           rec.ver_id,
+           rec.mrkt_veh_perd_sctn_id,
+           rec.sctn_seq_nr,
+           rec.veh_id,
+           rec.brchr_plcmt_id,
+           rec.pg_cnt,
+           rec.sctn_nm,
+           rec.strtg_page_nr,
+           rec.strtg_page_side_nr);
+        COMMIT;
+      EXCEPTION
+        WHEN OTHERS THEN
+          app_plsql_log.info('CREATE UNPLANNED OFFERS: MRKT_VEH_PERD_SCTN already exists' || '|' ||
+                             rec.mrkt_id || '|' || rec.offr_perd_id || '|' ||
+                             rec.ver_id || '|' ||
+                             rec.mrkt_veh_perd_sctn_id || '|' ||
+                             rec.sctn_seq_nr || '|' || rec.veh_id || '|' ||
+                             rec.brchr_plcmt_id || '|' || rec.pg_cnt || '|' ||
+                             rec.sctn_nm || '|' || rec.strtg_page_nr || '|' ||
+                             rec.strtg_page_side_nr);
+      END;
+    END LOOP;
+  END;
+
+  PROCEDURE unplnd_offr_recrds(p_mrkt_id     IN mrkt.mrkt_id%TYPE,
+                               p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                               RESULT        OUT tbl_sa_unplnd_offr_vw) AS
+    mrkt_id_used                  CHAR;
+    v_unplnd_offr_avg_sls_prc_ind CHAR;
+    bilng_mtch_id                 NUMBER;
+    v_posbl_offr_perd_ids         tbl_perd_id;
+    period_index                  NUMBER;
+    v_cur_prfl_cd                 NUMBER;
+    --offer level
+    v_offr_id_prfl_cd      tbl_key_value;
+    v_offr_ids_for_prfl_cd tbl_key_value;
+    v_offr_key             VARCHAR(1000);
+    v_cur_offr_id          NUMBER;
+    --profile level
+    --pricepoint level
+    v_prcpt_ids_for_prflslsnf tbl_key_value;
+    v_prcpt_key               VARCHAR(1000);
+    v_cur_prcpt_id            NUMBER;
+    --offer sku line level
+    v_offr_sku_line_id     tbl_key_value;
+    v_offr_sku_line_id_key VARCHAR(1000);
+    v_cur_offr_sku_line_id NUMBER;
+    v_key1                 VARCHAR(255);
+    --v_used_offer_ids              varchar(4000);
+    ok BOOLEAN;
+  BEGIN
+    ok     := TRUE;
+    RESULT := tbl_sa_unplnd_offr_vw();
+    --v_used_offer_ids := '-1';
+    app_plsql_output.set_run_id(870);
+    app_plsql_log.set_context(1977, 'UNPLND_OFFR_RECRDS', 870);
+    app_plsql_log.info('UNPLND_OFFR_RECRDS STARTS');
+    --create brochure sections start
+    app_plsql_log.info('UNPLND_OFFR_RECRDS CREATE BROCHURE SECTIONS STARTS');
+    BEGIN
+      DELETE FROM dly_bilng_offr_sku_line
+       WHERE dly_bilng_id IN
+             (SELECT dly_bilng_id
+                FROM dly_bilng
+               WHERE dly_bilng.mrkt_id = p_mrkt_id
+                 AND dly_bilng.sls_perd_id = p_sls_perd_id
+                 AND dly_bilng.sls_aloctn_auto_stus_id IN
+                     (auto_suggested_single, auto_suggested_multi)
+                 AND dly_bilng.sls_aloctn_manul_stus_id =
+                     manual_not_suggested);
+      COMMIT;
+    EXCEPTION
+      WHEN OTHERS THEN
+        app_plsql_log.info('DAILY BILLING OFFER SKU LINE delete error...' ||
+                           SQLERRM);
+    END;
+    v_posbl_offr_perd_ids := tbl_perd_id();
+    offr_perds(p_mrkt_id, p_sls_perd_id, v_posbl_offr_perd_ids);
+    FOR unplanned_veh IN (SELECT unplnd_veh_id
+                            FROM (SELECT unplnd_veh_id
+                                    FROM mrkt_sls_chnl_offr_typ_slsperd
+                                   WHERE mrkt_id = p_mrkt_id
+                                     AND p_sls_perd_id BETWEEN
+                                         nvl(strt_sls_perd_id, -1) AND
+                                         nvl(end_sls_perd_id, 99990399)
+                                  UNION
+                                  SELECT 23 unplnd_veh_id
+                                    FROM dual)) LOOP
+      FOR period_index IN v_posbl_offr_perd_ids.first .. v_posbl_offr_perd_ids.last LOOP
+        app_plsql_log.info('UNPLND_OFFR_RECRDS CREATE BROCHURE SECTIONS STARTS FOR OFFR_PERD_ID:' ||
+                           v_posbl_offr_perd_ids(period_index));
+        unplnd_offr_brchmt_plcmt(p_mrkt_id,
+                                 v_posbl_offr_perd_ids(period_index),
+                                 unplanned_veh.unplnd_veh_id);
+        app_plsql_log.info('UNPLND_OFFR_RECRDS CREATE BROCHURE SECTIONS ENDS FOR OFFR_PERD_ID:' ||
+                           v_posbl_offr_perd_ids(period_index));
+      END LOOP;
+    END LOOP;
+  
+    app_plsql_log.info('UNPLND_OFFR_RECRDS CREATE BROCHURE SECTIONS ENDS');
+    --create brochure sections end
+  
+    SELECT mrkt_eff_sls_perd.use_clstr_lvl_fsc_sku_ind,
+           dly_bilng_mtch_id,
+           mrkt_eff_sls_perd.unplnd_offr_avg_sls_prc_ind
+      INTO mrkt_id_used, bilng_mtch_id, v_unplnd_offr_avg_sls_prc_ind
+      FROM mrkt_eff_sls_perd
+     WHERE mrkt_id = p_mrkt_id
+       AND eff_sls_perd_id =
+           (SELECT MAX(mesp.eff_sls_perd_id)
+              FROM mrkt_eff_sls_perd mesp
+             WHERE mesp.mrkt_id = p_mrkt_id
+               AND mesp.eff_sls_perd_id <= p_sls_perd_id);
+  
+    FOR period_index IN v_posbl_offr_perd_ids.first .. v_posbl_offr_perd_ids.last LOOP
+      v_offr_key    := '-1';
+      v_cur_prfl_cd := -1;
+      FOR rec IN (SELECT db.mrkt_id,
+                         db.veh_id,
+                         0 ver_id,
+                         db.offr_perd_id,
+                         (SELECT MAX(mrkt_veh_perd_sctn.mrkt_veh_perd_sctn_id)
+                            FROM mrkt_veh_perd_sctn
+                           WHERE mrkt_veh_perd_sctn.mrkt_id = db.mrkt_id
+                             AND mrkt_veh_perd_sctn.offr_perd_id =
+                                 db.offr_perd_id
+                             AND mrkt_veh_perd_sctn.veh_id = db.veh_id
+                             AND mrkt_veh_perd_sctn.brchr_plcmt_id =
+                                 db.catgry_id
+                             AND mrkt_veh_perd_sctn.ver_id = 0) mrkt_veh_perd_sctn_id,
+                         db.catgry_id,
+                         db.prfl_cd,
+                         db.prfl_nm,
+                         sls_prc_amt,
+                         nr_for_qty,
+                         db.sku_id,
+                         db.sls_perd_id,
+                         --SKU_COST.WGHTD_AVG_COST_AMT,----552----
+                         NULL wghtd_avg_cost_amt, ---QC3288
+                         pa_maps_gta.get_commission_type(db.mrkt_id,
+                                                         db.veh_id,
+                                                         db.offr_perd_id,
+                                                         db.prfl_cd,
+                                                         'N',
+                                                         NULL,
+                                                         NULL,
+                                                         NULL,
+                                                         NULL,
+                                                         NULL) comsn_typ_id,
+                         pa_maps_gta.get_commission_percentage(db.mrkt_id,
+                                                               db.offr_perd_id,
+                                                               pa_maps_gta.get_commission_type(db.mrkt_id,
+                                                                                               db.veh_id,
+                                                                                               db.offr_perd_id,
+                                                                                               db.prfl_cd,
+                                                                                               'N',
+                                                                                               NULL,
+                                                                                               NULL,
+                                                                                               NULL,
+                                                                                               NULL,
+                                                                                               NULL)) comsn_amt,
+                         pa_maps_gta.get_default_tax_type_id(db.mrkt_id,
+                                                             db.prfl_cd,
+                                                             sls_cls_cd,
+                                                             db.offr_perd_id,
+                                                             db.veh_id) tax_typ_id,
+                         pa_maps_gta.pri_get_tax_amount(db.mrkt_id,
+                                                        pa_maps_gta.get_default_tax_type_id(db.mrkt_id,
+                                                                                            db.prfl_cd,
+                                                                                            sls_cls_cd,
+                                                                                            db.offr_perd_id,
+                                                                                            db.veh_id),
+                                                        db.offr_perd_id) tax_amt,
+                         pa_maps_gta.pri_get_gta_method_id(db.mrkt_id,
+                                                           db.offr_perd_id) gta_method_id,
+                         round(pa_maps_gta.get_gta_without_price_point(pa_maps_gta.pri_get_gta_method_id(db.mrkt_id,
+                                                                                                         db.offr_perd_id),
+                                                                       nvl(db.sls_prc_amt,
+                                                                           1),
+                                                                       0,
+                                                                       0,
+                                                                       pa_maps_gta.get_commission_percentage(db.mrkt_id,
+                                                                                                             db.offr_perd_id,
+                                                                                                             pa_maps_gta.get_commission_type(db.mrkt_id,
+                                                                                                                                             db.veh_id,
+                                                                                                                                             db.offr_perd_id,
+                                                                                                                                             db.prfl_cd,
+                                                                                                                                             'N',
+                                                                                                                                             NULL,
+                                                                                                                                             NULL,
+                                                                                                                                             NULL,
+                                                                                                                                             NULL,
+                                                                                                                                             NULL)),
+                                                                       pa_maps_gta.pri_get_tax_amount(db.mrkt_id,
+                                                                                                      pa_maps_gta.get_default_tax_type_id(db.mrkt_id,
+                                                                                                                                          db.prfl_cd,
+                                                                                                                                          pa_maps_public.get_sls_cls_cd(db.offr_perd_id,
+                                                                                                                                                                        db.mrkt_id,
+                                                                                                                                                                        mrkt_sku.avlbl_perd_id,
+                                                                                                                                                                        mrkt_sku.intrdctn_perd_id,
+                                                                                                                                                                        mrkt_sku.demo_ofs_nr,
+                                                                                                                                                                        mrkt_sku.demo_durtn_nr,
+                                                                                                                                                                        mrkt_sku.new_durtn_nr,
+                                                                                                                                                                        mrkt_sku.stus_perd_id,
+                                                                                                                                                                        mrkt_sku.dspostn_perd_id,
+                                                                                                                                                                        mrkt_sku.on_stus_perd_id),
+                                                                                                                                          db.offr_perd_id,
+                                                                                                                                          db.veh_id),
+                                                                                                      db.offr_perd_id),
+                                                                       0),
+                               4) gta_pct,
+                         sls_cls_cd,
+                         db.bilng_id,
+                         db.demand_unit_qty,
+                         db.billed_unit_qty,
+                         db.demand_gta,
+                         db.billed_gta,
+                         db.demand_comsn_amt,
+                         db.billed_comsn_amt,
+                         db.demand_tax_amt,
+                         db.billed_tax_amt,
+                         sku_reg_prc.reg_prc_amt,
+                         mrkt_perd.crncy_cd
+                    FROM (SELECT mrkt_id,
+                                 veh_id,
+                                 offr_perd_id,
+                                 catgry_id,
+                                 prfl_cd,
+                                 prfl_nm,
+                                 sls_prc_amt,
+                                 nr_for_qty,
+                                 sku_id,
+                                 sls_perd_id,
+                                 bilng_id,
+                                 demand_unit_qty,
+                                 billed_unit_qty,
+                                 demand_gta,
+                                 billed_gta,
+                                 demand_comsn_amt,
+                                 billed_comsn_amt,
+                                 demand_tax_amt,
+                                 billed_tax_amt,
+                                 sls_cls_cd
+                            FROM (SELECT mrkt_id,
+                                         veh_id,
+                                         offr_perd_id,
+                                         catgry_id,
+                                         prfl_cd,
+                                         MAX(prfl_nm) prfl_nm,
+                                         sls_prc_amt,
+                                         nr_for_qty,
+                                         sku_id,
+                                         sls_perd_id,
+                                         bilng_id,
+                                         SUM(demand_unit_qty) demand_unit_qty,
+                                         SUM(billed_unit_qty) billed_unit_qty,
+                                         SUM(demand_gta) demand_gta,
+                                         SUM(billed_gta) billed_gta,
+                                         SUM(demand_comsn_amt) demand_comsn_amt,
+                                         SUM(billed_comsn_amt) billed_comsn_amt,
+                                         SUM(demand_tax_amt) demand_tax_amt,
+                                         SUM(billed_tax_amt) billed_tax_amt,
+                                         sls_cls_cd
+                                    FROM (SELECT p_mrkt_id mrkt_id,
+                                                 dly_offr_perd_id offr_perd_id,
+                                                 p_sls_perd_id sls_perd_id,
+                                                 dly_fsc_cd fsc_cd,
+                                                 mrkt_sku.sku_id sku_id,
+                                                 dly_bilng_line_nr line_nr,
+                                                 dly_sls_prc_amt sls_prc_amt,
+                                                 dly_nr_for_qty nr_for_qty,
+                                                 ospa,
+                                                 onfq,
+                                                 CASE
+                                                   WHEN dly_sls_typ_id = 6 THEN
+                                                    dly_unit_qty
+                                                   ELSE
+                                                    0
+                                                 END demand_unit_qty,
+                                                 CASE
+                                                   WHEN dly_sls_typ_id = 7 THEN
+                                                    dly_unit_qty
+                                                   ELSE
+                                                    0
+                                                 END billed_unit_qty,
+                                                 0 demand_gta,
+                                                 0 billed_gta,
+                                                 CASE
+                                                   WHEN dly_sls_typ_id = 6 THEN
+                                                    dly_comsn_amt
+                                                   ELSE
+                                                    0
+                                                 END demand_comsn_amt,
+                                                 CASE
+                                                   WHEN dly_sls_typ_id = 7 THEN
+                                                    dly_comsn_amt
+                                                   ELSE
+                                                    0
+                                                 END billed_comsn_amt,
+                                                 CASE
+                                                   WHEN dly_sls_typ_id = 6 THEN
+                                                    dly_tax_amt
+                                                   ELSE
+                                                    0
+                                                 END demand_tax_amt,
+                                                 CASE
+                                                   WHEN dly_sls_typ_id = 7 THEN
+                                                    dly_tax_amt
+                                                   ELSE
+                                                    0
+                                                 END billed_tax_amt,
+                                                 dly_bilng_id bilng_id,
+                                                 sku.prfl_cd,
+                                                 catgry.catgry_id,
+                                                 prfl.prfl_nm,
+                                                 veh_id,
+                                                 sls_cls_cd
+                                            FROM (SELECT db.dly_bilng_id dly_bilng_id,
+                                                         db.mrkt_id dly_mrkt_id,
+                                                         db.offr_perd_id dly_offr_perd_id,
+                                                         db.sls_perd_id dly_sls_perd_id,
+                                                         decode(v_unplnd_offr_avg_sls_prc_ind,
+                                                                'N',
+                                                                db.sls_prc_amt,
+                                                                decode(SUM(unit_qty)
+                                                                       over(PARTITION BY
+                                                                            dly_sku_id,
+                                                                            db.sls_cls_cd,
+                                                                            db.veh_id,
+                                                                            db.sls_typ_id),
+                                                                       0,
+                                                                       db.sls_prc_amt,
+                                                                       round(SUM(db.sls_prc_amt /
+                                                                                 decode(db.nr_for_qty,
+                                                                                        0,
+                                                                                        1,
+                                                                                        db.nr_for_qty) *
+                                                                                 unit_qty)
+                                                                             over(PARTITION BY
+                                                                                  db.dly_sku_id,
+                                                                                  db.sls_cls_cd,
+                                                                                  db.veh_id,
+                                                                                  db.sls_typ_id) /
+                                                                             SUM(unit_qty)
+                                                                             over(PARTITION BY
+                                                                                  dly_sku_id,
+                                                                                  db.sls_cls_cd,
+                                                                                  db.veh_id,
+                                                                                  db.sls_typ_id),
+                                                                             4))) dly_sls_prc_amt,
+                                                         decode(v_unplnd_offr_avg_sls_prc_ind,
+                                                                'N',
+                                                                db.nr_for_qty,
+                                                                1) dly_nr_for_qty,
+                                                         sls_prc_amt ospa,
+                                                         nr_for_qty onfq,
+                                                         db.comsn_amt dly_comsn_amt,
+                                                         db.tax_amt dly_tax_amt,
+                                                         db.bilng_line_nr dly_bilng_line_nr,
+                                                         db.sls_typ_id dly_sls_typ_id,
+                                                         db.offr_typ dly_offr_typ,
+                                                         db.fsc_cd dly_fsc_cd,
+                                                         db.unit_qty dly_unit_qty,
+                                                         db.sls_chnl dly_sls_chnl,
+                                                         dly_sku_id,
+                                                         veh_id,
+                                                         sls_cls_cd
+                                                    FROM (SELECT dly_bilng.dly_bilng_id,
+                                                                 dly_bilng.mrkt_id,
+                                                                 dly_bilng.sls_perd_id,
+                                                                 dly_bilng.offr_perd_id,
+                                                                 dly_bilng.fsc_cd,
+                                                                 dly_bilng.sls_prc_amt,
+                                                                 dly_bilng.nr_for_qty,
+                                                                 dly_bilng.comsn_amt,
+                                                                 dly_bilng.tax_amt,
+                                                                 dly_bilng.unit_qty,
+                                                                 dly_bilng.lcl_bilng_offr_typ offr_typ,
+                                                                 dly_bilng.bilng_line_nr,
+                                                                 dly_bilng.sls_typ_id,
+                                                                 dly_bilng.sls_chnl_cd sls_chnl,
+                                                                 dly_sku_id,
+                                                                 veh_id,
+                                                                 pa_maps_public.get_sls_cls_cd(offr_perd_id,
+                                                                                               dly_bilng.mrkt_id,
+                                                                                               mrkt_sku.avlbl_perd_id,
+                                                                                               mrkt_sku.intrdctn_perd_id,
+                                                                                               mrkt_sku.demo_ofs_nr,
+                                                                                               mrkt_sku.demo_durtn_nr,
+                                                                                               mrkt_sku.new_durtn_nr,
+                                                                                               mrkt_sku.stus_perd_id,
+                                                                                               mrkt_sku.dspostn_perd_id,
+                                                                                               mrkt_sku.on_stus_perd_id) sls_cls_cd
+                                                            FROM --weighted avg starts
+                                                                 (SELECT dly_bilng_id,
+                                                                         mrkt_id,
+                                                                         sls_chnl_cd,
+                                                                         sls_perd_id,
+                                                                         offr_perd_id,
+                                                                         lcl_bilng_actn_cd,
+                                                                         lcl_bilng_tran_typ,
+                                                                         lcl_bilng_offr_typ,
+                                                                         mlpln_cd,
+                                                                         lcl_bilng_defrd_cd,
+                                                                         lcl_bilng_shpng_cd,
+                                                                         sbsttd_fsc_cd,
+                                                                         sbsttd_bilng_line_nr,
+                                                                         bilng_plnd_ind,
+                                                                         bilng_line_nr,
+                                                                         sls_aloctn_auto_stus_id,
+                                                                         sls_aloctn_manul_stus_id,
+                                                                         sls_cls_vld_ind,
+                                                                         fsc_cd,
+                                                                         sls_prc_amt,
+                                                                         nr_for_qty,
+                                                                         unit_qty,
+                                                                         comsn_amt,
+                                                                         tax_amt,
+                                                                         dly_sku_id,
+                                                                         veh_id,
+                                                                         sls_typ_id
+                                                                    FROM (SELECT dly_bilng.dly_bilng_id,
+                                                                                 dly_bilng.mrkt_id,
+                                                                                 dly_bilng.sls_chnl_cd,
+                                                                                 dly_bilng.sls_perd_id,
+                                                                                 dly_bilng.offr_perd_id,
+                                                                                 dly_bilng.lcl_bilng_actn_cd,
+                                                                                 dly_bilng.lcl_bilng_tran_typ,
+                                                                                 dly_bilng.lcl_bilng_offr_typ,
+                                                                                 dly_bilng.mlpln_cd,
+                                                                                 dly_bilng.lcl_bilng_defrd_cd,
+                                                                                 dly_bilng.lcl_bilng_shpng_cd,
+                                                                                 dly_bilng.sbsttd_fsc_cd,
+                                                                                 dly_bilng.sbsttd_bilng_line_nr,
+                                                                                 dly_bilng.bilng_plnd_ind,
+                                                                                 dly_bilng.sls_aloctn_auto_stus_id,
+                                                                                 dly_bilng.sls_aloctn_manul_stus_id,
+                                                                                 dly_bilng.sls_cls_vld_ind,
+                                                                                 dly_bilng.fsc_cd,
+                                                                                 dly_bilng.bilng_line_nr,
+                                                                                 dly_bilng.sls_prc_amt,
+                                                                                 dly_bilng.nr_for_qty,
+                                                                                 dly_bilng.unit_qty,
+                                                                                 dly_bilng.comsn_amt,
+                                                                                 dly_bilng.tax_amt,
+                                                                                 dly_bilng_cntrl.sls_typ_id,
+                                                                                 dly_bilng.sku_id dly_sku_id,
+                                                                                 nvl((SELECT MIN(unplnd_veh_id)
+                                                                                       FROM mrkt_sls_chnl_offr_typ_slsperd
+                                                                                      WHERE mrkt_id =
+                                                                                            p_mrkt_id
+                                                                                        AND nvl(strt_sls_perd_id,
+                                                                                                0) <=
+                                                                                            p_sls_perd_id
+                                                                                        AND nvl(end_sls_perd_id,
+                                                                                                99999999) >=
+                                                                                            p_sls_perd_id
+                                                                                        AND nvl(mrkt_sls_chnl_offr_typ_slsperd.lcl_bilng_offr_typ,
+                                                                                                'XXX') =
+                                                                                            dly_bilng.lcl_bilng_offr_typ
+                                                                                        AND mrkt_sls_chnl_offr_typ_slsperd.sls_chnl_cd =
+                                                                                            dly_bilng.sls_chnl_cd),
+                                                                                     nvl((SELECT MIN(unplnd_veh_id)
+                                                                                           FROM mrkt_sls_chnl_offr_typ_slsperd
+                                                                                          WHERE mrkt_id =
+                                                                                                p_mrkt_id
+                                                                                            AND nvl(strt_sls_perd_id,
+                                                                                                    0) <=
+                                                                                                p_sls_perd_id
+                                                                                            AND nvl(end_sls_perd_id,
+                                                                                                    99999999) >=
+                                                                                                p_sls_perd_id
+                                                                                            AND mrkt_sls_chnl_offr_typ_slsperd.sls_chnl_cd =
+                                                                                                dly_bilng.sls_chnl_cd
+                                                                                            AND mrkt_sls_chnl_offr_typ_slsperd.lcl_bilng_offr_typ IS NULL),
+                                                                                         23)) veh_id
+                                                                            FROM dly_bilng,
+                                                                                 dly_bilng_cntrl
+                                                                           WHERE dly_bilng.mrkt_id =
+                                                                                 p_mrkt_id
+                                                                             AND sls_perd_id =
+                                                                                 p_sls_perd_id
+                                                                             AND sls_cls_vld_ind = 'Y'
+                                                                             AND bilng_plnd_ind = 'Y'
+                                                                             AND dly_bilng.offr_perd_id =
+                                                                                 v_posbl_offr_perd_ids(period_index)
+                                                                             AND dly_bilng_cntrl.dly_bilng_mtch_id =
+                                                                                 bilng_mtch_id
+                                                                             AND dly_bilng_cntrl.sls_typ_id IN (6,
+                                                                                                                7)
+                                                                             AND nvl(dly_bilng_cntrl.lcl_bilng_actn_cd,
+                                                                                     dly_bilng.lcl_bilng_actn_cd) =
+                                                                                 dly_bilng.lcl_bilng_actn_cd
+                                                                             AND nvl(dly_bilng_cntrl.lcl_bilng_tran_typ,
+                                                                                     dly_bilng.lcl_bilng_tran_typ) =
+                                                                                 dly_bilng.lcl_bilng_tran_typ
+                                                                             AND nvl(dly_bilng_cntrl.lcl_bilng_offr_typ,
+                                                                                     dly_bilng.lcl_bilng_offr_typ) =
+                                                                                 dly_bilng.lcl_bilng_offr_typ
+                                                                             AND nvl(dly_bilng_cntrl.lcl_bilng_defrd_cd,
+                                                                                     dly_bilng.lcl_bilng_defrd_cd) =
+                                                                                 dly_bilng.lcl_bilng_defrd_cd
+                                                                             AND nvl(dly_bilng_cntrl.lcl_bilng_shpng_cd,
+                                                                                     dly_bilng.lcl_bilng_shpng_cd) =
+                                                                                 dly_bilng.lcl_bilng_shpng_cd
+                                                                             AND ((dly_bilng.sls_aloctn_auto_stus_id =
+                                                                                 auto_no_suggested AND
+                                                                                 dly_bilng.sls_aloctn_manul_stus_id =
+                                                                                 manual_not_processed) OR
+                                                                                 (dly_bilng.sls_aloctn_auto_stus_id IN
+                                                                                 (auto_suggested_single,
+                                                                                    auto_suggested_multi) AND
+                                                                                 dly_bilng.sls_aloctn_manul_stus_id =
+                                                                                 manual_not_suggested)))) dly_bilng,
+                                                                 mrkt_sku
+                                                           WHERE dly_bilng.dly_sku_id =
+                                                                 mrkt_sku.sku_id
+                                                             AND dly_bilng.mrkt_id =
+                                                                 mrkt_sku.mrkt_id --weighted avg ends
+                                                          ) db
+                                                   ORDER BY dly_bilng_id) dly_bilng_db,
+                                                 sku,
+                                                 prfl,
+                                                 catgry,
+                                                 (SELECT *
+                                                    FROM mrkt_sku
+                                                   WHERE mrkt_id = p_mrkt_id) mrkt_sku
+                                           WHERE mrkt_sku.sku_id = sku.sku_id
+                                             AND sku.sku_id = dly_sku_id
+                                             AND sku.prfl_cd = prfl.prfl_cd
+                                             AND prfl.catgry_id =
+                                                 catgry.catgry_id
+                                           ORDER BY dly_offr_perd_id,
+                                                    dly_fsc_cd,
+                                                    dly_sku_id,
+                                                    dly_sls_prc_amt,
+                                                    dly_nr_for_qty)
+                                   GROUP BY mrkt_id,
+                                            bilng_id,
+                                            offr_perd_id,
+                                            sls_perd_id,
+                                            sku_id,
+                                            sls_cls_cd,
+                                            prfl_cd,
+                                            sls_prc_amt,
+                                            nr_for_qty,
+                                            veh_id,
+                                            catgry_id)) db,
+                         mrkt_sku,
+                         sku_reg_prc,
+                         mrkt_perd
+                   WHERE db.sls_perd_id = p_sls_perd_id --QC32888
+                     AND db.mrkt_id = p_mrkt_id
+                     AND db.mrkt_id = mrkt_sku.mrkt_id
+                     AND db.mrkt_id = mrkt_sku.mrkt_id
+                     AND db.sku_id = mrkt_sku.sku_id
+                     AND db.mrkt_id = sku_reg_prc.mrkt_id
+                     AND v_posbl_offr_perd_ids(period_index) =
+                         sku_reg_prc.offr_perd_id
+                     AND db.sku_id = sku_reg_prc.sku_id
+                     AND mrkt_perd.mrkt_id = p_mrkt_id
+                     AND mrkt_perd.perd_id =
+                         v_posbl_offr_perd_ids(period_index)
+                   ORDER BY mrkt_id,
+                            veh_id,
+                            prfl_cd,
+                            sls_prc_amt,
+                            nr_for_qty,
+                            sku_id,
+                            sls_perd_id) LOOP
+        IF rec.bilng_id IS NOT NULL THEN
+          v_cur_prfl_cd := rec.prfl_cd;
+          --create offer record start
+          v_offr_key := rec.mrkt_id || '-' || rec.veh_id || '-' ||
+                        rec.offr_perd_id || '-' || rec.prfl_cd;
+          IF v_offr_ids_for_prfl_cd.exists(v_offr_key) THEN
+            --old offer;
+            v_cur_offr_id := v_offr_ids_for_prfl_cd(v_offr_key);
+          ELSE
+            --new offer;
+            SELECT seq.nextval INTO v_cur_offr_id FROM dual;
+            v_offr_ids_for_prfl_cd(v_offr_key) := v_cur_offr_id;
+            v_offr_id_prfl_cd(v_cur_offr_id) := rec.prfl_cd;
+            --v_used_offer_ids := v_used_offer_ids || ',' || v_cur_offr_id;
+            --insert
+            BEGIN
+              INSERT INTO offr
+                (offr_id,
+                 mrkt_id,
+                 offr_perd_id,
+                 veh_id,
+                 ver_id,
+                 pg_wght_pct,
+                 ssnl_evnt_id,
+                 est_srce_id,
+                 est_stus_cd,
+                 offr_desc_txt,
+                 mrkt_veh_perd_sctn_id,
+                 offr_typ,
+                 enrgy_chrt_postn_id,
+                 enrgy_chrt_offr_desc_txt,
+                 brchr_plcmt_id,
+                 std_offr_id,
+                 offr_link_ind,
+                 offr_link_id,
+                 offr_ntes_txt,
+                 offr_lyot_cmnts_txt,
+                 sctn_page_ofs_nr,
+                 offr_prsntn_strnth_id,
+                 prfl_offr_strgth_pct,
+                 prfl_cnt,
+                 sku_cnt,
+                 featrd_side_cd,
+                 flap_ind,
+                 frnt_cvr_ind,
+                 offr_stus_cd,
+                 offr_stus_rsn_desc_txt,
+                 bilng_perd_id,
+                 shpng_perd_id,
+                 brchr_postn_id,
+                 flap_pg_wght_pct,
+                 unit_rptg_lvl_id,
+                 rpt_sbtl_typ_id,
+                 micr_ncpsltn_ind,
+                 micr_ncpsltn_desc_txt,
+                 pg_typ_id,
+                 offr_cls_id,
+                 cust_pull_id)
+              VALUES
+                (v_cur_offr_id,
+                 rec.mrkt_id,
+                 rec.offr_perd_id,
+                 rec.veh_id,
+                 0,
+                 200,
+                 0,
+                 NULL,
+                 NULL,
+                 'Unplanned - ' || rec.prfl_nm,
+                 rec.mrkt_veh_perd_sctn_id,
+                 'CMP',
+                 NULL,
+                 NULL,
+                 rec.catgry_id,
+                 NULL,
+                 'N',
+                 NULL,
+                 NULL,
+                 NULL,
+                 0,
+                 NULL,
+                 NULL,
+                 1,
+                 0, --???????????????????????????????????  SKU_CNT
+                 0,
+                 'N',
+                 'N',
+                 4,
+                 'FINAL',
+                 rec.sls_perd_id,
+                 rec.sls_perd_id,
+                 0,
+                 NULL,
+                 2,
+                 1,
+                 'N',
+                 NULL,
+                 1,
+                 1,
+                 NULL);
+              COMMIT;
+            EXCEPTION
+              WHEN OTHERS THEN
+                app_plsql_log.info('Insert OFFR: ' || SQLERRM);
+                app_plsql_log.info('ERROR - INSERT INTO OFFR (
+OFFR_ID,
+MRKT_ID,
+OFFR_PERD_ID,
+VEH_ID,
+VER_ID,
+PG_WGHT_PCT,
+SSNL_EVNT_ID,
+EST_SRCE_ID,
+EST_STUS_CD,
+OFFR_DESC_TXT,
+MRKT_VEH_PERD_SCTN_ID,
+OFFR_TYP,
+ENRGY_CHRT_POSTN_ID,
+ENRGY_CHRT_OFFR_DESC_TXT,
+BRCHR_PLCMT_ID,
+STD_OFFR_ID,
+OFFR_LINK_IND,
+OFFR_LINK_ID,
+OFFR_NTES_TXT,
+OFFR_LYOT_CMNTS_TXT,
+SCTN_PAGE_OFS_NR,
+OFFR_PRSNTN_STRNTH_ID,
+PRFL_OFFR_STRGTH_PCT,
+PRFL_CNT,
+SKU_CNT,
+FEATRD_SIDE_CD,
+FLAP_IND,
+FRNT_CVR_IND,
+OFFR_STUS_CD,
+OFFR_STUS_RSN_DESC_TXT,
+BILNG_PERD_ID,
+SHPNG_PERD_ID,
+BRCHR_POSTN_ID,
+FLAP_PG_WGHT_PCT,
+UNIT_RPTG_LVL_ID,
+RPT_SBTL_TYP_ID,
+MICR_NCPSLTN_IND,
+MICR_NCPSLTN_DESC_TXT,
+PG_TYP_ID,
+OFFR_CLS_ID,
+CUST_PULL_ID
+)
+VALUES (
+' || v_cur_offr_id || ',
+' || rec.mrkt_id || ',
+' || rec.offr_perd_id || ',
+' || rec.veh_id || ',
+0,
+200,
+0,
+null,
+null,
+' || 'Unplanned - ' || rec.prfl_nm || ',
+' || rec.mrkt_veh_perd_sctn_id || ',
+' || 'CMP' || ',
+null,
+null,
+' || rec.catgry_id || ',
+null,
+' || 'N' || ',
+null,
+null,
+null,
+0,
+null,
+null,
+1,
+0, --???????????????????????????????????  SKU_CNT
+0,
+' || 'N' || ',
+' || 'N' || ',
+4,
+' || 'FINAL' || ',
+' || rec.sls_perd_id || ',
+' || rec.sls_perd_id || ',
+0,
+null,
+2,
+1,
+' || 'N' || ',
+null,
+1,
+1,
+null
+);');
+            END;
+          END IF;
+          --create offer record end
+          -- OFFR_PRFL_SLS_CLS_PLCMT record start
+          BEGIN
+            INSERT INTO offr_prfl_sls_cls_plcmt
+              (offr_id,
+               sls_cls_cd,
+               prfl_cd,
+               pg_ofs_nr,
+               featrd_side_cd,
+               mrkt_id,
+               veh_id,
+               offr_perd_id,
+               sku_cnt,
+               pg_wght_pct,
+               sku_offr_strgth_pct,
+               featrd_prfl_ind,
+               use_instrctns_ind,
+               prod_endrsmt_id,
+               fxd_pg_wght_ind,
+               pg_typ_id)
+            VALUES
+              (v_cur_offr_id,
+               rec.sls_cls_cd,
+               rec.prfl_cd,
+               0,
+               0,
+               rec.mrkt_id,
+               rec.veh_id,
+               rec.offr_perd_id,
+               0, --???????????????????????????????????// SKU_CNT
+               100,
+               NULL,
+               'N',
+               'N',
+               NULL,
+               'N',
+               1);
+            COMMIT;
+          EXCEPTION
+            WHEN OTHERS THEN
+              app_plsql_log.info('Insert OFFR_PRFL_SLS_CLS_PLCMT: ' ||
+                                 SQLERRM);
+              app_plsql_log.info('ERROR - OFFR_PRFL_SLS_CLS_PLCMT (
+INSERT INTO OFFR_PRFL_SLS_CLS_PLCMT (
+OFFR_ID,
+SLS_CLS_CD,
+PRFL_CD,
+PG_OFS_NR,
+FEATRD_SIDE_CD,
+MRKT_ID,
+VEH_ID,
+OFFR_PERD_ID,
+SKU_CNT,
+PG_WGHT_PCT,
+SKU_OFFR_STRGTH_PCT,
+FEATRD_PRFL_IND,
+USE_INSTRCTNS_IND,
+PROD_ENDRSMT_ID,
+FXD_PG_WGHT_IND,
+PG_TYP_ID
+)
+VALUES (
+' || v_cur_offr_id || ',
+' || rec.sls_cls_cd || ',
+' || rec.prfl_cd || ',
+0,
+0,
+' || rec.mrkt_id || ',
+' || rec.veh_id || ',
+' || rec.offr_perd_id || ',
+0, --???????????????????????????????????// SKU_CNT
+100,
+null,
+' || 'N' || ',
+' || 'N' || ',
+null,
+' || 'N' || ',
+1
+);');
+          END;
+          -- OFFR_PRFL_SLS_CLS_PLCMT record end
+          -- OFFR_SLS_CLS_SKU record start
+          BEGIN
+            INSERT INTO offr_sls_cls_sku
+              (offr_id,
+               sls_cls_cd,
+               prfl_cd,
+               pg_ofs_nr,
+               featrd_side_cd,
+               sku_id,
+               mrkt_id,
+               smplg_ind,
+               hero_ind,
+               micr_ncpsltn_ind,
+               reg_prc_amt,
+               incntv_id,
+               cost_amt)
+            VALUES
+              (v_cur_offr_id,
+               rec.sls_cls_cd,
+               rec.prfl_cd,
+               0,
+               0,
+               rec.sku_id,
+               rec.mrkt_id,
+               'N',
+               'N',
+               'N',
+               rec.reg_prc_amt,
+               NULL,
+               rec.wghtd_avg_cost_amt);
+            COMMIT;
+          EXCEPTION
+            WHEN OTHERS THEN
+              app_plsql_log.info('Insert OFFR_SLS_CLS_SKU: ' || SQLERRM);
+              app_plsql_log.info('ERROR - OFFR_SLS_CLS_SKU (
+INSERT INTO OFFR_SLS_CLS_SKU (
+OFFR_ID,
+SLS_CLS_CD,
+PRFL_CD,
+PG_OFS_NR,
+FEATRD_SIDE_CD,
+SKU_ID,
+MRKT_ID,
+SMPLG_IND,
+HERO_IND,
+MICR_NCPSLTN_IND,
+REG_PRC_AMT,
+INCNTV_ID,
+COST_AMT
+)
+VALUES (
+' || v_cur_offr_id || ',
+' || rec.sls_cls_cd || ',
+' || rec.prfl_cd || ',
+0,
+0,
+' || rec.sku_id || ',
+' || rec.mrkt_id || ',
+N,
+N,
+N,
+' || rec.reg_prc_amt || ',
+null,
+' || rec.wghtd_avg_cost_amt || '
+);');
+          END;
+          --create price point record start
+          v_prcpt_key := rec.offr_perd_id || '-' || rec.veh_id || '-' ||
+                         rec.prfl_cd || '-' || rec.sls_cls_cd || '-' ||
+                         rec.sls_prc_amt || '-' || rec.nr_for_qty;
+          IF v_prcpt_ids_for_prflslsnf.exists(v_prcpt_key) THEN
+            --old pricepoint id;
+            v_cur_prcpt_id := v_prcpt_ids_for_prflslsnf(v_prcpt_key);
+          ELSE
+            --new pricepoint id;
+            SELECT seq.nextval INTO v_cur_prcpt_id FROM dual;
+            v_prcpt_ids_for_prflslsnf(v_prcpt_key) := v_cur_prcpt_id;
+            --insert
+            BEGIN
+              INSERT INTO offr_prfl_prc_point
+                (offr_prfl_prcpt_id,
+                 offr_id,
+                 promtn_clm_id,
+                 veh_id,
+                 promtn_id,
+                 mrkt_id,
+                 sls_cls_cd,
+                 prfl_cd,
+                 ssnl_evnt_id,
+                 offr_perd_id,
+                 sls_stus_cd,
+                 crncy_cd,
+                 sku_cnt,
+                 nr_for_qty,
+                 sku_offr_strgth_pct,
+                 est_unit_qty,
+                 est_sls_amt,
+                 est_cost_amt,
+                 sls_srce_id,
+                 prfl_stus_rsn_desc_txt,
+                 prfl_stus_cd,
+                 sls_prc_amt,
+                 tax_amt,
+                 pymt_typ,
+                 comsn_amt,
+                 comsn_typ,
+                 net_to_avon_fct,
+                 prc_point_desc_txt,
+                 prmry_offr_ind,
+                 impct_catgry_id,
+                 pg_ofs_nr,
+                 featrd_side_cd,
+                 cnsmr_invstmt_bdgt_id,
+                 offr_prfl_prcpt_link_id,
+                 sls_promtn_ind,
+                 impct_prfl_cd,
+                 awrd_sls_prc_amt,
+                 chrty_amt,
+                 chrty_ovrrd_ind,
+                 tax_type_id,
+                 roylt_pct,
+                 roylt_ovrrd_ind,
+                 unit_calc_ind,
+                 demo_discnt_id,
+                 frc_mtch_mthd_id)
+              VALUES
+                (v_cur_prcpt_id,
+                 v_cur_offr_id,
+                 147,
+                 rec.veh_id,
+                 10,
+                 rec.mrkt_id,
+                 rec.sls_cls_cd,
+                 rec.prfl_cd,
+                 NULL,
+                 rec.offr_perd_id,
+                 2,
+                 rec.crncy_cd,
+                 1, --?????????????????????????????????????????????????????????????????????? SKU_CNT
+                 rec.nr_for_qty,
+                 NULL,
+                 0,
+                 rec.sls_prc_amt,
+                 rec.wghtd_avg_cost_amt,
+                 1,
+                 NULL,
+                 NULL,
+                 rec.sls_prc_amt,
+                 rec.tax_amt,
+                 1,
+                 rec.comsn_amt,
+                 rec.comsn_typ_id,
+                 rec.gta_pct,
+                 NULL,
+                 'N',
+                 NULL,
+                 0,
+                 0,
+                 NULL,
+                 NULL,
+                 'N',
+                 NULL,
+                 0,
+                 0,
+                 'N',
+                 rec.tax_typ_id,
+                 0,
+                 'N',
+                 'N',
+                 NULL,
+                 NULL);
+            EXCEPTION
+              WHEN OTHERS THEN
+                app_plsql_log.info('Insert OFFR_PRLF_PRC_POINT: ' ||
+                                   SQLERRM);
+                app_plsql_log.info('ERROR - OFFR_PRFL_PRC_POINT (
+INSERT INTO OFFR_PRFL_PRC_POINT (
+OFFR_PRFL_PRCPT_ID,
+OFFR_ID,
+PROMTN_CLM_ID,
+VEH_ID,
+PROMTN_ID,
+MRKT_ID,
+SLS_CLS_CD,
+PRFL_CD,
+SSNL_EVNT_ID,
+OFFR_PERD_ID,
+SLS_STUS_CD,
+CRNCY_CD,
+SKU_CNT,
+NR_FOR_QTY,
+SKU_OFFR_STRGTH_PCT,
+EST_UNIT_QTY,
+EST_SLS_AMT,
+EST_COST_AMT,
+SLS_SRCE_ID,
+PRFL_STUS_RSN_DESC_TXT,
+PRFL_STUS_CD,
+SLS_PRC_AMT,
+TAX_AMT,
+PYMT_TYP,
+COMSN_AMT,
+COMSN_TYP,
+NET_TO_AVON_FCT,
+PRC_POINT_DESC_TXT,
+PRMRY_OFFR_IND,
+IMPCT_CATGRY_ID,
+PG_OFS_NR,
+FEATRD_SIDE_CD,
+CNSMR_INVSTMT_BDGT_ID,
+OFFR_PRFL_PRCPT_LINK_ID,
+SLS_PROMTN_IND,
+IMPCT_PRFL_CD,
+AWRD_SLS_PRC_AMT,
+CHRTY_AMT,
+CHRTY_OVRRD_IND,
+TAX_TYPE_ID,
+ROYLT_PCT,
+ROYLT_OVRRD_IND,
+UNIT_CALC_IND,
+DEMO_DISCNT_ID,
+FRC_MTCH_MTHD_ID
+)
+VALUES (
+' || v_cur_prcpt_id || ',
+' || v_cur_offr_id || ',
+147,
+' || rec.veh_id || ',
+10,
+' || rec.mrkt_id || ',
+' || rec.sls_cls_cd || ',
+' || rec.prfl_cd || ',
+null,
+' || rec.offr_perd_id || ',
+2,
+' || rec.crncy_cd || ',
+1 , --?????????????????????????????????????????????????????????????????????? SKU_CNT
+' || rec.nr_for_qty || ',
+null,
+0,
+' || rec.sls_prc_amt || ',
+' || rec.wghtd_avg_cost_amt || ',
+1,
+null,
+null,
+' || rec.sls_prc_amt || ',
+' || rec.tax_amt || ',
+1,
+' || rec.comsn_amt || ',
+' || rec.comsn_typ_id || ',
+' || rec.gta_pct || ',
+null,
+' || 'N' || ',
+null,
+0,
+0,
+null,
+null,
+' || 'N' || ',
+null,
+0,
+0,
+' || 'N' || ',
+' || rec.tax_typ_id || ',
+0,
+' || 'N' || ',
+' || 'N' || ',
+null,
+null
+);');
+            END;
+          END IF;
+          --create price point record end
+          --create offer sku line record start
+          v_offr_sku_line_id_key := rec.offr_perd_id || '-' || rec.veh_id || '-' ||
+                                    rec.prfl_cd || '-' || rec.sls_cls_cd || '-' ||
+                                    rec.sls_prc_amt || '-' ||
+                                    rec.nr_for_qty || '-' || rec.sku_id;
+          IF v_offr_sku_line_id.exists(v_offr_sku_line_id_key) THEN
+            --old offer sku line id;
+            v_cur_offr_sku_line_id := v_offr_sku_line_id(v_offr_sku_line_id_key);
+          ELSE
+            --new offer sku line id;
+            SELECT seq.nextval INTO v_cur_offr_sku_line_id FROM dual;
+            v_offr_sku_line_id(v_offr_sku_line_id_key) := v_cur_offr_sku_line_id;
+            --insert
+            BEGIN
+              INSERT INTO offr_sku_line
+                (offr_sku_line_id,
+                 offr_id,
+                 veh_id,
+                 featrd_side_cd,
+                 offr_perd_id,
+                 mrkt_id,
+                 sku_id,
+                 pg_ofs_nr,
+                 prfl_cd,
+                 crncy_cd,
+                 prmry_sku_offr_ind,
+                 sls_cls_cd,
+                 offr_prfl_prcpt_id,
+                 promtn_desc_txt,
+                 demo_avlbl_ind,
+                 dltd_ind,
+                 unit_splt_pct,
+                 sls_prc_amt,
+                 cost_typ,
+                 offr_sku_line_link_id,
+                 set_cmpnt_ind,
+                 set_cmpnt_qty,
+                 offr_sku_set_id,
+                 line_nr,
+                 unit_prc_amt,
+                 line_nr_typ_id)
+              VALUES
+                (v_cur_offr_sku_line_id,
+                 v_cur_offr_id,
+                 rec.veh_id,
+                 0,
+                 rec.offr_perd_id,
+                 rec.mrkt_id,
+                 rec.sku_id,
+                 0,
+                 rec.prfl_cd,
+                 rec.crncy_cd,
+                 'N',
+                 rec.sls_cls_cd,
+                 v_cur_prcpt_id,
+                 NULL,
+                 'N',
+                 decode(rec.bilng_id, NULL, 'Y', 'N'),
+                 0, --??????????????????????????????????????????????????????????? UNIT_SPLT_PCT
+                 rec.sls_prc_amt,
+                 --'A',----552----
+                 'P', ---QC3288
+                 NULL,
+                 'N',
+                 0,
+                 NULL,
+                 NULL,
+                 NULL,
+                 NULL);
+            EXCEPTION
+              WHEN OTHERS THEN
+                app_plsql_log.info('Insert OFFR_SKU_LINE: ' || SQLERRM);
+                ok := FALSE;
+                app_plsql_log.info('ERROR - OFFR_SKU_LINE (
+INSERT INTO OFFR_SKU_LINE (
+OFFR_SKU_LINE_ID,
+OFFR_ID,
+VEH_ID,
+FEATRD_SIDE_CD,
+OFFR_PERD_ID,
+MRKT_ID,
+SKU_ID,
+PG_OFS_NR,
+PRFL_CD,
+CRNCY_CD,
+PRMRY_SKU_OFFR_IND,
+SLS_CLS_CD,
+OFFR_PRFL_PRCPT_ID,
+PROMTN_DESC_TXT,
+DEMO_AVLBL_IND,
+DLTD_IND,
+UNIT_SPLT_PCT,
+SLS_PRC_AMT,
+COST_TYP,
+OFFR_SKU_LINE_LINK_ID,
+SET_CMPNT_IND,
+SET_CMPNT_QTY,
+OFFR_SKU_SET_ID,
+LINE_NR,
+UNIT_PRC_AMT,
+LINE_NR_TYP_ID
+)
+VALUES (
+' || v_cur_offr_sku_line_id || ',
+' || v_cur_offr_id || ',
+' || rec.veh_id || ',
+0,
+' || rec.offr_perd_id || ',
+' || rec.mrkt_id || ',
+' || rec.sku_id || ',
+0,
+' || rec.prfl_cd || ',
+' || rec.crncy_cd || ',
+' || 'N' || ',
+' || rec.sls_cls_cd || ',
+' || v_cur_prcpt_id || ',
+null,
+' || 'N' || ',
+DECODE(' || rec.bilng_id || ',null,' || 'Y' || ',' || 'N' || '),
+0, --??????????????????????????????????????????????????????????? UNIT_SPLT_PCT
+' || rec.sls_prc_amt || ',
+' || 'A' || ',
+null,
+' || 'N' || ',
+0,
+null,
+null,
+null,
+null
+);
+');
+            END;
+          END IF;
+          --create offer sku line record end
+          --create dstrbtd_mrkt_sls record start
+          --estimate
+          BEGIN
+            INSERT INTO dstrbtd_mrkt_sls
+              (mrkt_id,
+               sls_perd_id,
+               offr_sku_line_id,
+               sls_typ_id,
+               sls_srce_id,
+               offr_perd_id,
+               sls_stus_cd,
+               veh_id,
+               unit_qty,
+               comsn_amt,
+               tax_amt,
+               net_to_avon_fct,
+               cost_amt)
+            VALUES
+              (rec.mrkt_id,
+               rec.sls_perd_id,
+               v_cur_offr_sku_line_id,
+               1,
+               billing_sls_srce_id,
+               rec.offr_perd_id,
+               final_sls_stus_cd,
+               rec.veh_id,
+               0,
+               0,
+               0,
+               0,
+               rec.wghtd_avg_cost_amt);
+            COMMIT;
+          EXCEPTION
+            WHEN OTHERS THEN
+              NULL;
+          END;
+          --demand
+          BEGIN
+            INSERT INTO dstrbtd_mrkt_sls
+              (mrkt_id,
+               sls_perd_id,
+               offr_sku_line_id,
+               sls_typ_id,
+               sls_srce_id,
+               offr_perd_id,
+               sls_stus_cd,
+               veh_id,
+               unit_qty,
+               comsn_amt,
+               tax_amt,
+               net_to_avon_fct,
+               cost_amt)
+            VALUES
+              (rec.mrkt_id,
+               rec.sls_perd_id,
+               v_cur_offr_sku_line_id,
+               6,
+               billing_sls_srce_id,
+               rec.offr_perd_id,
+               final_sls_stus_cd,
+               rec.veh_id,
+               nvl(rec.demand_unit_qty, 0),
+               nvl(rec.demand_comsn_amt, 0),
+               nvl(rec.demand_tax_amt, 0),
+               0,
+               rec.wghtd_avg_cost_amt);
+            COMMIT;
+          EXCEPTION
+            WHEN OTHERS THEN
+              UPDATE dstrbtd_mrkt_sls
+                 SET unit_qty  = unit_qty + nvl(rec.demand_unit_qty, 0),
+                     comsn_amt = comsn_amt + nvl(rec.demand_comsn_amt, 0),
+                     tax_amt   = tax_amt + nvl(rec.demand_tax_amt, 0)
+               WHERE mrkt_id = rec.mrkt_id
+                 AND sls_perd_id = rec.sls_perd_id
+                 AND offr_sku_line_id = v_cur_offr_sku_line_id
+                 AND sls_typ_id = 6
+                 AND offr_perd_id = rec.offr_perd_id;
+              COMMIT;
+          END;
+          --billed
+          BEGIN
+            INSERT INTO dstrbtd_mrkt_sls
+              (mrkt_id,
+               sls_perd_id,
+               offr_sku_line_id,
+               sls_typ_id,
+               sls_srce_id,
+               offr_perd_id,
+               sls_stus_cd,
+               veh_id,
+               unit_qty,
+               comsn_amt,
+               tax_amt,
+               net_to_avon_fct,
+               cost_amt)
+            VALUES
+              (rec.mrkt_id,
+               rec.sls_perd_id,
+               v_cur_offr_sku_line_id,
+               7,
+               billing_sls_srce_id,
+               rec.offr_perd_id,
+               final_sls_stus_cd,
+               rec.veh_id,
+               nvl(rec.billed_unit_qty, 0),
+               nvl(rec.billed_comsn_amt, 0),
+               nvl(rec.billed_tax_amt, 0),
+               0,
+               rec.wghtd_avg_cost_amt);
+            COMMIT;
+          EXCEPTION
+            WHEN OTHERS THEN
+              UPDATE dstrbtd_mrkt_sls
+                 SET unit_qty  = unit_qty + nvl(rec.billed_unit_qty, 0),
+                     comsn_amt = comsn_amt + nvl(rec.billed_comsn_amt, 0),
+                     tax_amt   = tax_amt + nvl(rec.billed_tax_amt, 0)
+               WHERE mrkt_id = rec.mrkt_id
+                 AND sls_perd_id = rec.sls_perd_id
+                 AND offr_sku_line_id = v_cur_offr_sku_line_id
+                 AND sls_typ_id = 7
+                 AND offr_perd_id = rec.offr_perd_id;
+              COMMIT;
+          END;
+          --GTA calc
+          BEGIN
+            UPDATE dstrbtd_mrkt_sls
+               SET net_to_avon_fct = decode(rec.sls_prc_amt / rec.nr_for_qty *
+                                            dstrbtd_mrkt_sls.unit_qty,
+                                            0,
+                                            0,
+                                            (rec.sls_prc_amt / rec.nr_for_qty *
+                                            dstrbtd_mrkt_sls.unit_qty -
+                                            dstrbtd_mrkt_sls.comsn_amt -
+                                            dstrbtd_mrkt_sls.tax_amt) /
+                                            (rec.sls_prc_amt / rec.nr_for_qty *
+                                            dstrbtd_mrkt_sls.unit_qty))
+             WHERE offr_sku_line_id = v_cur_offr_sku_line_id
+               AND sls_typ_id IN (6, 7);
+            COMMIT;
+          EXCEPTION
+            WHEN OTHERS THEN
+              app_plsql_log.info('Update DMS for GTA: ' || SQLERRM);
+              app_plsql_log.info('GTA ERROR v_sls_prc_amt/v_nr_for_qty/P_OFFR_SKU_LINE_ID:' ||
+                                 rec.sls_prc_amt || '/' || rec.nr_for_qty || '/' ||
+                                 v_cur_offr_sku_line_id);
+          END;
+          --create dstrbtd_mrkt_sls record end
+          --daily billing update
+          IF ok THEN
+            BEGIN
+              IF nvl(rec.billed_unit_qty, 0) <> 0 OR
+                 nvl(rec.billed_comsn_amt, 0) <> 0 OR
+                 nvl(rec.billed_tax_amt, 0) <> 0 THEN
+                INSERT INTO dly_bilng_offr_sku_line
+                  (dly_bilng_id,
+                   sls_typ_id,
+                   offr_sku_line_id,
+                   unit_qty,
+                   comsn_amt,
+                   tax_amt)
+                VALUES
+                  (rec.bilng_id,
+                   7,
+                   v_cur_offr_sku_line_id,
+                   nvl(rec.billed_unit_qty, 0),
+                   nvl(rec.billed_comsn_amt, 0),
+                   nvl(rec.billed_tax_amt, 0));
+                COMMIT;
+              END IF;
+            EXCEPTION
+              WHEN OTHERS THEN
+                app_plsql_log.info('Insert DLY_BILNG_OFFR_SKU_LINE (billed): ' ||
+                                   SQLERRM);
+                app_plsql_log.info('2 CREATE UNPLANNED OFFER ERROR (DLY_BILNG_OFFR_SKU_LINE INSERT):' ||
+                                   rec.bilng_id || '/' ||
+                                   v_cur_offr_sku_line_id);
+            END;
+            BEGIN
+              IF nvl(rec.demand_unit_qty, 0) <> 0 OR
+                 nvl(rec.demand_comsn_amt, 0) <> 0 OR
+                 nvl(rec.demand_tax_amt, 0) <> 0 THEN
+                INSERT INTO dly_bilng_offr_sku_line
+                  (dly_bilng_id,
+                   sls_typ_id,
+                   offr_sku_line_id,
+                   unit_qty,
+                   comsn_amt,
+                   tax_amt)
+                VALUES
+                  (rec.bilng_id,
+                   6,
+                   v_cur_offr_sku_line_id,
+                   nvl(rec.demand_unit_qty, 0),
+                   nvl(rec.demand_comsn_amt, 0),
+                   nvl(rec.demand_tax_amt, 0));
+                COMMIT;
+              END IF;
+            EXCEPTION
+              WHEN OTHERS THEN
+                app_plsql_log.info('Insert DLY_BILNG_OFFR_SKU_LINE (demand): ' ||
+                                   SQLERRM);
+                app_plsql_log.info('3 CREATE UNPLANNED OFFER ERROR (DLY_BILNG_OFFR_SKU_LINE INSERT):' ||
+                                   rec.bilng_id || '/' ||
+                                   v_cur_offr_sku_line_id);
+            END;
+            BEGIN
+              UPDATE dly_bilng
+                 SET dly_bilng.sls_aloctn_manul_stus_id = manual_matched
+               WHERE dly_bilng.dly_bilng_id = rec.bilng_id;
+              COMMIT;
+            EXCEPTION
+              WHEN OTHERS THEN
+                app_plsql_log.info('Update DLY_BILNG: ' || SQLERRM);
+                NULL;
+            END;
+          END IF;
+          ok := TRUE;
+          app_plsql_log.info('UNPLND_OFFR_RECRDS REC:' || ' | ' ||
+                             rec.mrkt_id || ' | ' || rec.veh_id || ' | ' ||
+                             rec.ver_id || ' | ' || rec.offr_perd_id ||
+                             ' | ' || rec.mrkt_veh_perd_sctn_id || ' | ' ||
+                             rec.catgry_id || ' | ' || rec.prfl_cd ||
+                             ' | ' || rec.prfl_nm || ' | ' ||
+                             rec.sls_prc_amt || ' | ' || rec.nr_for_qty ||
+                             ' | ' || rec.sku_id || ' | ' ||
+                             rec.sls_perd_id || ' | ' ||
+                             rec.wghtd_avg_cost_amt || ' | ' ||
+                             rec.comsn_typ_id || ' | ' || rec.comsn_amt ||
+                             ' | ' || rec.tax_typ_id || ' | ' ||
+                             rec.tax_amt || ' | ' || rec.gta_method_id ||
+                             ' | ' || rec.gta_pct || ' | ' ||
+                             rec.sls_cls_cd || ' | ' || rec.bilng_id ||
+                             ' | ' || rec.demand_unit_qty || ' | ' ||
+                             rec.billed_unit_qty || ' | ' ||
+                             rec.demand_gta || ' | ' || rec.billed_gta ||
+                             ' | ' || rec.demand_comsn_amt || ' | ' ||
+                             rec.billed_comsn_amt || ' | ' ||
+                             rec.demand_tax_amt || ' | ' ||
+                             rec.billed_tax_amt);
+        ELSE
+          app_plsql_log.info('null rec.bilng_id:' || rec.bilng_id);
+        END IF;
+      END LOOP;
+    END LOOP;
+    --V_OFFR_IDS_FOR_PRFL_CD
+    v_key1 := v_offr_id_prfl_cd.first;
+    WHILE v_key1 <= v_offr_id_prfl_cd.last LOOP
+      app_plsql_log.info('UNPLND_OFFR_RECRDS REC OFFER_ID/PRFL_CD:' ||
+                         v_key1 || '/' || v_offr_id_prfl_cd(v_key1));
+      --create soft deleted items start
+      FOR rec IN (SELECT
+                  -- dstrbtd_mrkt_sls
+                   p_sls_perd_id                    sls_perd_id,
+                   offr_prfl_prc_point.offr_perd_id,
+                   0                                unit_qty,
+                   0                                comsn_amt,
+                   0                                tax_amt,
+                   0                                net_to_avon_fct,
+                   -- offr_sku_line
+                   offr_prfl_prc_point.veh_id,
+                   offr_prfl_prc_point.crncy_cd,
+                   'N' prmry_sku_offr_ind,
+                   offr_prfl_prc_point.offr_prfl_prcpt_id,
+                   NULL promtn_desc_txt,
+                   'N' demo_avlbl_ind,
+                   'Y' dltd_ind,
+                   0 unit_splt_pct,
+                   offr_prfl_prc_point.sls_prc_amt,
+                   --'A' COST_TYP,----552----
+                   'P' cost_typ, --QC3288
+                   NULL offr_sku_line_link_id,
+                   'N' set_cmpnt_ind,
+                   0 set_cmpnt_qty,
+                   NULL offr_sku_set_id,
+                   NULL line_nr,
+                   NULL unit_prc_amt,
+                   NULL line_nr_typ_id,
+                   --sls cls sku
+                   offr_prfl_prc_point.offr_id,
+                   offr_prfl_prc_point.sls_cls_cd,
+                   offr_prfl_prc_point.prfl_cd,
+                   offr_prfl_prc_point.pg_ofs_nr,
+                   offr_prfl_prc_point.featrd_side_cd,
+                   not_e_db.sku_id,
+                   offr_prfl_prc_point.mrkt_id,
+                   'N' smplg_ind,
+                   'N' hero_ind,
+                   'N' micr_ncpsltn_ind,
+                   sku_reg_prc.reg_prc_amt,
+                   NULL incntv_id,
+                   sku_cost.wghtd_avg_cost_amt
+                  -----
+                    FROM (SELECT db.offr_prfl_prcpt_id,
+                                 db.prfl_cd,
+                                 sku.sku_id
+                            FROM (SELECT offr_sku_line.offr_prfl_prcpt_id,
+                                         offr_sku_line.prfl_cd,
+                                         offr_sku_line.sku_id,
+                                         COUNT(*) over(PARTITION BY offr_sku_line.offr_prfl_prcpt_id) sku_count,
+                                         sv.v_count
+                                    FROM (SELECT *
+                                            FROM offr_sku_line
+                                           WHERE offr_sku_line.mrkt_id =
+                                                 p_mrkt_id
+                                             AND offr_sku_line.offr_id = v_key1) offr_sku_line,
+                                         (SELECT prfl_cd, COUNT(*) v_count
+                                            FROM mrkt_sku, sku
+                                           WHERE sku.sku_id = mrkt_sku.sku_id
+                                             AND sku.prfl_cd =
+                                                 v_offr_id_prfl_cd(v_key1)
+                                             AND mrkt_sku.mrkt_id = p_mrkt_id
+                                             AND pa_maps_public.get_sls_cls_cd(p_sls_perd_id,
+                                                                               mrkt_sku.mrkt_id,
+                                                                               mrkt_sku.avlbl_perd_id,
+                                                                               mrkt_sku.intrdctn_perd_id,
+                                                                               mrkt_sku.demo_ofs_nr,
+                                                                               mrkt_sku.demo_durtn_nr,
+                                                                               mrkt_sku.new_durtn_nr,
+                                                                               mrkt_sku.stus_perd_id,
+                                                                               mrkt_sku.dspostn_perd_id,
+                                                                               mrkt_sku.on_stus_perd_id) > -1
+                                           GROUP BY prfl_cd) sv
+                                   WHERE sv.prfl_cd = offr_sku_line.prfl_cd(+)) db,
+                                 sku
+                           WHERE offr_prfl_prcpt_id IS NOT NULL
+                             AND sku_count < v_count
+                             AND db.prfl_cd = sku.prfl_cd
+                             AND db.sku_id <> sku.sku_id) not_e_db,
+                         offr_prfl_prc_point,
+                         sku_reg_prc,
+                         sku_cost
+                   WHERE not_e_db.offr_prfl_prcpt_id =
+                         offr_prfl_prc_point.offr_prfl_prcpt_id
+                     AND sku_reg_prc.mrkt_id = offr_prfl_prc_point.mrkt_id
+                     AND sku_reg_prc.offr_perd_id =
+                         offr_prfl_prc_point.offr_perd_id
+                     AND sku_reg_prc.sku_id = not_e_db.sku_id
+                     AND sku_cost.mrkt_id = offr_prfl_prc_point.mrkt_id
+                     AND sku_cost.cost_typ = 'A'
+                     AND sku_cost.offr_perd_id =
+                         offr_prfl_prc_point.offr_perd_id
+                     AND sku_cost.sku_id = not_e_db.sku_id
+                   ORDER BY offr_prfl_prc_point.offr_prfl_prcpt_id, sku_id) LOOP
+        -- OFFR_SLS_CLS_SKU record start
+        BEGIN
+          INSERT INTO offr_sls_cls_sku
+            (offr_id,
+             sls_cls_cd,
+             prfl_cd,
+             pg_ofs_nr,
+             featrd_side_cd,
+             sku_id,
+             mrkt_id,
+             smplg_ind,
+             hero_ind,
+             micr_ncpsltn_ind,
+             reg_prc_amt,
+             incntv_id,
+             cost_amt)
+          VALUES
+            (rec.offr_id,
+             rec.sls_cls_cd,
+             rec.prfl_cd,
+             0,
+             0,
+             rec.sku_id,
+             rec.mrkt_id,
+             'N',
+             'N',
+             'N',
+             rec.reg_prc_amt,
+             NULL,
+             rec.wghtd_avg_cost_amt);
+          COMMIT;
+        EXCEPTION
+          WHEN OTHERS THEN
+            app_plsql_log.info('Insert OFFR_SLS_CLS_SKU 2: ' || SQLERRM);
+            app_plsql_log.info('ERROR2 - OFFR_SLS_CLS_SKU (
+INSERT INTO OFFR_SLS_CLS_SKU (
+OFFR_ID,
+SLS_CLS_CD,
+PRFL_CD,
+PG_OFS_NR,
+FEATRD_SIDE_CD,
+SKU_ID,
+MRKT_ID,
+SMPLG_IND,
+HERO_IND,
+MICR_NCPSLTN_IND,
+REG_PRC_AMT,
+INCNTV_ID,
+COST_AMT
+)
+VALUES (
+' || rec.offr_id || ',
+' || rec.sls_cls_cd || ',
+' || rec.prfl_cd || ',
+0,
+0,
+' || rec.sku_id || ',
+' || rec.mrkt_id || ',
+N,
+N,
+N,
+' || rec.reg_prc_amt || ',
+null,
+' || rec.wghtd_avg_cost_amt || '
+);');
+        END;
+        --offr_sku_line
+        SELECT seq.nextval INTO v_cur_offr_sku_line_id FROM dual;
+        v_offr_sku_line_id(v_offr_sku_line_id_key) := v_cur_offr_sku_line_id;
+        --insert
+        BEGIN
+          INSERT INTO offr_sku_line
+            (offr_sku_line_id,
+             offr_id,
+             veh_id,
+             featrd_side_cd,
+             offr_perd_id,
+             mrkt_id,
+             sku_id,
+             pg_ofs_nr,
+             prfl_cd,
+             crncy_cd,
+             prmry_sku_offr_ind,
+             sls_cls_cd,
+             offr_prfl_prcpt_id,
+             promtn_desc_txt,
+             demo_avlbl_ind,
+             dltd_ind,
+             unit_splt_pct,
+             sls_prc_amt,
+             cost_typ,
+             offr_sku_line_link_id,
+             set_cmpnt_ind,
+             set_cmpnt_qty,
+             offr_sku_set_id,
+             line_nr,
+             unit_prc_amt,
+             line_nr_typ_id)
+          VALUES
+            (v_cur_offr_sku_line_id,
+             rec.offr_id,
+             rec.veh_id,
+             0,
+             rec.offr_perd_id,
+             rec.mrkt_id,
+             rec.sku_id,
+             0,
+             rec.prfl_cd,
+             rec.crncy_cd,
+             'N',
+             rec.sls_cls_cd,
+             rec.offr_prfl_prcpt_id,
+             NULL,
+             'N',
+             'Y',
+             0, --??????????????????????????????????????????????????????????? UNIT_SPLT_PCT
+             rec.sls_prc_amt,
+             'A',
+             NULL,
+             'N',
+             0,
+             NULL,
+             NULL,
+             NULL,
+             NULL);
+        EXCEPTION
+          WHEN OTHERS THEN
+            app_plsql_log.info('Insert OFFR_SKU_LINE 2: ' || SQLERRM);
+            app_plsql_log.info('ERROR2 - OFFR_SKU_LINE (
+INSERT INTO OFFR_SKU_LINE (
+OFFR_SKU_LINE_ID,
+OFFR_ID,
+VEH_ID,
+FEATRD_SIDE_CD,
+OFFR_PERD_ID,
+MRKT_ID,
+SKU_ID,
+PG_OFS_NR,
+PRFL_CD,
+CRNCY_CD,
+PRMRY_SKU_OFFR_IND,
+SLS_CLS_CD,
+OFFR_PRFL_PRCPT_ID,
+PROMTN_DESC_TXT,
+DEMO_AVLBL_IND,
+DLTD_IND,
+UNIT_SPLT_PCT,
+SLS_PRC_AMT,
+COST_TYP,
+OFFR_SKU_LINE_LINK_ID,
+SET_CMPNT_IND,
+SET_CMPNT_QTY,
+OFFR_SKU_SET_ID,
+LINE_NR,
+UNIT_PRC_AMT,
+LINE_NR_TYP_ID
+)
+VALUES (
+' || v_cur_offr_sku_line_id || ',
+' || rec.offr_id || ',
+' || rec.veh_id || ',
+0,
+' || rec.offr_perd_id || ',
+' || rec.mrkt_id || ',
+' || rec.sku_id || ',
+0,
+' || rec.prfl_cd || ',
+' || rec.crncy_cd || ',
+' || 'N' || ',
+' || rec.sls_cls_cd || ',
+' || rec.offr_prfl_prcpt_id || ',
+null,
+' || 'N' || ',
+' || 'N' || ',
+0, --??????????????????????????????????????????????????????????? UNIT_SPLT_PCT
+' || rec.sls_prc_amt || ',
+' || 'A' || ',
+null,
+' || 'N' || ',
+0,
+null,
+null,
+null,
+null
+);
+');
+        END;
+        --estimate
+        BEGIN
+          INSERT INTO dstrbtd_mrkt_sls
+            (mrkt_id,
+             sls_perd_id,
+             offr_sku_line_id,
+             sls_typ_id,
+             sls_srce_id,
+             offr_perd_id,
+             sls_stus_cd,
+             veh_id,
+             unit_qty,
+             comsn_amt,
+             tax_amt,
+             net_to_avon_fct,
+             cost_amt)
+          VALUES
+            (rec.mrkt_id,
+             rec.sls_perd_id,
+             v_cur_offr_sku_line_id,
+             1,
+             billing_sls_srce_id,
+             rec.offr_perd_id,
+             final_sls_stus_cd,
+             rec.veh_id,
+             0,
+             0,
+             0,
+             0,
+             rec.wghtd_avg_cost_amt);
+          COMMIT;
+        EXCEPTION
+          WHEN OTHERS THEN
+            app_plsql_log.info('Insert DSTRBTD_MRKT_SLS: ' || SQLERRM);
+            NULL;
+        END;
+      END LOOP;
+      DELETE FROM dstrbtd_mrkt_sls
+       WHERE mrkt_id = p_mrkt_id
+         AND sls_perd_id = p_sls_perd_id
+         AND offr_sku_line_id IN
+             (SELECT offr_sku_line.offr_sku_line_id
+                FROM offr_sku_line, mrkt_sku
+               WHERE offr_sku_line.mrkt_id = p_mrkt_id
+                 AND offr_sku_line.offr_id = v_key1
+                 AND offr_sku_line.mrkt_id = mrkt_sku.mrkt_id
+                 AND offr_sku_line.sku_id = mrkt_sku.sku_id
+                 AND offr_sku_line.sls_cls_cd <>
+                     pa_maps_public.get_sls_cls_cd(offr_sku_line.offr_perd_id,
+                                                   mrkt_sku.mrkt_id,
+                                                   mrkt_sku.avlbl_perd_id,
+                                                   mrkt_sku.intrdctn_perd_id,
+                                                   mrkt_sku.demo_ofs_nr,
+                                                   mrkt_sku.demo_durtn_nr,
+                                                   mrkt_sku.new_durtn_nr,
+                                                   mrkt_sku.stus_perd_id,
+                                                   mrkt_sku.dspostn_perd_id,
+                                                   mrkt_sku.on_stus_perd_id));
+      COMMIT;
+      DELETE FROM offr_sku_line
+       WHERE offr_sku_line.mrkt_id = p_mrkt_id
+         AND offr_sku_line.offr_id = v_key1
+         AND offr_sku_line.sls_cls_cd <>
+             (SELECT MAX(pa_maps_public.get_sls_cls_cd(offr_sku_line.offr_perd_id,
+                                                       mrkt_sku.mrkt_id,
+                                                       mrkt_sku.avlbl_perd_id,
+                                                       mrkt_sku.intrdctn_perd_id,
+                                                       mrkt_sku.demo_ofs_nr,
+                                                       mrkt_sku.demo_durtn_nr,
+                                                       mrkt_sku.new_durtn_nr,
+                                                       mrkt_sku.stus_perd_id,
+                                                       mrkt_sku.dspostn_perd_id,
+                                                       mrkt_sku.on_stus_perd_id))
+                FROM mrkt_sku
+               WHERE mrkt_sku.mrkt_id = offr_sku_line.mrkt_id
+                 AND mrkt_sku.sku_id = offr_sku_line.sku_id);
+      COMMIT;
+      --create soft deleted items end
+      v_key1 := v_offr_id_prfl_cd.next(v_key1);
+    END LOOP;
+    --APP_PLSQL_LOG.info('UNPLND_OFFR_RECRDS CREATED OFFER IDS:' || v_used_offer_ids);
+    COMMIT;
+    crct_gta(p_mrkt_id, p_sls_perd_id, 3, 2, 'N'); -----QC 3225/3226 changes by ramkumar V
+    crct_gta(p_mrkt_id, p_sls_perd_id, 5, 2, 'N');
+    crct_gta(p_mrkt_id, p_sls_perd_id, 6, 2, 'N');
+    COMMIT;
+    app_plsql_log.info('UNPLND_OFFR_RECRDS ENDS');
+  END unplnd_offr_recrds;
 
 END pa_trend_alloc;
 /
