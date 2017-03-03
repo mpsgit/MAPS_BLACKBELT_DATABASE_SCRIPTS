@@ -7,14 +7,14 @@ CREATE OR REPLACE package pa_sims_mantnc as
   marketing_est_id CONSTANT NUMBER := 3;
   marketing_fst_id CONSTANT NUMBER := 5;
 
---  supply_bst_id CONSTANT NUMBER := 104;
---  supply_est_id CONSTANT NUMBER := 103;
---  supply_fst_id CONSTANT NUMBER := 105;
+  supply_bst_id CONSTANT NUMBER := 104;
+  supply_est_id CONSTANT NUMBER := 103;
+  supply_fst_id CONSTANT NUMBER := 105;
 
 ----- for testing (not enough data generated for 103 and 104 sls_type)
-  supply_bst_id CONSTANT NUMBER := 4;
-  supply_est_id CONSTANT NUMBER := 3;
-  supply_fst_id CONSTANT NUMBER := 5;
+--  supply_bst_id CONSTANT NUMBER := 4;
+--  supply_est_id CONSTANT NUMBER := 3;
+--  supply_fst_id CONSTANT NUMBER := 5;
   
   FUNCTION sct_trend_check_rpt (p_mrkt_id             IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
                                 p_campgn_sls_perd_id  IN dstrbtd_mrkt_sls.sls_perd_id%TYPE) 
