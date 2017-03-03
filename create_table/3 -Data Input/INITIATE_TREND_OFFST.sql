@@ -3,12 +3,11 @@ INSERT INTO TREND_OFFST
 	SELECT MRKT_ID,
 				 EFF_SLS_PERD_ID,
 				 SLS_TYP_ID,
-				 CASE
-					 WHEN M_CNTRY_CD = 'UK' and SLS_TYP_ID = 3 THEN
-						2
-					 ELSE
-						1
-				 END OFFST
+				 case when SLS_TYP_ID in (3,103)
+				      then CASE WHEN M_CNTRY_CD = 'UK' and SLS_TYP_ID = 3 THEN 2
+						        ELSE 1
+					  else 0
+			     END OFFST
 		FROM (SELECT SLS_TYP_ID, SLS_TYP_NM
 						FROM SLS_TYP_GRP
 						JOIN SLS_TYP
