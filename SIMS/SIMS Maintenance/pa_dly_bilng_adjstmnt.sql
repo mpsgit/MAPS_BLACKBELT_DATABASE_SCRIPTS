@@ -1,24 +1,24 @@
-CREATE OR REPLACE PACKAGE PA_DLY_BILNG_ADJSTMNT AS 
+CREATE OR REPLACE PACKAGE       PA_DLY_BILNG_ADJSTMNT AS
   /*********************************************************
   * History
   * Created by   : Schiff Gy
   * Date         : 25/10/2016
-  * Description  : First created 
+  * Description  : First created
   ******************************************************/
 
   PROCEDURE SET_DLY_BILNG_ADJSTMNT(p_dly_bilng_id IN NUMBER,
                          p_new_bi24_units IN NUMBER,
                          p_user_id IN VARCHAR2,
                          p_stus OUT NUMBER);
-                                  
+
   FUNCTION GET_DLY_BILNG_ADJSTMNT(p_mrkt_id IN NUMBER,
                         p_sls_perd_id IN NUMBER,
                         p_offr_perd_id IN NUMBER,
                         p_prcsng_dt IN DATE
-                        ) RETURN OBJ_DLY_BILNG_ADJSTMNT_TABLE PIPELINED;                                
+                        ) RETURN OBJ_DLY_BILNG_ADJSTMNT_TABLE PIPELINED;
 
   FUNCTION GET_DLY_BILNG_ADJSTMNT2(p_dly_bilng_id_list IN NUMBER_ARRAY)
-    RETURN OBJ_DLY_BILNG_ADJSTMNT_TABLE PIPELINED;                                
+    RETURN OBJ_DLY_BILNG_ADJSTMNT_TABLE PIPELINED;
 
   FUNCTION GET_DLY_BILNG_ADJSTMNT3(p_mrkt_id IN NUMBER,
                         p_sls_perd_id IN NUMBER,
@@ -26,7 +26,7 @@ CREATE OR REPLACE PACKAGE PA_DLY_BILNG_ADJSTMNT AS
                         p_prcsng_dt IN DATE,
                         p_dly_bilng_id_list IN NUMBER_ARRAY
                         ) RETURN OBJ_DLY_BILNG_ADJSTMNT_TABLE PIPELINED;
-  
+
   PROCEDURE SET_DLY_BILNG_ADJSTMNT3(p_mrkt_id IN NUMBER,
                         p_sls_perd_id IN NUMBER,
                         p_offr_perd_id IN NUMBER,
@@ -37,10 +37,12 @@ CREATE OR REPLACE PACKAGE PA_DLY_BILNG_ADJSTMNT AS
                         p_stus OUT NUMBER);
 
 END PA_DLY_BILNG_ADJSTMNT;
+
+
 /
 
 
-CREATE OR REPLACE PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
+CREATE OR REPLACE PACKAGE BODY       PA_DLY_BILNG_ADJSTMNT AS
 
   FUNCTION GET_DLY_BILNG_ADJSTMNT(p_mrkt_id IN NUMBER,
                         p_sls_perd_id IN NUMBER,
@@ -54,7 +56,7 @@ CREATE OR REPLACE PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
             dly_bilng.FSC_CD,
             dly_bilng.prod_desc_txt,
             dly_bilng.sku_id,
-            mrkt_sku.LCL_SKU_NM,    
+            mrkt_sku.LCL_SKU_NM,
             dly_bilng.sls_prc_amt,
             dly_bilng.nr_for_qty,
             dly_bilng.sls_prc_amt/dly_bilng.nr_for_qty,
@@ -62,7 +64,7 @@ CREATE OR REPLACE PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
               WHERE EXISTS( SELECT SKU_PRC_AMT FROM MRKT_PERD_SKU_PRC MPSP
                               WHERE MPSP.MRKT_ID=p_mrkt_id AND MPSP.OFFR_PERD_ID=p_sls_perd_id
                                 AND MPSP.SKU_ID=mrkt_sku.SKU_ID AND MPSP.PRC_LVL_TYP_CD='RP' )
-                AND EXISTS( SELECT HOLD_COSTS_IND FROM SKU_COST SC 
+                AND EXISTS( SELECT HOLD_COSTS_IND FROM SKU_COST SC
                               WHERE SC.MRKT_ID=p_mrkt_id AND SC.OFFR_PERD_ID=p_offr_perd_id
                                 AND SC.SKU_ID=mrkt_sku.SKU_ID AND COST_TYP='P')
                 AND (PA_MAPS_PUBLIC.get_sls_cls_cd(p_offr_perd_id, p_mrkt_id, mrkt_sku.avlbl_perd_id,
@@ -74,16 +76,16 @@ CREATE OR REPLACE PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
             DLY_BILNG_ADJSTMNT.LAST_UPDT_TS,
             DLY_BILNG_ADJSTMNT.USER_FRST_NM || ' ' || DLY_BILNG_ADJSTMNT.USER_LAST_NM) cline
       from (WITH ACT_FSC AS
-             (SELECT FSC_CD, MAX(STRT_PERD_ID) MAX_PERD_ID 
-                FROM MRKT_FSC 
+             (SELECT FSC_CD, MAX(STRT_PERD_ID) MAX_PERD_ID
+                FROM MRKT_FSC
                 WHERE MRKT_ID=p_mrkt_id AND STRT_PERD_ID<=p_sls_perd_id
                   AND dltd_ind<>'Y' and dltd_ind<>'y'
                 GROUP BY FSC_CD),
             ALL_FSC AS
             (SELECT *
-             FROM MRKT_FSC 
+             FROM MRKT_FSC
              WHERE MRKT_ID=p_mrkt_id AND STRT_PERD_ID<=p_sls_perd_id
-               AND dltd_ind<>'Y' and dltd_ind<>'y') 
+               AND dltd_ind<>'Y' and dltd_ind<>'y')
             SELECT
               dly_bilng.dly_bilng_id,
               dly_bilng.unit_qty,
@@ -93,15 +95,15 @@ CREATE OR REPLACE PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
               ALL_FSC.FSC_CD,
               ALL_FSC.sku_id,
               ALL_FSC.prod_desc_txt
-            FROM 
-              DLY_BILNG,ACT_FSC,ALL_FSC 
-            WHERE DLY_BILNG.MRKT_ID=p_mrkt_id 
+            FROM
+              DLY_BILNG,ACT_FSC,ALL_FSC
+            WHERE DLY_BILNG.MRKT_ID=p_mrkt_id
               AND DLY_BILNG.OFFR_PERD_ID=p_offr_perd_id
               AND DLY_BILNG.SLS_PERD_ID = p_sls_perd_id
               AND DLY_BILNG.FSC_CD = ACT_FSC.FSC_CD
               AND ACT_FSC.FSC_CD = ALL_FSC.FSC_CD
               AND ACT_FSC.MAX_PERD_ID = ALL_FSC.STRT_PERD_ID
-              AND trunc(PRCSNG_DT) = trunc(p_prcsng_dt)   
+              AND trunc(PRCSNG_DT) = trunc(p_prcsng_dt)
             order by FSC_CD,prcsng_dt
           ) dly_bilng,
           (select distinct sku_id
@@ -122,7 +124,7 @@ CREATE OR REPLACE PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
              MPS_USER.USER_NM=DLY_BILNG_ADJSTMNT.LAST_UPDT_USER_ID(+)
          ) DLY_BILNG_ADJSTMNT,
          mrkt_sku
-      where 
+      where
         mrkt_sku.mrkt_id = p_mrkt_id
         and dly_bilng.sku_id = mrkt_sku.sku_id
         and dly_bilng.sku_id = offr_sku_line.sku_id(+)
@@ -142,10 +144,10 @@ CREATE OR REPLACE PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
     APP_PLSQL_LOG.info(signature || ' start');
     FOR rec in cc LOOP
       pipe row(rec.cline);
-    END LOOP; 
+    END LOOP;
     APP_PLSQL_LOG.info(signature || ' stop');
   END GET_DLY_BILNG_ADJSTMNT;
-  
+
   FUNCTION GET_DLY_BILNG_ADJSTMNT2(p_dly_bilng_id_list IN NUMBER_ARRAY)
     RETURN OBJ_DLY_BILNG_ADJSTMNT_TABLE PIPELINED AS
   CURSOR cc IS
@@ -189,8 +191,8 @@ CREATE OR REPLACE PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
   SELECT OBJ_DLY_BILNG_ADJSTMNT_LINE(
     DB.DLY_BILNG_ID, DB.FSC_CD, FSCD.PROD_DESC_TXT,
     DB.SKU_ID, S.LCL_SKU_NM, DB.SLS_PRC_AMT, DB.NR_FOR_QTY,
-    DB.SLS_PRC_AMT / DB.NR_FOR_QTY, 
-    DECODE((SELECT 1 FROM dual 
+    DB.SLS_PRC_AMT / DB.NR_FOR_QTY,
+    DECODE((SELECT 1 FROM dual
       WHERE EXISTS(
           SELECT MPSP.SKU_PRC_AMT
           FROM MRKT_PERD_SKU_PRC MPSP
@@ -245,7 +247,7 @@ CREATE OR REPLACE PACKAGE BODY PA_DLY_BILNG_ADJSTMNT AS
     APP_PLSQL_LOG.info(signature || ' start');
     FOR rec in cc LOOP
       pipe row(rec.cline);
-    END LOOP; 
+    END LOOP;
     APP_PLSQL_LOG.info(signature || ' stop');
 END GET_DLY_BILNG_ADJSTMNT2;
 
@@ -278,7 +280,7 @@ END GET_DLY_BILNG_ADJSTMNT2;
     -- otherwise upsert using p_new_bi24_units
         ELSE
           BEGIN
-          SAVEPOINT before_upsert; 		 
+          SAVEPOINT before_upsert;
             MERGE INTO DLY_BILNG_ADJSTMNT trgt
               USING (SELECT p_dly_bilng_id t1 FROM dual) src
                 ON (trgt.DLY_BILNG_ID=src.t1)
@@ -288,14 +290,14 @@ END GET_DLY_BILNG_ADJSTMNT2;
                 INSERT (DLY_BILNG_ID,UNIT_QTY,CREAT_USER_ID,LAST_UPDT_USER_ID)
                   VALUES (p_dly_bilng_id,p_new_bi24_units,p_user_id,p_user_id);
   	       EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;
-  		     END;	
+  		     END;
         END IF;
-      ELSE p_STUS:=3;  
+      ELSE p_STUS:=3;
       END IF;
     ELSE p_STUS:=1;
     END IF;
   END SET_DLY_BILNG_ADJSTMNT;
-                                  
+
   FUNCTION GET_DLY_BILNG_ADJSTMNT3(p_mrkt_id IN NUMBER,
                         p_sls_perd_id IN NUMBER,
                         p_offr_perd_id IN NUMBER,
@@ -309,7 +311,7 @@ END GET_DLY_BILNG_ADJSTMNT2;
             dly_bilng.FSC_CD,
             dly_bilng.prod_desc_txt,
             dly_bilng.sku_id,
-            mrkt_sku.LCL_SKU_NM,    
+            mrkt_sku.LCL_SKU_NM,
             dly_bilng.sls_prc_amt,
             dly_bilng.nr_for_qty,
             dly_bilng.sls_prc_amt/dly_bilng.nr_for_qty,
@@ -317,7 +319,7 @@ END GET_DLY_BILNG_ADJSTMNT2;
               WHERE EXISTS( SELECT SKU_PRC_AMT FROM MRKT_PERD_SKU_PRC MPSP
                               WHERE MPSP.MRKT_ID=p_mrkt_id AND MPSP.OFFR_PERD_ID=p_sls_perd_id
                                 AND MPSP.SKU_ID=mrkt_sku.SKU_ID AND MPSP.PRC_LVL_TYP_CD='RP' )
-                AND EXISTS( SELECT HOLD_COSTS_IND FROM SKU_COST SC 
+                AND EXISTS( SELECT HOLD_COSTS_IND FROM SKU_COST SC
                               WHERE SC.MRKT_ID=p_mrkt_id AND SC.OFFR_PERD_ID=p_offr_perd_id
                                 AND SC.SKU_ID=mrkt_sku.SKU_ID AND COST_TYP='P')
                 AND (PA_MAPS_PUBLIC.get_sls_cls_cd(p_offr_perd_id, p_mrkt_id, mrkt_sku.avlbl_perd_id,
@@ -329,16 +331,16 @@ END GET_DLY_BILNG_ADJSTMNT2;
             DLY_BILNG_ADJSTMNT.LAST_UPDT_TS,
             DLY_BILNG_ADJSTMNT.USER_FRST_NM || ' ' || DLY_BILNG_ADJSTMNT.USER_LAST_NM) cline
       from (WITH ACT_FSC AS
-             (SELECT FSC_CD, MAX(STRT_PERD_ID) MAX_PERD_ID 
-                FROM MRKT_FSC 
+             (SELECT FSC_CD, MAX(STRT_PERD_ID) MAX_PERD_ID
+                FROM MRKT_FSC
                 WHERE MRKT_ID=p_mrkt_id AND STRT_PERD_ID<=p_sls_perd_id
                   AND dltd_ind<>'Y' and dltd_ind<>'y'
                 GROUP BY FSC_CD),
             ALL_FSC AS
             (SELECT *
-             FROM MRKT_FSC 
+             FROM MRKT_FSC
              WHERE MRKT_ID=p_mrkt_id AND STRT_PERD_ID<=p_sls_perd_id
-               AND dltd_ind<>'Y' and dltd_ind<>'y') 
+               AND dltd_ind<>'Y' and dltd_ind<>'y')
             SELECT
               dly_bilng.dly_bilng_id,
               dly_bilng.unit_qty,
@@ -348,16 +350,16 @@ END GET_DLY_BILNG_ADJSTMNT2;
               ALL_FSC.FSC_CD,
               ALL_FSC.sku_id,
               ALL_FSC.prod_desc_txt
-            FROM 
-              TABLE(p_dly_bilng_id_list) TT,DLY_BILNG,ACT_FSC,ALL_FSC 
+            FROM
+              TABLE(p_dly_bilng_id_list) TT,DLY_BILNG,ACT_FSC,ALL_FSC
             WHERE TT.COLUMN_VALUE = DLY_BILNG.DLY_BILNG_ID
-              AND DLY_BILNG.MRKT_ID=p_mrkt_id 
+              AND DLY_BILNG.MRKT_ID=p_mrkt_id
               AND DLY_BILNG.OFFR_PERD_ID=p_offr_perd_id
               AND DLY_BILNG.SLS_PERD_ID = p_sls_perd_id
               AND DLY_BILNG.FSC_CD = ACT_FSC.FSC_CD
               AND ACT_FSC.FSC_CD = ALL_FSC.FSC_CD
               AND ACT_FSC.MAX_PERD_ID = ALL_FSC.STRT_PERD_ID
-              AND trunc(PRCSNG_DT) = trunc(p_prcsng_dt)   
+              AND trunc(PRCSNG_DT) = trunc(p_prcsng_dt)
             order by FSC_CD,prcsng_dt
           ) dly_bilng,
           (select distinct sku_id
@@ -378,14 +380,14 @@ END GET_DLY_BILNG_ADJSTMNT2;
              MPS_USER.USER_NM=DLY_BILNG_ADJSTMNT.LAST_UPDT_USER_ID(+)
          ) DLY_BILNG_ADJSTMNT,
          mrkt_sku
-      where 
+      where
         mrkt_sku.mrkt_id = p_mrkt_id
         and dly_bilng.sku_id = mrkt_sku.sku_id
         and dly_bilng.sku_id = offr_sku_line.sku_id(+)
         and dly_bilng.dly_bilng_id = DLY_BILNG_ADJSTMNT.dly_bilng_id(+)
       order by
         dly_bilng.fsc_cd*1
-    ;        
+    ;
     g_run_id NUMBER       := APP_PLSQL_OUTPUT.generate_new_run_id;
     g_user_id VARCHAR(35) := USER;
     first_id NUMBER:=p_dly_bilng_id_list(1);
@@ -401,7 +403,7 @@ END GET_DLY_BILNG_ADJSTMNT2;
     APP_PLSQL_LOG.info(signature || ' start');
     FOR rec in cc LOOP
       pipe row(rec.cline);
-    END LOOP; 
+    END LOOP;
     APP_PLSQL_LOG.info(signature || ' stop');
   END GET_DLY_BILNG_ADJSTMNT3;
 
@@ -421,7 +423,7 @@ END GET_DLY_BILNG_ADJSTMNT2;
   * 1 - New BI24 Units value is negative (not allowed)
   * 2 - database error in DELETE, UPDATE or INSERT statements
   * 3 - Obligatory foreign keys (DLY_BILNG) not found
-  * 4 - Mismatch between header and real values by dly bilng record 
+  * 4 - Mismatch between header and real values by dly bilng record
   ******************************************************/
     counter1 NUMBER;
     r_mrkt_id NUMBER;
@@ -431,11 +433,11 @@ END GET_DLY_BILNG_ADJSTMNT2;
   BEGIN
     p_STUS:=0;
     SELECT PH, MRKT_ID, SLS_PERD_ID, OFFR_PERD_ID, PRCSNG_DT
-    INTO counter1, r_mrkt_id, r_sls_perd_id, r_offr_perd_id, r_prcsng_dt         
-    FROM (select 1 PH from dual) DD 
+    INTO counter1, r_mrkt_id, r_sls_perd_id, r_offr_perd_id, r_prcsng_dt
+    FROM (select 1 PH from dual) DD
       left join DLY_BILNG
             ON DLY_BILNG.DLY_BILNG_ID=p_dly_bilng_id;
-    IF p_mrkt_id=r_mrkt_id AND p_sls_perd_id=r_sls_perd_id 
+    IF p_mrkt_id=r_mrkt_id AND p_sls_perd_id=r_sls_perd_id
       AND p_offr_perd_id=r_offr_perd_id AND trunc(p_prcsng_dt)=trunc(r_prcsng_dt) THEN
       IF NVL(p_new_bi24_units,0)>=0 THEN
         SELECT count(*) INTO counter1 FROM DLY_BILNG WHERE DLY_BILNG_ID=p_dly_bilng_id;
@@ -450,7 +452,7 @@ END GET_DLY_BILNG_ADJSTMNT2;
       -- otherwise upsert using p_new_bi24_units
           ELSE
             BEGIN
-            SAVEPOINT before_upsert; 		 
+            SAVEPOINT before_upsert;
               MERGE INTO DLY_BILNG_ADJSTMNT trgt
                 USING (SELECT p_dly_bilng_id t1 FROM dual) src
                   ON (trgt.DLY_BILNG_ID=src.t1)
@@ -460,14 +462,14 @@ END GET_DLY_BILNG_ADJSTMNT2;
                   INSERT (DLY_BILNG_ID,UNIT_QTY,CREAT_USER_ID,LAST_UPDT_USER_ID)
                     VALUES (p_dly_bilng_id,p_new_bi24_units,p_user_id,p_user_id);
              EXCEPTION WHEN OTHERS THEN ROLLBACK TO before_changes; p_stus:=2;
-             END;	
+             END;
           END IF;
-        ELSE p_STUS:=3;  
+        ELSE p_STUS:=3;
         END IF;
       ELSE p_STUS:=1;
       END IF;
-    ELSE p_STUS:=4;  
-    END IF;  
+    ELSE p_STUS:=4;
+    END IF;
   END SET_DLY_BILNG_ADJSTMNT3;
 
 END PA_DLY_BILNG_ADJSTMNT;

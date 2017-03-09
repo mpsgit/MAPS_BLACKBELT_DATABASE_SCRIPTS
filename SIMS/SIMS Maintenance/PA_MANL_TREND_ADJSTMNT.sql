@@ -1,13 +1,13 @@
-CREATE OR REPLACE PACKAGE PA_MANL_TREND_ADJSTMNT AS
+CREATE OR REPLACE PACKAGE       PA_MANL_TREND_ADJSTMNT AS
   /*********************************************************
   * History
   * Created by   : Schiff Gy
   * Date         : 26/10/2016
-  * Description  : First created 
+  * Description  : First created
   ******************************************************
   * Modified by  : Schiff Gy
   * Date         : 02/11/2016
-  * Description  : GET_SALES_CAMPAIGN added 
+  * Description  : GET_SALES_CAMPAIGN added
   ******************************************************/
 
   g_package_name CONSTANT varchar2(30) := 'PA_MANL_TREND_ADJSTMNT';
@@ -45,7 +45,7 @@ CREATE OR REPLACE PACKAGE PA_MANL_TREND_ADJSTMNT AS
                                     p_fsc_cd_array IN NUMBER_ARRAY)
     RETURN OBJ_MANL_TREND_ADJSTMNT_TABLE
     PIPELINED;
-    
+
 ----------------- new procedures ----------------------------------
 
   PROCEDURE SET_MANL_TREND_ADJSTMNT_new(p_mrkt_id           IN NUMBER,
@@ -71,7 +71,7 @@ CREATE OR REPLACE PACKAGE PA_MANL_TREND_ADJSTMNT AS
                                         p_fsc_cd_array      IN NUMBER_ARRAY)
     RETURN PA_MANL_TREND_ADJSTMNT_TABLE
     PIPELINED;
-    
+
   FUNCTION GET_MANL_TREND_ADJSTMNT_newest(p_mrkt_id           IN NUMBER,
                                         P_SLS_PERD_ID       in number,
                                         P_OFFST_LBL_ID      in number,
@@ -82,6 +82,8 @@ CREATE OR REPLACE PACKAGE PA_MANL_TREND_ADJSTMNT AS
 
 
 END PA_MANL_TREND_ADJSTMNT;
+
+
 /
 
 
@@ -310,6 +312,7 @@ CREATE OR REPLACE PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
                                                                                                     user_frst_nm,
                                                                                                     user_last_nm
                                                                                                from MPS_USER
+                                                                                               where MPS_USER.sys_id=1
                                                                                              union all
                                                                                              select null user_nm,
                                                                                                     null user_frst_nm,
@@ -432,6 +435,7 @@ CREATE OR REPLACE PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
                                                                                                     user_frst_nm,
                                                                                                     user_last_nm
                                                                                                from MPS_USER
+                                                                                               where MPS_USER.sys_id=1
                                                                                              union all
                                                                                              select null user_nm,
                                                                                                     null user_frst_nm,
@@ -750,7 +754,8 @@ CREATE OR REPLACE PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
                                                     (select distinct user_nm,
                                                             user_frst_nm,
                                                             user_last_nm
-                                                       from MPS_USER) MU
+                                                       from MPS_USER
+                                                        where MPS_USER.sys_id=1) MU
                                               where SCT_FSC_OVRRD.LAST_UPDT_USER_ID = MU.USER_NM(+)
                                                 and SCT_FSC_OVRRD.mrkt_id =
                                                     p_mrkt_id
@@ -871,7 +876,8 @@ CREATE OR REPLACE PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
                                                     (select distinct user_nm,
                                                             user_frst_nm,
                                                             user_last_nm
-                                                       from MPS_USER) MU
+                                                       from MPS_USER
+                                                         where MPS_USER.sys_id=1) MU
                                               where SCT_FSC_OVRRD.LAST_UPDT_USER_ID = MU.USER_NM(+)
                                                 and SCT_FSC_OVRRD.mrkt_id =
                                                     p_mrkt_id
@@ -998,7 +1004,8 @@ CREATE OR REPLACE PACKAGE BODY PA_MANL_TREND_ADJSTMNT AS
                                                     (select distinct user_nm,
                                                             user_frst_nm,
                                                             user_last_nm
-                                                       from MPS_USER) MU
+                                                       from MPS_USER
+                                                         where MPS_USER.sys_id=1) MU
                                               where SCT_FSC_OVRRD.LAST_UPDT_USER_ID = MU.USER_NM(+)
                                                 and SCT_FSC_OVRRD.mrkt_id =
                                                     p_mrkt_id
