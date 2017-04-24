@@ -1,55 +1,84 @@
-CREATE TABLE CASH_VAL_RF_HIST 
+﻿-- Create table
+create table CASH_VAL_RF_HIST
 (
-  MRKT_ID NUMBER NOT NULL 
-, SLS_PERD_ID NUMBER NOT NULL 
-, CASH_VAL NUMBER(15, 2) NOT NULL
-, R_FACTOR NUMBER(19, 4) 
-, PRCSNG_DT DATE 
-, LAST_UPDT_USER_ID VARCHAR2(35 BYTE) DEFAULT USER NOT NULL 
-, LAST_UPDT_TS DATE DEFAULT SYSDATE NOT NULL
-, ONSCH_EST_BI24_IND CHAR(1 BYTE)
-, OFFSCH_EST_BI24_IND CHAR(1 BYTE)
-, SLS_TYP_ID NUMBER 
-, AUTCLC_EST_IND CHAR(1) 
-, AUTCLC_BST_IND CHAR(1)  
-, CONSTRAINT PK_CASH_VAL_RF_HIST PRIMARY KEY 
+  mrkt_id             NUMBER not null,
+  sls_perd_id         NUMBER not null,
+  cash_val            NUMBER(15,2) not null,
+  r_factor            NUMBER(19,4),
+  prcsng_dt           DATE,
+  last_updt_user_id   VARCHAR2(35) not null,
+  last_updt_ts        DATE not null,
+  onsch_est_bi24_ind  CHAR(1),
+  offsch_est_bi24_ind CHAR(1),
+  sls_typ_id          NUMBER,
+  autclc_est_ind      CHAR(1),
+  autclc_bst_ind      CHAR(1)
+)
+tablespace &data_tablespace_name
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
   (
-    MRKT_ID 
-  , SLS_PERD_ID 
-  , LAST_UPDT_USER_ID 
-  , LAST_UPDT_TS 
+    initial 40K
+    next 40K
+    minextents 1
+    maxextents unlimited
   )
-  USING INDEX 
+compress for all operations;
+-- Add comments to the table 
+comment on table CASH_VAL_RF_HIST
+  is 'Cash Value and R Factor History';
+-- Add comments to the columns 
+comment on column CASH_VAL_RF_HIST.mrkt_id
+  is 'Market ID';
+comment on column CASH_VAL_RF_HIST.sls_perd_id
+  is 'Target Sales Campaign';
+comment on column CASH_VAL_RF_HIST.cash_val
+  is 'Previous Cash Value';
+comment on column CASH_VAL_RF_HIST.r_factor
+  is 'Previous R factor';
+comment on column CASH_VAL_RF_HIST.prcsng_dt
+  is 'Previous ''billing day''';
+comment on column CASH_VAL_RF_HIST.last_updt_user_id
+  is 'Last updating user''s ID';
+comment on column CASH_VAL_RF_HIST.last_updt_ts
+  is 'Timestamp of last update';
+comment on column CASH_VAL_RF_HIST.onsch_est_bi24_ind
+  is 'Use estimate in trend allocation if BI24 data is missing for on schedule';
+comment on column CASH_VAL_RF_HIST.offsch_est_bi24_ind
+  is 'Use estimate in trend allocation if BI24 data is missing for off schedule';
+comment on column CASH_VAL_RF_HIST.sls_typ_id
+  is 'Sales type for which trend allocation was last calculated';
+comment on column CASH_VAL_RF_HIST.autclc_est_ind
+  is 'Automatic EST calculation set.';
+comment on column CASH_VAL_RF_HIST.autclc_bst_ind
+  is 'Automatic BST calculation set.';
+-- Create/Recreate indexes 
+create index IDX_CASH_VAL_RF_HIST on CASH_VAL_RF_HIST (MRKT_ID, SLS_PERD_ID)
+  tablespace &index_tablespace_name
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
   (
-      CREATE UNIQUE INDEX PK_CASH_VAL_RF_HIST ON CASH_VAL_RF_HIST (MRKT_ID ASC, SLS_PERD_ID ASC, LAST_UPDT_USER_ID ASC, LAST_UPDT_TS ASC) 
-      TABLESPACE &index_tablespace_name 
-  )
-  ENABLE 
-) TABLESPACE &data_tablespace_name
-;
-
-COMMENT ON TABLE CASH_VAL_RF_HIST IS 'Cash Value and R Factor History';
-
-COMMENT ON COLUMN CASH_VAL_RF_HIST.MRKT_ID IS 'Market ID';
-
-COMMENT ON COLUMN CASH_VAL_RF_HIST.SLS_PERD_ID IS 'Target Sales Campaign';
-
-COMMENT ON COLUMN CASH_VAL_RF_HIST.CASH_VAL IS 'Cash Value';
-
-COMMENT ON COLUMN CASH_VAL_RF_HIST.R_FACTOR IS 'R factor';
-
-COMMENT ON COLUMN CASH_VAL_RF_HIST.PRCSNG_DT IS 'Max ''billing day'' for which daily billing data existed at the moment of last calculation';
-
-COMMENT ON COLUMN CASH_VAL_RF_HIST.LAST_UPDT_USER_ID IS 'Last updating user''s ID';
-
-COMMENT ON COLUMN CASH_VAL_RF_HIST.LAST_UPDT_TS IS 'Timestamp of last update';
-
-COMMENT ON COLUMN CASH_VAL_RF_HIST.ONSCH_EST_BI24_IND IS 'Use estimate in trend allocation if BI24 data is missing for on schedule';
-
-COMMENT ON COLUMN CASH_VAL_RF_HIST.OFFSCH_EST_BI24_IND IS 'Use estimate in trend allocation if BI24 data is missing for off schedule';
-
-COMMENT ON COLUMN CASH_VAL_RF_HIST.SLS_TYP_ID IS 'Sales type for which trend allocation was last calculated';
-
-COMMENT ON COLUMN CASH_VAL_RF_HIST.AUTCLC_EST_IND IS 'Automatic EST calculation set.';
-
-COMMENT ON COLUMN CASH_VAL_RF_HIST.AUTCLC_BST_IND IS 'Automatic BST calculation set.';
+    initial 40K
+    next 40K
+    minextents 1
+    maxextents unlimited
+  );
+-- Create/Recreate primary, unique and foreign key constraints 
+alter table CASH_VAL_RF_HIST
+  add constraint PK_CASH_VAL_RF_HIST primary key (MRKT_ID, SLS_PERD_ID, LAST_UPDT_USER_ID, LAST_UPDT_TS)
+  using index 
+  tablespace &index_tablespace_name
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 40K
+    next 64K
+    minextents 1
+    maxextents unlimited
+  );

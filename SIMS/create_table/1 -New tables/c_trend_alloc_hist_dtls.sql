@@ -1,40 +1,46 @@
-CREATE TABLE TREND_ALLOC_HIST_DTLS 
+﻿-- Create table
+create table TREND_ALLOC_HIST_DTLS
 (
-  MRKT_ID NUMBER NOT NULL 
-, SLS_PERD_ID NUMBER NOT NULL 
-, SLS_TYP_ID NUMBER NOT NULL 
-, SLS_TYP_GRP_NM VARCHAR2(128 BYTE) NOT NULL 
-, BILNG_DAY DATE NOT NULL 
-, SKU_ID NUMBER 
-, VEH_ID NUMBER 
-, OFFR_ID NUMBER 
-, PROMTN_ID NUMBER 
-, PROMTN_CLM_ID NUMBER 
-, SLS_CLS_CD VARCHAR2(5 BYTE) 
-, OFFST_LBL_ID NUMBER 
-, CASH_VALUE NUMBER 
-, R_FACTOR NUMBER 
-, SLS_TYP_LBL_ID NUMBER 
-, UNITS NUMBER 
-, SALES NUMBER 
-) 
- 
-TABLESPACE &data_tablespace_name; 
-
-CREATE INDEX IX_TREND_ALLOC_HIST_DTLS ON TREND_ALLOC_HIST_DTLS (MRKT_ID ASC, SLS_PERD_ID ASC, SLS_TYP_ID ASC, BILNG_DAY ASC) 
-
-TABLESPACE APP_IND_WEDEV 
-PCTFREE 10 
-INITRANS 2 
-STORAGE 
-( 
-  INITIAL 65536 
-  NEXT 1048576 
-  MINEXTENTS 1 
-  MAXEXTENTS UNLIMITED 
-  PCTINCREASE 0 
-  FREELISTS 1 
-  FREELIST GROUPS 1 
-  BUFFER_POOL DEFAULT 
-) 
-NOPARALLEL;
+  mrkt_id        NUMBER not null,
+  sls_perd_id    NUMBER not null,
+  sls_typ_id     NUMBER not null,
+  sls_typ_grp_nm VARCHAR2(32) not null,
+  bilng_day      DATE not null,
+  sku_id         NUMBER,
+  veh_id         NUMBER,
+  offr_id        NUMBER,
+  promtn_id      NUMBER,
+  promtn_clm_id  NUMBER,
+  sls_cls_cd     VARCHAR2(5),
+  offst_lbl_id   NUMBER,
+  cash_value     NUMBER,
+  r_factor       NUMBER,
+  sls_typ_lbl_id NUMBER,
+  units          NUMBER,
+  sales          NUMBER,
+  perd_part      NUMBER
+)
+tablespace &data_tablespace_name
+  pctfree 0
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );
+-- Create/Recreate indexes 
+create index IX_TREND_ALLOC_HIST_DTLS on TREND_ALLOC_HIST_DTLS (MRKT_ID, SLS_PERD_ID, SLS_TYP_ID, BILNG_DAY)
+  tablespace &index_tablespace_name
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );

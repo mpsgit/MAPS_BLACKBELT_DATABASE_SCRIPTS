@@ -1,40 +1,61 @@
-CREATE TABLE TA_DICT 
+﻿-- Create table
+create table TA_DICT
 (
-  LBL_ID NUMBER NOT NULL 
-, MRKT_ID NUMBER 
-, LBL_DESC VARCHAR2(32) NOT NULL 
-, LBL_WGHT NUMBER NOT NULL 
-, LBL_WGHT_DIR VARCHAR2(1) NOT NULL
-, INT_LBL_DESC VARCHAR2(32) NOT NULL 
-, CONSTRAINT PK_TA_DICT PRIMARY KEY 
+  lbl_id       NUMBER not null,
+  mrkt_id      NUMBER,
+  lbl_desc     VARCHAR2(32) not null,
+  lbl_wght     NUMBER not null,
+  lbl_wght_dir VARCHAR2(1) not null,
+  int_lbl_desc VARCHAR2(32) not null
+)
+tablespace &data_tablespace_name
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
   (
-    LBL_ID 
+    initial 40K
+    next 40K
+    minextents 1
+    maxextents unlimited
   )
-  USING INDEX 
+compress for all operations;
+-- Add comments to the table 
+comment on table TA_DICT
+  is 'Trend Allocation Dictionary';
+-- Add comments to the columns 
+comment on column TA_DICT.lbl_id
+  is 'Label ID (OFFST_LBL_ID or SLS_TYP_LBL_ID)';
+comment on column TA_DICT.mrkt_id
+  is 'Market ID';
+comment on column TA_DICT.lbl_desc
+  is 'Label Description';
+comment on column TA_DICT.lbl_wght
+  is 'Weight used for positioning on screen';
+comment on column TA_DICT.lbl_wght_dir
+  is 'Type of Entry (O - Offset, S- Sales Type)';
+comment on column TA_DICT.int_lbl_desc
+  is 'Internal Label Description (Label Type) - must be in(''ON-SCHEDULE'', ''OFF-SCHEDULE'', ''TRENDSETTER'', ''TRENDSETTER-2'', ''BI24'', ''ESTIMATE'', ''TREND'', ''ACTUAL'')
+';
+-- Create/Recreate primary, unique and foreign key constraints 
+alter table TA_DICT
+  add constraint PK_TA_DICT primary key (LBL_ID)
+  using index 
+  tablespace &index_tablespace_name
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
   (
-      CREATE UNIQUE INDEX PK_TA_DICT ON TA_DICT (LBL_ID ASC) 
-      TABLESPACE &index_tablespace_name 
-  )
-  ENABLE 
-) 
-TABLESPACE &data_tablespace_name;
-
-ALTER TABLE TA_DICT
-ADD CONSTRAINT C_TA_DICT_LBLWGHTDIR CHECK 
-(LBL_WGHT_DIR in ('O','S'))
-ENABLE;
-
-COMMENT ON TABLE TA_DICT IS 'Trend Allocation Dictionary';
-
-COMMENT ON COLUMN TA_DICT.LBL_ID IS 'Label ID';
-
-COMMENT ON COLUMN TA_DICT.MRKT_ID IS 'Market ID';
-
-COMMENT ON COLUMN TA_DICT.LBL_DESC IS 'Label Description';
-
-COMMENT ON COLUMN TA_DICT.LBL_WGHT IS 'Weight used for positioning on screen';
-
-COMMENT ON COLUMN TA_DICT.LBL_WGHT_DIR IS 'Type of Entry (O - Offset, S- Sales Type)';
-
-COMMENT ON COLUMN TA_DICT.INT_LBL_DESC IS 'Internal Label Description (Label Type)';
-
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );
+-- Create/Recreate check constraints 
+alter table TA_DICT
+  add constraint C_TA_DICT_INTLBLDESC
+  check (INT_LBL_DESC in ('ON-SCHEDULE', 'OFF-SCHEDULE', 'TRENDSETTER', 'TRENDSETTER-2', 'BI24', 'ESTIMATE', 'TREND', 'ACTUAL'));
+alter table TA_DICT
+  add constraint C_TA_DICT_LBLWGHTDIR
+  check (LBL_WGHT_DIR in ('O','S'));

@@ -1,5 +1,4 @@
-
-create or replace TYPE OBJ_CASH_VAL_MANTNC_LINE as object
+﻿create or replace TYPE OBJ_CASH_VAL_MANTNC_LINE as object
 ( SLS_PERD_ID number(8),
   CASH_VAL number(15,2),
   SCT_R_FACTOR number(19,4),
@@ -185,3 +184,142 @@ create or replace type sct_trend_check_rpt_line as object
 );
 
 create or replace type sct_trend_check_rpt_table is table of sct_trend_check_rpt_line;
+
+CREATE OR REPLACE TYPE P94_RPT_HEAD_LINE AS OBJECT
+(
+  mrkt_id         NUMBER,
+  sls_perd_id     NUMBER,
+  trgt_perd_id    NUMBER,
+  sls_typ_nm      VARCHAR2(100),
+  totl_cash_frcst NUMBER,
+  sales           NUMBER,
+  r_factor        NUMBER,
+  prcsng_dt       DATE,
+  offr_perd_id_on NUMBER,
+  off_perd_id_off NUMBER
+);
+
+CREATE OR REPLACE TYPE P94_RPT_HEAD_TABLE AS TABLE OF P94_RPT_HEAD_LINE;
+
+CREATE OR REPLACE TYPE P94_RPT_DTLS_LINE AS OBJECT
+(
+  mrkt_id           NUMBER,
+  sls_perd_id       NUMBER,
+  trgt_perd_id      NUMBER,
+  sls_typ_id        NUMBER,
+  fsc_cd            VARCHAR2(4000),
+  fsc_desc          VARCHAR2(4000),
+  veh_id            NUMBER,
+  pg_no             NUMBER,
+  totl_estimt       NUMBER,
+  totl_op_est       NUMBER,
+  totl_op_est_on    NUMBER,
+  totl_op_est_off   NUMBER,
+  totl_units        NUMBER,
+  totl_bst          NUMBER,
+  totl_bst_on       NUMBER,
+  totl_bst_off      NUMBER,
+  totl_bst_pct      NUMBER,
+  bias              NUMBER,
+  variation         NUMBER,
+  variation_pct     NUMBER,
+  intrdctn_perd_id  NUMBER,
+  stat_dt           NUMBER,
+  catgry_nm         VARCHAR2(100),
+  sgmt_nm           VARCHAR2(100),
+  form_desc_txt     VARCHAR2(100),
+  form_grp_desc_txt VARCHAR2(100),
+  brnd_nm           VARCHAR2(100),
+  itemid            NUMBER,
+  conceptid         NUMBER,
+  sls_cls_desc_txt  VARCHAR2(100)
+);
+
+CREATE OR REPLACE TYPE P94_RPT_DTLS_TABLE AS TABLE OF P94_RPT_DTLS_LINE;
+
+CREATE OR REPLACE TYPE OBJ_CUST_GRP_MANTNC_LINE AS OBJECT
+(
+  rulid    NUMBER,
+  rulnm    VARCHAR2(20),
+  ruldesc  VARCHAR2(200),
+  skuid    NUMBER,
+  skunm    VARCHAR2(100),
+  catgryid NUMBER,
+  brandid  NUMBER,
+  fsccd    NUMBER,
+  fscdesc  VARCHAR2(100)
+);
+
+CREATE OR REPLACE TYPE OBJ_CUST_GRP_MANTNC_TABLE AS TABLE OF OBJ_CUST_GRP_MANTNC_LINE;
+
+CREATE OR REPLACE TYPE OBJ_CUST_GRP_MANTNC_GA_LINE AS OBJECT
+(
+  rulid      NUMBER,
+  trgtperdid NUMBER
+);
+
+CREATE OR REPLACE TYPE OBJ_CUST_GRP_MANTNC_GA_TABLE AS TABLE OF OBJ_CUST_GRP_MANTNC_GA_LINE;
+
+CREATE OR REPLACE TYPE OBJ_PA_TREND_ALLOC_CRRNT_LINE AS OBJECT
+(
+  OFFST_LBL_ID NUMBER,
+  CATGRY_ID    NUMBER,
+  SLS_CLS_CD   VARCHAR2(5),
+  VEH_ID       NUMBER,
+  PERD_PART    NUMBER,
+  SKU_ID       NUMBER,
+  UNITS_BI24   NUMBER,
+  SALES_BI24   NUMBER
+);
+
+CREATE OR REPLACE TYPE OBJ_PA_TREND_ALLOC_CRRNT_TABLE
+AS TABLE OF OBJ_PA_TREND_ALLOC_CRRNT_LINE;
+
+CREATE OR REPLACE TYPE OBJ_PA_TREND_ALLOC_RULES_LINE AS OBJECT
+(
+  RUL_ID          NUMBER,
+  RUL_NM          VARCHAR2(50),
+  OFFST_LBL_ID    NUMBER,
+  CATGRY_ID       NUMBER,
+  SLS_CLS_CD      VARCHAR2(5),
+  VEH_ID          NUMBER,
+  PERD_PART       NUMBER,
+  SKU_LIST        VARCHAR2(2048),
+  PRIRTY          NUMBER,
+  PERIOD_LIST     VARCHAR2(2048),
+  R_FACTOR        NUMBER,
+  R_FACTOR_MANUAL NUMBER
+);
+
+CREATE OR REPLACE TYPE OBJ_PA_TREND_ALLOC_RULES_TABLE
+AS TABLE OF OBJ_PA_TREND_ALLOC_RULES_LINE;
+
+CREATE OR REPLACE TYPE OBJ_PA_TREND_ALLOC_SGMNT_LINE AS OBJECT
+(
+  RUL_NM       VARCHAR2(50),
+  SLS_PERD_ID  NUMBER,
+  BILNG_DAY    DATE,
+  ISSELECTED   CHAR(1),
+  UNITS_BI24   NUMBER,
+  SALES_BI24   NUMBER,
+  UNITS_ACTUAL NUMBER,
+  SALES_ACTUAL NUMBER
+);
+
+CREATE OR REPLACE TYPE OBJ_PA_TREND_ALLOC_SGMNT_TABLE
+AS TABLE OF OBJ_PA_TREND_ALLOC_SGMNT_LINE;
+
+CREATE OR REPLACE TYPE OBJ_PA_TREND_ALLOC_VIEW_LINE AS OBJECT
+( 
+  NOT_PLANND_UNTS      NUMBER,
+  HAS_SAVE             CHAR(1),
+  LAST_RUN             DATE,
+  IS_STARTED           CHAR(1),
+  IS_COMPLETE          CHAR(1),
+  IS_SAVED             CHAR(1),
+  USE_OFFERS_ON_SCHED  CHAR(1),
+  USE_OFFERS_OFF_SCHED CHAR(1)
+);
+
+CREATE OR REPLACE TYPE OBJ_PA_TREND_ALLOC_VIEW_TABLE
+AS TABLE OF OBJ_PA_TREND_ALLOC_VIEW_LINE;

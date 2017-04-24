@@ -1,24 +1,19 @@
-INSERT INTO TREND_OFFST
-	(MRKT_ID, EFF_SLS_PERD_ID, SLS_TYP_ID, OFFST)
-	SELECT MRKT_ID,
-				 EFF_SLS_PERD_ID,
-				 SLS_TYP_ID,
-				 case when SLS_TYP_ID in (3,103)
-				      then CASE WHEN M_CNTRY_CD = 'UK' and SLS_TYP_ID = 3 THEN 2
-						        ELSE 1
-					  else 0
-			     END OFFST
-		FROM (SELECT SLS_TYP_ID, SLS_TYP_NM
-						FROM SLS_TYP_GRP
-						JOIN SLS_TYP
-					 USING (SLS_TYP_GRP_ID)
-					 WHERE SLS_TYP_GRP_DESC_TXT = 'Trend') TRT,
-				 (SELECT MRKT_ID,
-								 MIN(PERD_ID) EFF_SLS_PERD_ID,
-								 MAX(CNTRY_CD) M_CNTRY_CD
-						FROM MRKT_PERD
-						JOIN MRKT
-					 USING (MRKT_ID)
-					 WHERE PERD_ID >= 20000301
-					 GROUP BY MRKT_ID) MPL;
-
+﻿INSERT INTO trend_offst
+  (mrkt_id, eff_sls_perd_id, sls_typ_id, offst)
+  SELECT mrkt_id,
+         eff_sls_perd_id,
+         sls_typ_id,
+         CASE WHEN sls_typ_id IN(3, 103) THEN CASE WHEN m_cntry_cd = 'UK' AND sls_typ_id = 3 THEN 2 ELSE 1 ELSE 0 END offst
+    FROM (SELECT sls_typ_id, sls_typ_nm
+            FROM sls_typ_grp
+            JOIN sls_typ
+           USING (sls_typ_grp_id)
+           WHERE sls_typ_grp_desc_txt = 'Trend') trt,
+         (SELECT mrkt_id,
+                 MIN(perd_id) eff_sls_perd_id,
+                 MAX(cntry_cd) m_cntry_cd
+            FROM mrkt_perd
+            JOIN mrkt
+           USING (mrkt_id)
+           WHERE perd_id >= 20000301
+           GROUP BY mrkt_id) mpl;

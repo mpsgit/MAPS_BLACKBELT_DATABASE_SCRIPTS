@@ -1,4 +1,4 @@
--- UPDATE
+﻿-- UPDATE
 -- config_item
 insert into config_item (CONFIG_ITEM_ID, CONFIG_ITEM_DESC_TXT, CONFIG_ITEM_LABL_TXT, SEQ_NR)
 values (12005, 'TREND ALLOCATION ENABLED (73)', 'TREND ALLOCATION ENABLED (73)', 105);
@@ -69,7 +69,7 @@ INSERT INTO mrkt_config_item_audit
             FROM mrkt_config_item_audit mcia
            WHERE mcia.mrkt_id = mm.mrkt_id
              AND mcia.config_item_id = 10000);
-			 
+       
 INSERT INTO CONFIG_ITEM (CONFIG_ITEM_ID, CONFIG_ITEM_DESC_TXT, CONFIG_ITEM_LABL_TXT, SEQ_NR)
 values (10001, 'Estimate Type to Show At Trend Allocation', 'Estimate Type to Show At Trend Allocation', 999);
 --
@@ -112,4 +112,4 @@ INSERT INTO mrkt_config_item_audit
    WHERE NOT EXISTS (SELECT mrkt_id
             FROM mrkt_config_item_audit mcia
            WHERE mcia.mrkt_id = mm.mrkt_id
-             AND mcia.config_item_id = 10001);			 
+             AND mcia.config_item_id = 10001);

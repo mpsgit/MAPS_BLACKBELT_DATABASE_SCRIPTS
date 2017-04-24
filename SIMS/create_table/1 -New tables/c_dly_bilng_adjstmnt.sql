@@ -1,34 +1,53 @@
-CREATE TABLE DLY_BILNG_ADJSTMNT 
+﻿-- Create table
+create table DLY_BILNG_ADJSTMNT
 (
-  DLY_BILNG_ID NUMBER NOT NULL 
-, UNIT_QTY NUMBER(9,0) NOT NULL 
-, CREAT_USER_ID VARCHAR2(35) DEFAULT USER NOT NULL 
-, CREAT_TS DATE DEFAULT SYSDATE NOT NULL 
-, LAST_UPDT_USER_ID VARCHAR2(35) DEFAULT USER  NOT NULL  
-, LAST_UPDT_TS DATE DEFAULT SYSDATE NOT NULL 
-, CONSTRAINT PK_DLY_BILNG_ADJSTMNT PRIMARY KEY 
+  dly_bilng_id      NUMBER not null,
+  unit_qty          NUMBER(9) not null,
+  creat_user_id     VARCHAR2(35) default USER not null,
+  creat_ts          DATE default SYSDATE not null,
+  last_updt_user_id VARCHAR2(35) default USER not null,
+  last_updt_ts      DATE default SYSDATE not null
+)
+tablespace &data_tablespace_name
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
   (
-    DLY_BILNG_ID 
+    initial 40K
+    next 40K
+    minextents 1
+    maxextents unlimited
   )
-  USING INDEX 
+compress for all operations;
+-- Add comments to the table 
+comment on table DLY_BILNG_ADJSTMNT
+  is 'Daily Billing Adjustment';
+-- Add comments to the columns 
+comment on column DLY_BILNG_ADJSTMNT.dly_bilng_id
+  is 'Daily Billing Id';
+comment on column DLY_BILNG_ADJSTMNT.unit_qty
+  is 'Adjusted Unit Qty';
+comment on column DLY_BILNG_ADJSTMNT.creat_user_id
+  is 'User who created the record';
+comment on column DLY_BILNG_ADJSTMNT.creat_ts
+  is 'Timestamp the record was created';
+comment on column DLY_BILNG_ADJSTMNT.last_updt_user_id
+  is 'User who last updated the record';
+comment on column DLY_BILNG_ADJSTMNT.last_updt_ts
+  is 'Timestamp the record was last updated';
+-- Create/Recreate primary, unique and foreign key constraints 
+alter table DLY_BILNG_ADJSTMNT
+  add constraint PK_DLY_BILNG_ADJSTMNT primary key (DLY_BILNG_ID)
+  using index 
+  tablespace &index_tablespace_name
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
   (
-      CREATE UNIQUE INDEX PK_DLY_BILNG_ADJSTMNT ON DLY_BILNG_ADJSTMNT (DLY_BILNG_ID ASC) 
-      TABLESPACE &index_tablespace_name 
-  )
-  ENABLE 
-) 
-TABLESPACE &data_tablespace_name;
-
-COMMENT ON TABLE DLY_BILNG_ADJSTMNT IS 'Daily Billing Adjustment';
-
-COMMENT ON COLUMN DLY_BILNG_ADJSTMNT.DLY_BILNG_ID IS 'Daily Billing Id';
-
-COMMENT ON COLUMN DLY_BILNG_ADJSTMNT.UNIT_QTY IS 'Adjusted Unit Qty';
-
-COMMENT ON COLUMN DLY_BILNG_ADJSTMNT.CREAT_USER_ID IS 'User who created the record';
-
-COMMENT ON COLUMN DLY_BILNG_ADJSTMNT.CREAT_TS IS 'Timestamp the record was created';
-
-COMMENT ON COLUMN DLY_BILNG_ADJSTMNT.LAST_UPDT_USER_ID IS 'User who last updated the record';
-
-COMMENT ON COLUMN DLY_BILNG_ADJSTMNT.LAST_UPDT_TS IS 'Timestamp the record was last updated';
+    initial 40K
+    next 40K
+    minextents 1
+    maxextents unlimited
+  );

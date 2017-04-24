@@ -1,48 +1,109 @@
-CREATE TABLE SCT_FSC_OVRRD 
+﻿-- Create table
+create table SCT_FSC_OVRRD
 (
-  MRKT_ID NUMBER NOT NULL 
-, SLS_PERD_ID NUMBER NOT NULL 
-, SLS_TYP_ID NUMBER NOT NULL 
-, FSC_CD VARCHAR2(8) NOT NULL 
-, SCT_UNIT_QTY NUMBER NOT NULL 
-, CREAT_USER_ID VARCHAR2(35) DEFAULT USER NOT NULL 
-, CREAT_TS DATE DEFAULT SYSDATE NOT NULL 
-, LAST_UPDT_USER_ID VARCHAR2(35) DEFAULT USER NOT NULL 
-, LAST_UPDT_TS DATE DEFAULT SYSDATE NOT NULL 
-, OFFST_LBL_ID NUMBER NOT NULL
-, CONSTRAINT PK_SCT_FSC_OVRRD PRIMARY KEY (MRKT_ID, SLS_PERD_ID, SLS_TYP_ID, FSC_CD, OFFST_LBL_ID)
-  USING INDEX 
+  mrkt_id           NUMBER not null,
+  sls_perd_id       NUMBER not null,
+  sls_typ_id        NUMBER not null,
+  fsc_cd            VARCHAR2(8) not null,
+  sct_unit_qty      NUMBER(9) not null,
+  creat_user_id     VARCHAR2(35) default USER not null,
+  creat_ts          DATE default SYSDATE not null,
+  last_updt_user_id VARCHAR2(35) default USER not null,
+  last_updt_ts      DATE default SYSDATE not null,
+  offst_lbl_id      NUMBER not null
+)
+tablespace &data_tablespace_name
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
   (
-      CREATE UNIQUE INDEX PK_SCT_FSC_OVRRD ON SCT_FSC_OVRRD (MRKT_ID ASC, SLS_PERD_ID ASC, SLS_TYP_ID ASC, FSC_CD ASC, OFFST_LBL_ID ASC) 
-      TABLESPACE &index_tablespace_name 
-  ) ENABLE,
-  CONSTRAINT FK_MRKTPERD_SCTFSCOVRRD FOREIGN KEY (MRKT_ID, SLS_PERD_ID)
-   REFERENCES MRKT_PERD (MRKT_ID, PERD_ID) ENABLE,
-  CONSTRAINT FK_MRKT_SCTFSCOVRRD FOREIGN KEY ( MRKT_ID )
-   REFERENCES MRKT ( MRKT_ID ) ENABLE,
-  CONSTRAINT FK_SLSTYP_SCTFSCOVRRD FOREIGN KEY ( SLS_TYP_ID )
-   REFERENCES SLS_TYP ( SLS_TYP_ID ) ENABLE 
-) 
-TABLESPACE &data_tablespace_name;
-
-COMMENT ON TABLE SCT_FSC_OVRRD IS 'Trend offset - stores trend offset values counted by Market_ID and Trend Type.';
-
-COMMENT ON COLUMN SCT_FSC_OVRRD.MRKT_ID IS 'Market Id';
-
-COMMENT ON COLUMN SCT_FSC_OVRRD.SLS_PERD_ID IS 'Target Sales Campaign';
-
-COMMENT ON COLUMN SCT_FSC_OVRRD.SLS_TYP_ID IS 'Trend Type';
-
-COMMENT ON COLUMN SCT_FSC_OVRRD.FSC_CD IS 'FSC Code';
-
-COMMENT ON COLUMN SCT_FSC_OVRRD.SCT_UNIT_QTY IS 'Total Trend Units to be recorded for this FSC in the specified Market/Campaign';
-
-COMMENT ON COLUMN SCT_FSC_OVRRD.CREAT_USER_ID IS 'User who created the record';
-
-COMMENT ON COLUMN SCT_FSC_OVRRD.CREAT_TS IS 'Timestamp the record was created';
-
-COMMENT ON COLUMN SCT_FSC_OVRRD.LAST_UPDT_USER_ID IS 'User who last updated the record';
-
-COMMENT ON COLUMN SCT_FSC_OVRRD.LAST_UPDT_TS IS 'Timestamp the record was last updated';
-
-COMMENT ON COLUMN SCT_FSC_OVRRD.OFFST_LBL_ID IS 'Offset label';
+    initial 40K
+    next 40K
+    minextents 1
+    maxextents unlimited
+  )
+compress for all operations;
+-- Add comments to the table 
+comment on table SCT_FSC_OVRRD
+  is 'Details for FSC records excluded from r-factor and trend unit calculations.';
+-- Add comments to the columns 
+comment on column SCT_FSC_OVRRD.mrkt_id
+  is 'Market Id';
+comment on column SCT_FSC_OVRRD.sls_perd_id
+  is 'Target Sales Campaign';
+comment on column SCT_FSC_OVRRD.sls_typ_id
+  is 'Trend Type';
+comment on column SCT_FSC_OVRRD.fsc_cd
+  is 'FSC Code';
+comment on column SCT_FSC_OVRRD.sct_unit_qty
+  is 'Total Trend Units to be recorded for this FSC in the specified Market/Campaign';
+comment on column SCT_FSC_OVRRD.creat_user_id
+  is 'User who created the record';
+comment on column SCT_FSC_OVRRD.creat_ts
+  is 'Timestamp the record was created';
+comment on column SCT_FSC_OVRRD.last_updt_user_id
+  is 'User who last updated the record';
+comment on column SCT_FSC_OVRRD.last_updt_ts
+  is 'Timestamp the record was last updated';
+-- Create/Recreate indexes 
+create index FK_MRKTPERD_SCTFSCOVRRD on SCT_FSC_OVRRD (MRKT_ID, SLS_PERD_ID)
+  tablespace &index_tablespace_name
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 40K
+    next 40K
+    minextents 1
+    maxextents unlimited
+  );
+create index FK_MRKT_SCTFSCOVRRD on SCT_FSC_OVRRD (MRKT_ID)
+  tablespace &index_tablespace_name
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 40K
+    next 40K
+    minextents 1
+    maxextents unlimited
+  );
+create index FK_SLSTYP_SCTFSCOVRRD on SCT_FSC_OVRRD (SLS_TYP_ID)
+  tablespace &index_tablespace_name
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 40K
+    next 40K
+    minextents 1
+    maxextents unlimited
+  );
+-- Create/Recreate primary, unique and foreign key constraints 
+alter table SCT_FSC_OVRRD
+  add constraint PK_SCT_FSC_OVRRD primary key (MRKT_ID, SLS_PERD_ID, SLS_TYP_ID, FSC_CD, OFFST_LBL_ID)
+  using index 
+  tablespace &index_tablespace_name
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );
+alter table SCT_FSC_OVRRD
+  add constraint FK_MRKTPERD_SCTFSCOVRRD foreign key (MRKT_ID, SLS_PERD_ID)
+  references MRKT_PERD (MRKT_ID, PERD_ID);
+alter table SCT_FSC_OVRRD
+  add constraint FK_MRKT_SCTFSCOVRRD foreign key (MRKT_ID)
+  references MRKT (MRKT_ID);
+alter table SCT_FSC_OVRRD
+  add constraint FK_SLSTYP_SCTFSCOVRRD foreign key (SLS_TYP_ID)
+  references SLS_TYP (SLS_TYP_ID);
