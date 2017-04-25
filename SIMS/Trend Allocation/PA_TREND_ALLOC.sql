@@ -872,6 +872,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     l_sls_typ_lbl_id          ta_dict.lbl_id%TYPE;
     l_ins_cnt                 PLS_INTEGER := 0;
     l_stus                    PLS_INTEGER := 0;
+    l_sql_rowcount            NUMBER;
     -- for LOG
     l_run_id         NUMBER := nvl(p_run_id,
                                    app_plsql_output.generate_new_run_id);
@@ -1113,8 +1114,9 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
              AND sls_typ_id = p_sls_typ_id
              AND sls_typ_grp_nm = c_sls_typ_grp_nm_bi24
              AND bilng_day = p_bilng_day;
+          l_sql_rowcount := SQL%ROWCOUNT;
           app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
-          app_plsql_log.info(l_module_name || ' ' || SQL%ROWCOUNT ||
+          app_plsql_log.info(l_module_name || ' ' || l_sql_rowcount ||
                              ' records DELETED from trend_alloc_hist_dtls - ' ||
                              c_sls_typ_grp_nm_bi24 || l_parameter_list);
           IF l_tbl_bi24_perd.count > 0 THEN
@@ -1733,6 +1735,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     l_tbl_hist_detail        t_hist_detail := t_hist_detail();
     l_ins_cnt                PLS_INTEGER := 0;
     l_stus                   PLS_INTEGER := 0;
+    l_sql_rowcount           NUMBER;
     -- for LOG
     l_run_id         NUMBER := nvl(p_run_id,
                                    app_plsql_output.generate_new_run_id);
@@ -1921,8 +1924,9 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                AND sls_typ_id = p_sls_typ_id
                AND sls_typ_grp_nm = c_sls_typ_grp_nm_dms
                AND bilng_day = p_bilng_day;
+            l_sql_rowcount := SQL%ROWCOUNT;
             app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
-            app_plsql_log.info(l_module_name || ' ' || SQL%ROWCOUNT ||
+            app_plsql_log.info(l_module_name || ' ' || l_sql_rowcount ||
                                ' records DELETED from trend_alloc_hist_dtls - ' ||
                                c_sls_typ_grp_nm_dms || l_parameter_list);
             IF l_tbl_dms.count > 0 THEN
