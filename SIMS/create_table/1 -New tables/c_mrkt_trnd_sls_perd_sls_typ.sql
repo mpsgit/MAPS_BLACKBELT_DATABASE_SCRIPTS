@@ -33,7 +33,9 @@ tablespace &data_tablespace_name
     maxextents unlimited
   )
 compress for all operations;
--- Add comments to the columns 
+-- Add comments to the columns
+comment on column MRKT_TRND_SLS_PERD_SLS_TYP.trnd_sls_perd_id
+  is 'the content is TARGET sls_perd_id, and references (as part of FK) to mrkt_trnd_sls_perd table';
 comment on column MRKT_TRND_SLS_PERD_SLS_TYP.sls_typ_id
   is 'Sales type for which trend allocation was last calculated.';
 comment on column MRKT_TRND_SLS_PERD_SLS_TYP.sct_cash_value
