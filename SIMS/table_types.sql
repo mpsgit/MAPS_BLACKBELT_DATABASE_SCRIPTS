@@ -55,7 +55,7 @@ create or replace TYPE OBJ_SKU_BIAS_MANTNC_LINE as object
 
 create or replace TYPE OBJ_SKU_BIAS_MANTNC_TABLE IS TABLE OF OBJ_SKU_BIAS_MANTNC_LINE;
 
-create or replace TYPE obj_ta_config_line AS OBJECT
+create or replace TYPE OBJ_TA_CONFIG_LINE AS OBJECT
 (
   src_sls_typ_id    NUMBER,
   x_src_sls_typ_id  NUMBER,
@@ -69,7 +69,7 @@ create or replace TYPE obj_ta_config_line AS OBJECT
   r_factor          NUMBER
 );
 
-create or replace TYPE obj_ta_config_table is table of obj_ta_config_line;
+create or replace TYPE OBJ_TA_CONFIG_TABLE is table of OBJ_TA_CONFIG_LINE;
 
 create or replace type OBJ_TREND_ALLOC_VIEW_LINE as object 
 ( NOT_PLANND_UNTS NUMBER,
@@ -117,7 +117,7 @@ create or replace TYPE PA_SKU_BIAS_MANTNC_LINE as object
 
 create or replace TYPE PA_SKU_BIAS_MANTNC_TABLE IS TABLE OF PA_SKU_BIAS_MANTNC_LINE;
 
-create or replace type PA_TREND_ALLOC_HIST_DT_LINE as object
+create or replace type OBJ_PA_TREND_ALLOC_HIST_DT_LN as object
 ( sku_id NUMBER,
   catgry_id NUMBER,
   brnd_id NUMBER,
@@ -138,9 +138,9 @@ create or replace type PA_TREND_ALLOC_HIST_DT_LINE as object
   sales NUMBER
 );
 
-create or replace type pa_trend_alloc_hist_dt_table is table of PA_TREND_ALLOC_HIST_DT_LINE;
+create or replace type OBJ_PA_TREND_ALLOC_HIST_DT_TBL is table of OBJ_PA_TREND_ALLOC_HIST_DT_LN;
 
-create or replace type PA_TREND_ALLOC_HIST_HD_LINE as object
+create or replace type OBJ_PA_TREND_ALLOC_HIST_HD_LN as object
 (
   SLS_PERD_ID      NUMBER,
   TRG_PERD_ID      NUMBER,
@@ -153,7 +153,7 @@ create or replace type PA_TREND_ALLOC_HIST_HD_LINE as object
   SALES            NUMBER
 );
 
-create or replace type PA_TREND_ALLOC_HIST_HD_TABLE is table of PA_TREND_ALLOC_HIST_HD_LINE;
+create or replace type OBJ_PA_TREND_ALLOC_HIST_HD_TBL is table of OBJ_PA_TREND_ALLOC_HIST_HD_LN;
 
 create or replace type sct_dly_updt_rpt_line as object 
 (

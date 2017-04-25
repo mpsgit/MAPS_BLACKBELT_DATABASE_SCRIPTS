@@ -165,7 +165,7 @@
                                      p_perd_from      IN NUMBER,
                                      p_perd_to        IN NUMBER,
                                      p_user_id        IN VARCHAR2 DEFAULT NULL)
-    RETURN pa_trend_alloc_hist_hd_table
+    RETURN obj_pa_trend_alloc_hist_hd_tbl
     PIPELINED;
 
   FUNCTION get_trend_alloc_re_proc_rule(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
@@ -189,7 +189,7 @@
                                    p_use_offers_on_sched  IN CHAR DEFAULT 'N',
                                    p_use_offers_off_sched IN CHAR DEFAULT 'N',
                                    p_user_id              IN VARCHAR2 DEFAULT NULL)
-    RETURN pa_trend_alloc_hist_hd_table
+    RETURN obj_pa_trend_alloc_hist_hd_tbl
     PIPELINED;
 
   FUNCTION get_trend_alloc_hist_dtls(p_mrkt_id      IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
@@ -199,7 +199,7 @@
                                      p_bilng_day    IN dly_bilng.prcsng_dt%TYPE,
                                      p_offst_lbl_id IN ta_dict.lbl_id%TYPE DEFAULT NULL,
                                      p_user_id      IN VARCHAR2 DEFAULT NULL)
-    RETURN pa_trend_alloc_hist_dt_table
+    RETURN obj_pa_trend_alloc_hist_dt_tbl
     PIPELINED;
 
   FUNCTION get_rules(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
@@ -2075,7 +2075,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                      p_perd_from      IN NUMBER,
                                      p_perd_to        IN NUMBER,
                                      p_user_id        IN VARCHAR2 DEFAULT NULL)
-    RETURN pa_trend_alloc_hist_hd_table
+    RETURN obj_pa_trend_alloc_hist_hd_tbl
     PIPELINED IS
     -- local variables
     l_tbl_hist_detail t_hist_detail := t_hist_detail();
@@ -2171,19 +2171,19 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
           IF l_tbl_hist_head.count > 0 THEN
             c_key := l_tbl_hist_head.first;
             WHILE c_key IS NOT NULL LOOP
-              PIPE ROW(pa_trend_alloc_hist_hd_line(i_prd.perd_id,
-                                                   l_periods.trg_perd_id,
-                                                   l_periods.bilng_day,
-                                                   l_tbl_hist_head         (c_key)
-                                                   .offst_lbl_id,
-                                                   l_periods.sct_cash_value,
-                                                   l_periods.sct_r_factor,
-                                                   l_tbl_hist_head         (c_key)
-                                                   .sls_typ_lbl_id,
-                                                   l_tbl_hist_head         (c_key)
-                                                   .units,
-                                                   l_tbl_hist_head         (c_key)
-                                                   .sales));
+              PIPE ROW(obj_pa_trend_alloc_hist_hd_ln(i_prd.perd_id,
+                                                     l_periods.trg_perd_id,
+                                                     l_periods.bilng_day,
+                                                     l_tbl_hist_head         (c_key)
+                                                     .offst_lbl_id,
+                                                     l_periods.sct_cash_value,
+                                                     l_periods.sct_r_factor,
+                                                     l_tbl_hist_head         (c_key)
+                                                     .sls_typ_lbl_id,
+                                                     l_tbl_hist_head         (c_key)
+                                                     .units,
+                                                     l_tbl_hist_head         (c_key)
+                                                     .sales));
               c_key := l_tbl_hist_head.next(c_key);
             END LOOP;
             l_tbl_hist_head.delete;
@@ -3706,7 +3706,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                    p_use_offers_on_sched  IN CHAR DEFAULT 'N',
                                    p_use_offers_off_sched IN CHAR DEFAULT 'N',
                                    p_user_id              IN VARCHAR2 DEFAULT NULL)
-    RETURN pa_trend_alloc_hist_hd_table
+    RETURN obj_pa_trend_alloc_hist_hd_tbl
     PIPELINED AS
     PRAGMA AUTONOMOUS_TRANSACTION;
     -- local variables
@@ -4005,17 +4005,17 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     IF l_tbl_reproc.count > 0 THEN
       c_key := l_tbl_reproc.first;
       WHILE c_key IS NOT NULL LOOP
-        PIPE ROW(pa_trend_alloc_hist_hd_line(p_campgn_perd_id,
-                                             l_periods.trg_perd_id,
-                                             p_bilng_day,
-                                             l_tbl_reproc(c_key)
-                                             .offst_lbl_id,
-                                             l_periods.sct_cash_value,
-                                             l_periods.sct_r_factor,
-                                             l_tbl_reproc(c_key)
-                                             .sls_typ_lbl_id,
-                                             round(l_tbl_reproc(c_key).units),
-                                             round(l_tbl_reproc(c_key).sales)));
+        PIPE ROW(obj_pa_trend_alloc_hist_hd_ln(p_campgn_perd_id,
+                                               l_periods.trg_perd_id,
+                                               p_bilng_day,
+                                               l_tbl_reproc(c_key)
+                                               .offst_lbl_id,
+                                               l_periods.sct_cash_value,
+                                               l_periods.sct_r_factor,
+                                               l_tbl_reproc(c_key)
+                                               .sls_typ_lbl_id,
+                                               round(l_tbl_reproc(c_key).units),
+                                               round(l_tbl_reproc(c_key).sales)));
         c_key := l_tbl_reproc.next(c_key);
       END LOOP;
       l_tbl_reproc.delete;
@@ -4034,7 +4034,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                      p_bilng_day    IN dly_bilng.prcsng_dt%TYPE,
                                      p_offst_lbl_id IN ta_dict.lbl_id%TYPE DEFAULT NULL,
                                      p_user_id      IN VARCHAR2 DEFAULT NULL)
-    RETURN pa_trend_alloc_hist_dt_table
+    RETURN obj_pa_trend_alloc_hist_dt_tbl
     PIPELINED IS
     -- local variables
     l_tbl_hist_detail t_hist_detail := t_hist_detail();
@@ -4162,38 +4162,38 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
       IF l_tbl_hist_dtl2.count > 0 THEN
         c_key := l_tbl_hist_dtl2.first;
         WHILE c_key IS NOT NULL LOOP
-          PIPE ROW(pa_trend_alloc_hist_dt_line(l_tbl_hist_dtl2(c_key)
-                                               .sku_id,
-                                               l_tbl_hist_dtl2(c_key)
-                                               .catgry_id,
-                                               l_tbl_hist_dtl2(c_key)
-                                               .brnd_id,
-                                               l_tbl_hist_dtl2(c_key)
-                                               .sgmt_id,
-                                               l_tbl_hist_dtl2(c_key)
-                                               .form_id,
-                                               l_tbl_hist_dtl2(c_key)
-                                               .prfl_cd,
-                                               l_tbl_hist_dtl2(c_key)
-                                               .promtn_id,
-                                               l_tbl_hist_dtl2(c_key)
-                                               .promtn_clm_id,
-                                               l_tbl_hist_dtl2(c_key)
-                                               .sls_cls_cd,
-                                               l_tbl_hist_dtl2(c_key).veh_id,
-                                               l_tbl_hist_dtl2(c_key).fsc_cd,
-                                               l_tbl_hist_dtl2(c_key)
-                                               .offr_id,
-                                               l_tbl_hist_dtl2(c_key)
-                                               .offst_lbl_id,
-                                               l_tbl_hist_dtl2(c_key)
-                                               .cash_value,
-                                               l_tbl_hist_dtl2(c_key)
-                                               .r_factor,
-                                               l_tbl_hist_dtl2(c_key)
-                                               .sls_typ_lbl_id,
-                                               l_tbl_hist_dtl2(c_key).units,
-                                               l_tbl_hist_dtl2(c_key).sales));
+          PIPE ROW(obj_pa_trend_alloc_hist_dt_ln(l_tbl_hist_dtl2(c_key)
+                                                 .sku_id,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .catgry_id,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .brnd_id,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .sgmt_id,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .form_id,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .prfl_cd,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .promtn_id,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .promtn_clm_id,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .sls_cls_cd,
+                                                 l_tbl_hist_dtl2(c_key).veh_id,
+                                                 l_tbl_hist_dtl2(c_key).fsc_cd,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .offr_id,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .offst_lbl_id,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .cash_value,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .r_factor,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .sls_typ_lbl_id,
+                                                 l_tbl_hist_dtl2(c_key).units,
+                                                 l_tbl_hist_dtl2(c_key).sales));
           c_key := l_tbl_hist_dtl2.next(c_key);
         END LOOP;
       END IF;
