@@ -2,10 +2,10 @@
 
   g_package_name CONSTANT VARCHAR2(30) := 'PA_TREND_ALLOC';
   --
-  c_sls_typ_grp_nm_bi24   CONSTANT VARCHAR2(32) := 'BI24';
-  c_sls_typ_grp_nm_dms    CONSTANT VARCHAR2(32) := 'ESTIMATE, TREND, ACTUAL';
-  c_sls_typ_grp_nm_fc_dbt CONSTANT VARCHAR2(32) := 'FORECASTED FROM DBT';
-  c_sls_typ_grp_nm_fc_dms CONSTANT VARCHAR2(32) := 'FORECASTED FROM DMS';
+  c_sls_typ_grp_nm_bi24   CONSTANT trend_alloc_hist_dtls.sls_typ_grp_nm%TYPE := 'BI24';
+  c_sls_typ_grp_nm_dms    CONSTANT trend_alloc_hist_dtls.sls_typ_grp_nm%TYPE := 'ESTIMATE, TREND, ACTUAL';
+  c_sls_typ_grp_nm_fc_dbt CONSTANT trend_alloc_hist_dtls.sls_typ_grp_nm%TYPE := 'FORECASTED_DBT';
+  c_sls_typ_grp_nm_fc_dms CONSTANT trend_alloc_hist_dtls.sls_typ_grp_nm%TYPE := 'FORECASTED_DMS';
 
   TYPE r_periods IS RECORD(
     sls_perd_id    dly_bilng_trnd.trnd_sls_perd_id%TYPE,
@@ -75,6 +75,22 @@
     sales          NUMBER,
     sls_typ_lbl_id ta_dict.lbl_id%TYPE);
   TYPE t_hist_dtl2 IS TABLE OF r_hist_dtl2 INDEX BY VARCHAR2(256);
+
+  TYPE r_hist_prd_dtl IS RECORD(
+    trgt_perd_id   dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+    intr_perd_id   dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+    disc_perd_id   dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+    sls_cls_cd     offr_prfl_prc_point.sls_cls_cd%TYPE,
+    fsc_cd         mrkt_fsc.fsc_cd%TYPE,
+    bias           mrkt_perd_sku_bias.bias_pct%TYPE,
+    bi24_adj       dly_bilng_adjstmnt.unit_qty%TYPE,
+    sls_prc_amt    dly_bilng_trnd.sls_prc_amt%TYPE,
+    nr_for_qty     dly_bilng_trnd.nr_for_qty%TYPE,
+    offst_lbl_id   ta_dict.lbl_id%TYPE,
+    sls_typ_lbl_id ta_dict.lbl_id%TYPE,
+    units          NUMBER,
+    sales          NUMBER);
+  TYPE t_hist_prd_dtl IS TABLE OF r_hist_prd_dtl INDEX BY VARCHAR2(128);
 
   TYPE r_save IS RECORD(
     offst_lbl_id      ta_dict.lbl_id%TYPE,
@@ -228,6 +244,15 @@
                                    p_bilng_day      IN dly_bilng_trnd.prcsng_dt%TYPE,
                                    p_user_id        IN VARCHAR2 DEFAULT NULL)
     RETURN obj_pa_trend_alloc_crrnt_table
+    PIPELINED;
+
+  FUNCTION get_trend_alloc_prod_dtls(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                                     p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                                     p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                                     p_bilng_day      IN dly_bilng_trnd.prcsng_dt%TYPE,
+                                     p_fsc_cd_list    IN fsc_cd_list_array,
+                                     p_user_id        IN VARCHAR2 DEFAULT NULL)
+    RETURN obj_pa_trend_alloc_prd_dtl_tbl
     PIPELINED;
 
   PROCEDURE save_rules(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
@@ -4014,8 +4039,10 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                                l_periods.sct_r_factor,
                                                l_tbl_reproc(c_key)
                                                .sls_typ_lbl_id,
-                                               round(l_tbl_reproc(c_key).units),
-                                               round(l_tbl_reproc(c_key).sales)));
+                                               round(l_tbl_reproc(c_key)
+                                                     .units),
+                                               round(l_tbl_reproc(c_key)
+                                                     .sales)));
         c_key := l_tbl_reproc.next(c_key);
       END LOOP;
       l_tbl_reproc.delete;
@@ -4180,8 +4207,10 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                                  .promtn_clm_id,
                                                  l_tbl_hist_dtl2(c_key)
                                                  .sls_cls_cd,
-                                                 l_tbl_hist_dtl2(c_key).veh_id,
-                                                 l_tbl_hist_dtl2(c_key).fsc_cd,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .veh_id,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .fsc_cd,
                                                  l_tbl_hist_dtl2(c_key)
                                                  .offr_id,
                                                  l_tbl_hist_dtl2(c_key)
@@ -4192,8 +4221,10 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                                  .r_factor,
                                                  l_tbl_hist_dtl2(c_key)
                                                  .sls_typ_lbl_id,
-                                                 l_tbl_hist_dtl2(c_key).units,
-                                                 l_tbl_hist_dtl2(c_key).sales));
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .units,
+                                                 l_tbl_hist_dtl2(c_key)
+                                                 .sales));
           c_key := l_tbl_hist_dtl2.next(c_key);
         END LOOP;
       END IF;
@@ -4726,6 +4757,362 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
     app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
   END get_trend_alloc_current;
+
+  -- get_trend_alloc_prod_dtls
+  FUNCTION get_trend_alloc_prod_dtls(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                                     p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                                     p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                                     p_bilng_day      IN dly_bilng_trnd.prcsng_dt%TYPE,
+                                     p_fsc_cd_list    IN fsc_cd_list_array,
+                                     p_user_id        IN VARCHAR2 DEFAULT NULL)
+    RETURN obj_pa_trend_alloc_prd_dtl_tbl
+    PIPELINED IS
+    -- local variables
+    l_tbl_bi24         t_hist_detail := t_hist_detail();
+    l_tbl_hist_prd_dtl t_hist_prd_dtl;
+    l_periods          r_periods;
+    l_trgt_perd_id     dstrbtd_mrkt_sls.sls_perd_id%TYPE;
+    l_intr_perd_id     dstrbtd_mrkt_sls.sls_perd_id%TYPE;
+    l_disc_perd_id     dstrbtd_mrkt_sls.sls_perd_id%TYPE;
+    l_sls_cls_cd       offr_prfl_prc_point.sls_cls_cd%TYPE;
+    l_fsc_cd           mrkt_fsc.fsc_cd%TYPE;
+    l_bias             mrkt_perd_sku_bias.bias_pct%TYPE;
+    l_bi24_adj         dly_bilng_adjstmnt.unit_qty%TYPE;
+    l_sls_prc_amt      dly_bilng_trnd.sls_prc_amt%TYPE;
+    l_nr_for_qty       dly_bilng_trnd.nr_for_qty%TYPE;
+    l_fsc_cd_exists    PLS_INTEGER;
+    c_key              VARCHAR2(128);
+    -- for LOG
+    l_run_id         NUMBER := app_plsql_output.generate_new_run_id;
+    l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
+    l_module_name    VARCHAR2(30) := 'GET_TREND_ALLOC_PROD_DTLS';
+    l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
+                                       to_char(p_mrkt_id) || ', ' ||
+                                       'p_campgn_perd_id: ' ||
+                                       to_char(p_campgn_perd_id) || ', ' ||
+                                       'p_sls_typ_id: ' ||
+                                       to_char(p_sls_typ_id) || ', ' ||
+                                       'p_bilng_day: ' ||
+                                       to_char(p_bilng_day, 'yyyy-mm-dd') || ', ' ||
+                                       'p_user_id: ' || l_user_id || ')';
+    --
+  BEGIN
+    app_plsql_log.register(g_package_name || '.' || l_module_name);
+    app_plsql_output.set_run_id(l_run_id);
+    app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
+    app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
+    -- get CURRENT periods
+    l_periods := get_periods(p_mrkt_id       => p_mrkt_id,
+                             p_orig_perd_id  => p_campgn_perd_id,
+                             p_bilng_perd_id => p_campgn_perd_id,
+                             p_sls_typ_id    => p_sls_typ_id,
+                             p_bilng_day     => p_bilng_day,
+                             p_user_id       => l_user_id,
+                             p_run_id        => l_run_id);
+    -- SHIPPED_TO_DATE - BI24 like data collection
+    FOR i IN (WITH dbt AS
+                 (SELECT dly_bilng_id,
+                        fsc_cd,
+                        sls_typ_lbl_id,
+                        sls_prc_amt,
+                        nr_for_qty,
+                        unit_qty
+                   FROM (SELECT CASE
+                                  WHEN dly_bilng_trnd.offr_perd_id =
+                                       l_periods.trg_perd_id THEN
+                                   dly_bilng_trnd.dly_bilng_id
+                                  ELSE
+                                   NULL
+                                END dly_bilng_id,
+                                dly_bilng_trnd.fsc_cd,
+                                50950 AS sls_typ_lbl_id,
+                                MAX(dly_bilng_trnd.sls_prc_amt) over(PARTITION BY dly_bilng_trnd.fsc_cd) AS sls_prc_amt,
+                                dly_bilng_trnd.nr_for_qty,
+                                SUM(dly_bilng_trnd.unit_qty) over(PARTITION BY dly_bilng_trnd.fsc_cd) AS unit_qty
+                           FROM dly_bilng_trnd, TABLE(p_fsc_cd_list) t
+                          WHERE dly_bilng_trnd.mrkt_id = p_mrkt_id
+                            AND dly_bilng_trnd.trnd_sls_perd_id =
+                                p_campgn_perd_id
+                            AND trunc(dly_bilng_trnd.prcsng_dt) <=
+                                p_bilng_day
+                            AND dly_bilng_trnd.trnd_aloctn_auto_stus_id IN
+                                (auto_matched,
+                                 auto_suggested_single,
+                                 auto_suggested_multi)
+                               -- shipped to date
+                            AND to_number(dly_bilng_trnd.fsc_cd) =
+                                to_number(t.column_value)
+                            AND (dly_bilng_trnd.lcl_bilng_actn_cd NOT IN
+                                ('2A', '7A') AND
+                                NOT (dly_bilng_trnd.offr_perd_id <
+                                 p_campgn_perd_id AND
+                                 dly_bilng_trnd.lcl_bilng_actn_cd = '1' AND
+                                 dly_bilng_trnd.lcl_bilng_tran_typ = '01')))
+                  WHERE dly_bilng_id IS NOT NULL)
+                SELECT l_periods.trg_perd_id AS trgt_perd_id,
+                       mrkt_sku.intrdctn_perd_id AS intr_perd_id,
+                       mrkt_sku.dspostn_perd_id AS disc_perd_id,
+                       dbt.fsc_cd,
+                       offr_prfl_prc_point.sls_cls_cd,
+                       dbt.sls_typ_lbl_id,
+                       dbt.sls_prc_amt,
+                       dbt.nr_for_qty,
+                       mrkt_perd_sku_bias.bias_pct AS bias,
+                       dly_bilng_adjstmnt.unit_qty / nvl(dbt.unit_qty, 1) bi24_adj,
+                       round(SUM(nvl(dbt.unit_qty, 0))) units,
+                       round(SUM(nvl(dbt.unit_qty, 0) *
+                                 nvl(dbt.sls_prc_amt, 0) /
+                                 decode(nvl(dbt.nr_for_qty, 0),
+                                        0,
+                                        1,
+                                        dbt.nr_for_qty) *
+                                 decode(nvl(offr_prfl_prc_point.net_to_avon_fct,
+                                            0),
+                                        0,
+                                        1,
+                                        offr_prfl_prc_point.net_to_avon_fct))) sales
+                  FROM dbt,
+                       dly_bilng_trnd_offr_sku_line,
+                       offr_sku_line,
+                       offr_prfl_prc_point,
+                       offr,
+                       mrkt_sku,
+                       mrkt_perd_sku_bias,
+                       dly_bilng_adjstmnt
+                 WHERE dbt.dly_bilng_id =
+                       dly_bilng_trnd_offr_sku_line.dly_bilng_id
+                   AND dly_bilng_trnd_offr_sku_line.sls_typ_id =
+                       (SELECT MAX(src_sls_typ_id)
+                          FROM TABLE(pa_trend_alloc.get_ta_config(p_mrkt_id        => p_mrkt_id,
+                                                                  p_sls_perd_id    => p_campgn_perd_id,
+                                                                  p_sls_typ_id     => p_sls_typ_id,
+                                                                  p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24)))
+                   AND dly_bilng_trnd_offr_sku_line.offr_sku_line_id =
+                       offr_sku_line.offr_sku_line_id
+                   AND offr_sku_line.dltd_ind <> 'Y'
+                   AND offr_sku_line.offr_prfl_prcpt_id =
+                       offr_prfl_prc_point.offr_prfl_prcpt_id
+                   AND offr_prfl_prc_point.offr_id = offr.offr_id
+                   AND offr.offr_typ = 'CMP'
+                   AND offr.ver_id = 0
+                   AND offr_sku_line.sku_id = mrkt_sku.sku_id
+                   AND p_mrkt_id = mrkt_sku.mrkt_id
+                   AND p_mrkt_id = mrkt_perd_sku_bias.mrkt_id(+)
+                   AND l_periods.trg_perd_id =
+                       mrkt_perd_sku_bias.sls_perd_id(+)
+                   AND offr_sku_line.sku_id = mrkt_perd_sku_bias.sku_id(+)
+                   AND p_sls_typ_id = mrkt_perd_sku_bias.sls_typ_id(+)
+                   AND dbt.dly_bilng_id = dly_bilng_adjstmnt.dly_bilng_id(+)
+                 GROUP BY l_periods.trg_perd_id,
+                          mrkt_sku.intrdctn_perd_id,
+                          mrkt_sku.dspostn_perd_id,
+                          dbt.fsc_cd,
+                          offr_prfl_prc_point.sls_cls_cd,
+                          dbt.sls_typ_lbl_id,
+                          dbt.sls_prc_amt,
+                          dbt.nr_for_qty,
+                          mrkt_perd_sku_bias.bias_pct,
+                          dly_bilng_adjstmnt.unit_qty / nvl(dbt.unit_qty, 1)
+                 ORDER BY dbt.fsc_cd, dbt.sls_typ_lbl_id) LOOP
+      c_key := i.fsc_cd || '_' || to_char(i.sls_typ_lbl_id);
+      --
+      l_tbl_hist_prd_dtl(c_key).trgt_perd_id := i.trgt_perd_id;
+      l_tbl_hist_prd_dtl(c_key).intr_perd_id := i.intr_perd_id;
+      l_tbl_hist_prd_dtl(c_key).disc_perd_id := i.disc_perd_id;
+      l_tbl_hist_prd_dtl(c_key).sls_cls_cd := i.sls_cls_cd;
+      l_tbl_hist_prd_dtl(c_key).fsc_cd := i.fsc_cd;
+      l_tbl_hist_prd_dtl(c_key).bias := i.bias;
+      l_tbl_hist_prd_dtl(c_key).bi24_adj := i.bi24_adj;
+      l_tbl_hist_prd_dtl(c_key).sls_prc_amt := i.sls_prc_amt;
+      l_tbl_hist_prd_dtl(c_key).nr_for_qty := i.nr_for_qty;
+      l_tbl_hist_prd_dtl(c_key).offst_lbl_id := NULL;
+      l_tbl_hist_prd_dtl(c_key).sls_typ_lbl_id := i.sls_typ_lbl_id;
+      l_tbl_hist_prd_dtl(c_key).units := i.units;
+      l_tbl_hist_prd_dtl(c_key).sales := i.sales;
+    END LOOP;
+    -- DMS like data collection
+    FOR i IN (SELECT pa_maps_public.get_mstr_fsc_cd(p_mrkt_id,
+                                                    offr_sku_line.sku_id,
+                                                    p_campgn_perd_id) AS fsc_cd,
+                     tc_dms.sls_typ_lbl_id,
+                     round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty, 0))) units,
+                     round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty, 0) *
+                               nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                               decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
+                                      0,
+                                      1,
+                                      offr_prfl_prc_point.nr_for_qty) *
+                               decode(nvl(offr_prfl_prc_point.net_to_avon_fct,
+                                          0),
+                                      0,
+                                      1,
+                                      offr_prfl_prc_point.net_to_avon_fct))) sales
+                FROM dstrbtd_mrkt_sls,
+                     offr_sku_line,
+                     offr_prfl_prc_point,
+                     offr,
+                     TABLE(p_fsc_cd_list) t,
+                     (SELECT estimate AS src_sls_typ_id,
+                             501000 + estimate AS sls_typ_lbl_id,
+                             l_periods.trg_perd_id AS trgt_sls_perd_id
+                        FROM dual
+                      UNION ALL
+                      SELECT operational_estimate AS src_sls_typ_id,
+                             501000 + operational_estimate AS sls_typ_lbl_id,
+                             l_periods.trg_perd_id AS trgt_sls_perd_id
+                        FROM dual
+                      UNION ALL
+                      SELECT p_sls_typ_id AS src_sls_typ_id,
+                             501000 + p_sls_typ_id AS sls_typ_lbl_id,
+                             l_periods.trg_perd_id AS trgt_sls_perd_id
+                        FROM dual) tc_dms
+               WHERE dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
+                 AND dstrbtd_mrkt_sls.sls_perd_id = tc_dms.trgt_sls_perd_id
+                 AND dstrbtd_mrkt_sls.sls_typ_id = tc_dms.src_sls_typ_id
+                 AND dstrbtd_mrkt_sls.offr_sku_line_id =
+                     offr_sku_line.offr_sku_line_id
+                 AND offr_sku_line.dltd_ind <> 'Y'
+                 AND offr_sku_line.offr_prfl_prcpt_id =
+                     offr_prfl_prc_point.offr_prfl_prcpt_id
+                 AND offr_prfl_prc_point.offr_id = offr.offr_id
+                 AND offr.offr_typ = 'CMP'
+                 AND offr.ver_id = 0
+                 AND to_number(pa_maps_public.get_mstr_fsc_cd(p_mrkt_id,
+                                                              offr_sku_line.sku_id,
+                                                              p_campgn_perd_id)) =
+                     to_number(t.column_value)
+               GROUP BY pa_maps_public.get_mstr_fsc_cd(p_mrkt_id,
+                                                       offr_sku_line.sku_id,
+                                                       p_campgn_perd_id),
+                        tc_dms.sls_typ_lbl_id
+               ORDER BY pa_maps_public.get_mstr_fsc_cd(p_mrkt_id,
+                                                       offr_sku_line.sku_id,
+                                                       p_campgn_perd_id),
+                        tc_dms.sls_typ_lbl_id) LOOP
+      c_key := i.fsc_cd || '_' || to_char(i.sls_typ_lbl_id);
+      --
+      l_trgt_perd_id := l_tbl_hist_prd_dtl(i.fsc_cd ||'_50950').trgt_perd_id;
+      l_intr_perd_id := l_tbl_hist_prd_dtl(i.fsc_cd ||'_50950').intr_perd_id;
+      l_disc_perd_id := l_tbl_hist_prd_dtl(i.fsc_cd ||'_50950').disc_perd_id;
+      l_sls_cls_cd   := l_tbl_hist_prd_dtl(i.fsc_cd ||'_50950').sls_cls_cd;
+      l_bias         := l_tbl_hist_prd_dtl(i.fsc_cd ||'_50950').bias;
+      l_bi24_adj     := l_tbl_hist_prd_dtl(i.fsc_cd ||'_50950').bi24_adj;
+      l_sls_prc_amt  := l_tbl_hist_prd_dtl(i.fsc_cd ||'_50950').sls_prc_amt;
+      l_nr_for_qty   := l_tbl_hist_prd_dtl(i.fsc_cd ||'_50950').nr_for_qty;
+      --
+      l_tbl_hist_prd_dtl(c_key).fsc_cd := i.fsc_cd;
+      l_tbl_hist_prd_dtl(c_key).trgt_perd_id := l_trgt_perd_id;
+      l_tbl_hist_prd_dtl(c_key).intr_perd_id := l_intr_perd_id;
+      l_tbl_hist_prd_dtl(c_key).disc_perd_id := l_disc_perd_id;
+      l_tbl_hist_prd_dtl(c_key).sls_cls_cd := l_sls_cls_cd;
+      l_tbl_hist_prd_dtl(c_key).bias := l_bias;
+      l_tbl_hist_prd_dtl(c_key).bi24_adj := l_bi24_adj;
+      l_tbl_hist_prd_dtl(c_key).sls_prc_amt := l_sls_prc_amt;
+      l_tbl_hist_prd_dtl(c_key).nr_for_qty := l_nr_for_qty;
+      l_tbl_hist_prd_dtl(c_key).offst_lbl_id := NULL;
+      l_tbl_hist_prd_dtl(c_key).sls_typ_lbl_id := i.sls_typ_lbl_id;
+      l_tbl_hist_prd_dtl(c_key).units := i.units;
+      l_tbl_hist_prd_dtl(c_key).sales := i.sales;
+    END LOOP;
+    -- BI24
+    l_tbl_bi24 := get_bi24(p_mrkt_id              => p_mrkt_id,
+                           p_sls_perd_id          => p_campgn_perd_id,
+                           p_sls_typ_id           => p_sls_typ_id,
+                           p_bilng_day            => p_bilng_day,
+                           p_offst_lbl_id         => NULL,
+                           p_cash_value           => l_periods.sct_cash_value,
+                           p_r_factor             => l_periods.sct_r_factor,
+                           p_x_sls_typ_lbl_id_flg => 'N',
+                           p_perd_part_flg        => 'N',
+                           p_user_id              => l_user_id,
+                           p_run_id               => l_run_id);
+    -- filtering (BI24) by FSC_CD_LIST
+    IF l_tbl_bi24.count > 0 THEN
+      FOR i IN l_tbl_bi24.first .. l_tbl_bi24.last LOOP
+        l_fsc_cd := nvl(pa_maps_public.get_mstr_fsc_cd(p_mrkt_id,
+                                                       l_tbl_bi24(i).sku_id,
+                                                       p_campgn_perd_id),
+                        '-1');
+        SELECT COUNT(1)
+          INTO l_fsc_cd_exists
+          FROM TABLE(p_fsc_cd_list) t
+         WHERE t.column_value = l_fsc_cd;
+        IF l_fsc_cd_exists = 1 THEN
+          c_key := l_fsc_cd || '_' ||
+                   to_char(50000 + l_tbl_bi24(i).sls_typ_lbl_id);
+          --
+          l_trgt_perd_id := l_tbl_hist_prd_dtl(l_fsc_cd ||'_50950')
+                            .trgt_perd_id;
+          l_intr_perd_id := l_tbl_hist_prd_dtl(l_fsc_cd ||'_50950')
+                            .intr_perd_id;
+          l_disc_perd_id := l_tbl_hist_prd_dtl(l_fsc_cd ||'_50950')
+                            .disc_perd_id;
+          l_sls_cls_cd   := l_tbl_hist_prd_dtl(l_fsc_cd ||'_50950')
+                            .sls_cls_cd;
+          l_bias         := l_tbl_hist_prd_dtl(l_fsc_cd ||'_50950').bias;
+          l_bi24_adj     := l_tbl_hist_prd_dtl(l_fsc_cd ||'_50950').bi24_adj;
+          l_sls_prc_amt  := l_tbl_hist_prd_dtl(l_fsc_cd ||'_50950')
+                            .sls_prc_amt;
+          l_nr_for_qty   := l_tbl_hist_prd_dtl(l_fsc_cd ||'_50950')
+                            .nr_for_qty;
+          --
+          l_tbl_hist_prd_dtl(c_key).fsc_cd := l_fsc_cd;
+          l_tbl_hist_prd_dtl(c_key).trgt_perd_id := l_trgt_perd_id;
+          l_tbl_hist_prd_dtl(c_key).intr_perd_id := l_intr_perd_id;
+          l_tbl_hist_prd_dtl(c_key).disc_perd_id := l_disc_perd_id;
+          l_tbl_hist_prd_dtl(c_key).sls_cls_cd := l_sls_cls_cd;
+          l_tbl_hist_prd_dtl(c_key).bias := l_bias;
+          l_tbl_hist_prd_dtl(c_key).bi24_adj := l_bi24_adj;
+          l_tbl_hist_prd_dtl(c_key).sls_prc_amt := l_sls_prc_amt;
+          l_tbl_hist_prd_dtl(c_key).nr_for_qty := l_nr_for_qty;
+          l_tbl_hist_prd_dtl(c_key).offst_lbl_id := NULL;
+          l_tbl_hist_prd_dtl(c_key).sls_typ_lbl_id := 50000 + l_tbl_bi24(i)
+                                                     .sls_typ_lbl_id;
+          l_tbl_hist_prd_dtl(c_key).units := nvl(l_tbl_hist_prd_dtl(c_key)
+                                                 .units,
+                                                 0) + l_tbl_bi24(i).units;
+          l_tbl_hist_prd_dtl(c_key).sales := nvl(l_tbl_hist_prd_dtl(c_key)
+                                                 .sales,
+                                                 0) + l_tbl_bi24(i).sales;
+        END IF;
+      END LOOP;
+    END IF;
+    -- PIPE - result
+    IF l_tbl_hist_prd_dtl.count > 0 THEN
+      c_key := l_tbl_hist_prd_dtl.first;
+      WHILE c_key IS NOT NULL LOOP
+        PIPE ROW(obj_pa_trend_alloc_prd_dtl_ln(l_tbl_hist_prd_dtl(c_key)
+                                               .trgt_perd_id,
+                                               l_tbl_hist_prd_dtl(c_key)
+                                               .intr_perd_id,
+                                               l_tbl_hist_prd_dtl(c_key)
+                                               .disc_perd_id,
+                                               l_tbl_hist_prd_dtl(c_key)
+                                               .sls_cls_cd,
+                                               l_tbl_hist_prd_dtl(c_key)
+                                               .fsc_cd,
+                                               l_tbl_hist_prd_dtl(c_key).bias,
+                                               l_tbl_hist_prd_dtl(c_key)
+                                               .bi24_adj,
+                                               l_tbl_hist_prd_dtl(c_key)
+                                               .sls_prc_amt,
+                                               l_tbl_hist_prd_dtl(c_key)
+                                               .nr_for_qty,
+                                               l_tbl_hist_prd_dtl(c_key)
+                                               .offst_lbl_id,
+                                               l_tbl_hist_prd_dtl(c_key)
+                                               .sls_typ_lbl_id,
+                                               l_tbl_hist_prd_dtl(c_key)
+                                               .units,
+                                               l_tbl_hist_prd_dtl(c_key)
+                                               .sales));
+        c_key := l_tbl_hist_prd_dtl.next(c_key);
+      END LOOP;
+    END IF;
+    l_tbl_hist_prd_dtl.delete;
+    app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
+    app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
+  END get_trend_alloc_prod_dtls;
 
   -- save_rules
   PROCEDURE save_rules(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,

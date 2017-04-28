@@ -55,32 +55,6 @@ create or replace TYPE OBJ_SKU_BIAS_MANTNC_LINE as object
 
 create or replace TYPE OBJ_SKU_BIAS_MANTNC_TABLE IS TABLE OF OBJ_SKU_BIAS_MANTNC_LINE;
 
-create or replace TYPE OBJ_TA_CONFIG_LINE AS OBJECT
-(
-  src_sls_typ_id    NUMBER,
-  x_src_sls_typ_id  NUMBER,
-  offst_lbl_id      NUMBER,
-  sls_typ_lbl_id    NUMBER,
-  x_sls_typ_lbl_id  NUMBER,
-  src_sls_perd_id   NUMBER,
-  trgt_sls_perd_id  NUMBER,
-  src_offr_perd_id  NUMBER,
-  trgt_offr_perd_id NUMBER,
-  r_factor          NUMBER
-);
-
-create or replace TYPE OBJ_TA_CONFIG_TABLE is table of OBJ_TA_CONFIG_LINE;
-
-create or replace type OBJ_TREND_ALLOC_VIEW_LINE as object 
-( NOT_PLANND_UNTS NUMBER,
-  has_save VARCHAR2(1),
-  LAST_RUN date,
-  IS_STARTED VARCHAR2(1),
-  IS_COMPLETE varchar2(1)
-);
-	
-create or replace type obj_trend_alloc_view_table is table of OBJ_TREND_ALLOC_VIEW_LINE;
-
 create or replace TYPE OBJ_TREND_TYPE_LINE AS OBJECT
 ( SLS_TYP_ID number,
   SLS_TYP_NM varchar2(100)
@@ -116,44 +90,6 @@ create or replace TYPE PA_SKU_BIAS_MANTNC_LINE as object
 );
 
 create or replace TYPE PA_SKU_BIAS_MANTNC_TABLE IS TABLE OF PA_SKU_BIAS_MANTNC_LINE;
-
-create or replace type OBJ_PA_TREND_ALLOC_HIST_DT_LN as object
-( sku_id NUMBER,
-  catgry_id NUMBER,
-  brnd_id NUMBER,
-  sgmt_id NUMBER,
-  form_id NUMBER,
-  prfl_cd NUMBER(7,0),
-  promtn_id NUMBER,
-  promtn_clm_id NUMBER,
-  sls_cls_cd VARCHAR2(5),
-  veh_id NUMBER,
-  fsc_cd VARCHAR2(8),
-  offr_id NUMBER,
-  offst_lbl_id NUMBER,
-  cash_value NUMBER,
-  r_factor NUMBER,
-  sls_typ_lbl_id NUMBER,
-  units NUMBER,
-  sales NUMBER
-);
-
-create or replace type OBJ_PA_TREND_ALLOC_HIST_DT_TBL is table of OBJ_PA_TREND_ALLOC_HIST_DT_LN;
-
-create or replace type OBJ_PA_TREND_ALLOC_HIST_HD_LN as object
-(
-  SLS_PERD_ID      NUMBER,
-  TRG_PERD_ID      NUMBER,
-  BILNG_DAY        DATE,
-  OFFST_LBL_ID     NUMBER,
-  CASH_VALUE       NUMBER,
-  R_FACTOR         NUMBER,
-  SLS_TYP_LBL_ID   NUMBER,
-  UNITS            NUMBER,
-  SALES            NUMBER
-);
-
-create or replace type OBJ_PA_TREND_ALLOC_HIST_HD_TBL is table of OBJ_PA_TREND_ALLOC_HIST_HD_LN;
 
 create or replace type sct_dly_updt_rpt_line as object 
 (
@@ -260,6 +196,70 @@ CREATE OR REPLACE TYPE OBJ_CUST_GRP_MANTNC_GA_LINE AS OBJECT
 
 CREATE OR REPLACE TYPE OBJ_CUST_GRP_MANTNC_GA_TABLE AS TABLE OF OBJ_CUST_GRP_MANTNC_GA_LINE;
 
+create or replace TYPE OBJ_TA_CONFIG_LINE AS OBJECT
+(
+  src_sls_typ_id    NUMBER,
+  x_src_sls_typ_id  NUMBER,
+  offst_lbl_id      NUMBER,
+  sls_typ_lbl_id    NUMBER,
+  x_sls_typ_lbl_id  NUMBER,
+  src_sls_perd_id   NUMBER,
+  trgt_sls_perd_id  NUMBER,
+  src_offr_perd_id  NUMBER,
+  trgt_offr_perd_id NUMBER,
+  r_factor          NUMBER
+);
+
+create or replace TYPE OBJ_TA_CONFIG_TABLE is table of OBJ_TA_CONFIG_LINE;
+
+create or replace type OBJ_TREND_ALLOC_VIEW_LINE as object 
+( NOT_PLANND_UNTS NUMBER,
+  has_save VARCHAR2(1),
+  LAST_RUN date,
+  IS_STARTED VARCHAR2(1),
+  IS_COMPLETE varchar2(1)
+);
+	
+create or replace type OBJ_TREND_ALLOC_VIEW_TABLE is table of OBJ_TREND_ALLOC_VIEW_LINE;
+
+create or replace type OBJ_PA_TREND_ALLOC_HIST_HD_LN as object
+(
+  SLS_PERD_ID      NUMBER,
+  TRG_PERD_ID      NUMBER,
+  BILNG_DAY        DATE,
+  OFFST_LBL_ID     NUMBER,
+  CASH_VALUE       NUMBER,
+  R_FACTOR         NUMBER,
+  SLS_TYP_LBL_ID   NUMBER,
+  UNITS            NUMBER,
+  SALES            NUMBER
+);
+
+create or replace type OBJ_PA_TREND_ALLOC_HIST_HD_TBL is table of OBJ_PA_TREND_ALLOC_HIST_HD_LN;
+
+create or replace type OBJ_PA_TREND_ALLOC_HIST_DT_LN as object
+( sku_id NUMBER,
+  catgry_id NUMBER,
+  brnd_id NUMBER,
+  sgmt_id NUMBER,
+  form_id NUMBER,
+  prfl_cd NUMBER(7,0),
+  promtn_id NUMBER,
+  promtn_clm_id NUMBER,
+  sls_cls_cd VARCHAR2(5),
+  veh_id NUMBER,
+  fsc_cd VARCHAR2(8),
+  offr_id NUMBER,
+  offst_lbl_id NUMBER,
+  cash_value NUMBER,
+  r_factor NUMBER,
+  sls_typ_lbl_id NUMBER,
+  units NUMBER,
+  sales NUMBER
+);
+
+create or replace type OBJ_PA_TREND_ALLOC_HIST_DT_TBL is table of OBJ_PA_TREND_ALLOC_HIST_DT_LN;
+
 CREATE OR REPLACE TYPE OBJ_PA_TREND_ALLOC_CRRNT_LINE AS OBJECT
 (
   OFFST_LBL_ID NUMBER,
@@ -323,3 +323,25 @@ CREATE OR REPLACE TYPE OBJ_PA_TREND_ALLOC_VIEW_LINE AS OBJECT
 
 CREATE OR REPLACE TYPE OBJ_PA_TREND_ALLOC_VIEW_TABLE
 AS TABLE OF OBJ_PA_TREND_ALLOC_VIEW_LINE;
+
+CREATE OR REPLACE TYPE OBJ_PA_TREND_ALLOC_PRD_DTL_LN AS OBJECT
+(
+  TRGT_PERD_ID   NUMBER,
+  INTR_PERD_ID   NUMBER,
+  DISC_PERD_ID   NUMBER,
+  SLS_CLS_CD     VARCHAR2(5),
+  FSC_CD         VARCHAR2(8),
+  BIAS           NUMBER,
+  BI24_ADJ       NUMBER,
+  SLS_PRC_AMT    NUMBER,
+  NR_FOR_QTY     NUMBER,
+  OFFST_LBL_ID   NUMBER,
+  SLS_TYP_LBL_ID NUMBER,
+  UNITS          NUMBER,
+  SALES          NUMBER
+);
+
+CREATE OR REPLACE TYPE OBJ_PA_TREND_ALLOC_PRD_DTL_TBL
+AS TABLE OF OBJ_PA_TREND_ALLOC_PRD_DTL_LN;
+
+CREATE OR REPLACE TYPE FSC_CD_LIST_ARRAY AS VARRAY (15000) OF VARCHAR2(8);
