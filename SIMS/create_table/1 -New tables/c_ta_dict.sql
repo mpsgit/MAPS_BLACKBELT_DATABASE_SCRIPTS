@@ -18,8 +18,7 @@ tablespace &data_tablespace_name
     next 40K
     minextents 1
     maxextents unlimited
-  )
-compress for all operations;
+  );
 -- Add comments to the table 
 comment on table TA_DICT
   is 'Trend Allocation Dictionary';

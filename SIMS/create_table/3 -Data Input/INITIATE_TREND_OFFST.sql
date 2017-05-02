@@ -3,7 +3,18 @@
   SELECT mrkt_id,
          eff_sls_perd_id,
          sls_typ_id,
-         CASE WHEN sls_typ_id IN(3, 103) THEN CASE WHEN m_cntry_cd = 'UK' AND sls_typ_id = 3 THEN 2 ELSE 1 ELSE 0 END offst
+         CASE
+           WHEN sls_typ_id IN (3, 103) THEN
+            CASE
+              WHEN m_cntry_cd = 'UK'
+                   AND sls_typ_id = 3 THEN
+               2
+              ELSE
+               1
+            END
+           ELSE
+            0
+         END offst
     FROM (SELECT sls_typ_id, sls_typ_nm
             FROM sls_typ_grp
             JOIN sls_typ
