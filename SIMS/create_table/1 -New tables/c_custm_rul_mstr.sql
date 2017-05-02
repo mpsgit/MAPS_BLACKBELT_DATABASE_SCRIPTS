@@ -1,14 +1,14 @@
 ﻿-- Create table
 create table CUSTM_RUL_MSTR
 (
-  mrkt_id           NUMBER not null
+  mrkt_id           NUMBER not null,
   rul_id            NUMBER not null,
   rul_nm            VARCHAR2(50) not null,
   rul_desc          VARCHAR2(200),
   creat_user_id     VARCHAR2(35) default USER not null,
   creat_ts          DATE default SYSDATE not null,
   last_updt_user_id VARCHAR2(35) default USER not null,
-  last_updt_ts      DATE default sysdate not null,
+  last_updt_ts      DATE default sysdate not null
 )
 tablespace &data_tablespace_name
   pctfree 10

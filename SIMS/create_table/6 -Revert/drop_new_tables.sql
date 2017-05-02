@@ -6,6 +6,7 @@ drop table CUSTM_RUL_SKU_LIST;
 drop table CUSTM_SEG_MSTR;
 drop table CUSTM_SEG_PERD;
 drop table DLY_BILNG_ADJSTMNT;
+drop table MRKT_PERD_PARTS;
 drop table MRKT_PERD_SKU_BIAS;
 drop table MRKT_TRND_SLS_PERD;
 drop table MRKT_TRND_SLS_PERD_SLS_TYP;
@@ -15,3 +16,4 @@ drop table TA_DICT;
 drop table TREND_ALLOC_HIST_DTLS;
 drop table TREND_ALLOC_HIST_DTLS_LOG;
 drop table TREND_OFFST;
+
