@@ -1,4 +1,5 @@
-﻿drop table CASH_VAL_RF_HIST;
+﻿drop table BI24_GENRTN_STATSS;
+drop table CASH_VAL_RF_HIST;
 drop table CUSTM_RUL_MSTR;
 drop table CUSTM_RUL_PERD;
 drop table CUSTM_RUL_SKU_LIST;

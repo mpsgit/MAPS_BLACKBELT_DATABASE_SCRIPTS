@@ -51,7 +51,7 @@ comment on column TA_CONFIG.est_src_sls_typ_id
 comment on column TA_CONFIG.offst_lbl_id
   is 'ID of record from TA_DICT table, defining screen settings for the result LINES';
 comment on column TA_CONFIG.sls_typ_grp_nm
-  is 'Group of the sales type, defining the used calculation - must be in (''BI24'', ''ESTIMATE'', ''TREND'', ''ACTUAL'', ''FORECASTED FROM DBT'', ''FORECASTED FROM DMS'')';
+  is 'Group of the sales type, defining the used calculation - must be in (''BI24'', ''ESTIMATE'', ''TREND'', ''ACTUAL'', ''FORECASTED_DBT'', ''FORECASTED_DMS'')';
 comment on column TA_CONFIG.sls_typ_lbl_id
   is 'ID of record from TA_DICT table, defining screen settings for the result COLUMNS';
 comment on column TA_CONFIG.x_sls_typ_lbl_id
@@ -102,4 +102,4 @@ alter table TA_CONFIG
   check (GRID_TYP in('H','A'));
 alter table TA_CONFIG
   add constraint C_TA_CONFIG_SLSTYPGRPNM
-  check (SLS_TYP_GRP_NM in('BI24', 'ESTIMATE', 'TREND', 'ACTUAL', 'FORECASTED FROM DBT', 'FORECASTED FROM DMS'));
+  check (SLS_TYP_GRP_NM in('BI24', 'ESTIMATE', 'TREND', 'ACTUAL', 'FORECASTED_DBT', 'FORECASTED_DMS'));
