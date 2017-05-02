@@ -4931,9 +4931,9 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
       l_tbl_hist_prd_dtl(c_key).sales := i.sales;
     END LOOP;
     -- DMS like data collection
-    FOR i IN (SELECT pa_maps_public.get_mstr_fsc_cd(p_mrkt_id,
-                                                    offr_sku_line.sku_id,
-                                                    p_campgn_perd_id) AS fsc_cd,
+    FOR i IN (SELECT /*+ INDEX(OFFR_PRFL_PRC_POINT PK_OFFR_PRFL_PRC_POINT)
+                         INDEX(OFFR PK_OFFR) */
+                     t.column_value AS fsc_cd,
                      tc_dms.sls_typ_lbl_id,
                      round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty, 0))) units,
                      round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty, 0) *
@@ -4981,13 +4981,9 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                                               offr_sku_line.sku_id,
                                                               p_campgn_perd_id)) =
                      to_number(t.column_value)
-               GROUP BY pa_maps_public.get_mstr_fsc_cd(p_mrkt_id,
-                                                       offr_sku_line.sku_id,
-                                                       p_campgn_perd_id),
+               GROUP BY t.column_value,
                         tc_dms.sls_typ_lbl_id
-               ORDER BY pa_maps_public.get_mstr_fsc_cd(p_mrkt_id,
-                                                       offr_sku_line.sku_id,
-                                                       p_campgn_perd_id),
+               ORDER BY t.column_value,
                         tc_dms.sls_typ_lbl_id) LOOP
       c_key := i.fsc_cd || '_' || to_char(i.sls_typ_lbl_id);
       --
