@@ -98,8 +98,8 @@ create or replace TYPE PA_SKU_BIAS_MANTNC_LINE as object
 /
 create or replace TYPE PA_SKU_BIAS_MANTNC_TABLE IS TABLE OF PA_SKU_BIAS_MANTNC_LINE;
 /
-drop type sct_dly_updt_rpt_table;
-create or replace type sct_dly_updt_rpt_line as object 
+drop type SCT_DLY_UPDT_RPT_TABLE;
+create or replace type SCT_DLY_UPDT_RPT_LINE as object 
 (
   rpt_date DATE,
   trgt_cmpgn_sls_perd_id NUMBER,
@@ -109,10 +109,10 @@ create or replace type sct_dly_updt_rpt_line as object
   r_factor NUMBER
 );
 /
-create or replace type sct_dly_updt_rpt_table is table of sct_dly_updt_rpt_line;
+create or replace type SCT_DLY_UPDT_RPT_TABLE is table of SCT_DLY_UPDT_RPT_LINE;
 /
-drop type sct_trend_check_rpt_table;
-create or replace type sct_trend_check_rpt_line as object 
+drop type SCT_TREND_CHECK_RPT_TABLE;
+create or replace type SCT_TREND_CHECK_RPT_LINE as object 
 ( 
   rpt_date DATE,
   fsc_code VARCHAR2(8),
@@ -128,7 +128,7 @@ create or replace type sct_trend_check_rpt_line as object
   nxt_esc_sc_units NUMBER
 );
 /
-create or replace type sct_trend_check_rpt_table is table of sct_trend_check_rpt_line;
+create or replace type SCT_TREND_CHECK_RPT_TABLE is table of SCT_TREND_CHECK_RPT_LINE;
 /
 drop type P94_RPT_HEAD_TABLE;
 CREATE OR REPLACE TYPE P94_RPT_HEAD_LINE AS OBJECT

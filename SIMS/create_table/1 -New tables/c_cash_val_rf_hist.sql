@@ -3,7 +3,7 @@ create table CASH_VAL_RF_HIST
 (
   mrkt_id             NUMBER not null,
   sls_perd_id         NUMBER not null,
-  cash_val            NUMBER(15,2) not null,
+  cash_val            NUMBER(15,2),
   r_factor            NUMBER(19,4),
   prcsng_dt           DATE,
   last_updt_user_id   VARCHAR2(35) not null,

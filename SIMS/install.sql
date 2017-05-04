@@ -60,6 +60,7 @@ set head on
 @@"create_table/3 -Data Input/maintain_config_item___mrkt_config_item.sql"
 @@"create_table/3 -Data Input/initiate_ta_dict.sql"
 @@"create_table/3 -Data Input/initiate_ta_config.sql"
+@@"create_table/3 -Data Input/initiate_mrkt_perd_parts.sql"
 -- SIMS Maintenance    (SIMS Maintenance)
 @@"SIMS Maintenance/pa_cash_vlu_mantnc.sql"
 @@"SIMS Maintenance/pa_dly_bilng_adjstmnt.sql"
