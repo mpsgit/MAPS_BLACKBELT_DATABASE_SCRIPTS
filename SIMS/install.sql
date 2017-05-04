@@ -54,7 +54,6 @@ set head on
 @@"create_table/1 -New tables/tr_custm_rul_perd.sql"
 @@"create_table/1 -New tables/tr_custm_rul_skulst.sql"
 -- alter tables, indexes              (2 -Altered tables)
-@@"create_table/2 -Altered tables/cash_val_rf_hist.sql"
 @@"create_table/2 -Altered tables/i_mrkt_sku_additional.sql"
 -- data input    (3 -Data Input)
 @@"create_table/3 -Data Input/initiate_trend_offst.sql"
