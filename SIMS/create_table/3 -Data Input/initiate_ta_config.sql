@@ -2,7 +2,7 @@
 values (50, 20100301, 'DMS', 6, null, null, 100, 'ACTUAL', 1006, null, null, 1, null, 1, 'H', null, 3, 'config for ACTUAL (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (50, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, null, 1, null, 'H', null, 3, 'config for BI24 (On-schedule)');
+values (50, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, 1, 1, 1, 'H', null, 3, 'config for BI24 (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (50, 20100301, 'DMS', 2, null, null, 100, 'ESTIMATE', 1002, null, null, 1, null, 1, 'H', null, 3, 'config for ESTIMATE (On-schedule)');
@@ -137,7 +137,7 @@ insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_
 values (73, 20100301, 'DMS', 6, null, null, 100, 'ACTUAL', 1006, null, null, 2, null, 2, 'H', null, 3, 'config for ACTUAL (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (73, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, null, 2, null, 'H', null, 3, 'config for BI24 (On-schedule)');
+values (73, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, 2, 2, 2, 'H', null, 3, 'config for BI24 (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (73, 20100301, 'DMS', 2, null, null, 100, 'ESTIMATE', 1002, null, null, 2, null, 2, 'H', null, 3, 'config for ESTIMATE (On-schedule)');
@@ -159,7 +159,7 @@ insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_
 values (73, 20100301, 'DMS', 6, null, null, 200, 'ACTUAL', 1006, null, null, 2, null, 1, 'H', null, 3, 'config for ACTUAL (Off-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (73, 20100301, 'DBT_OSL', 6, null, null, 200, 'BI24', 900, 901, 0, null, 1, null, 'H', null, 3, 'config for BI24 (Off-schedule)');
+values (73, 20100301, 'DBT_OSL', 6, null, null, 200, 'BI24', 900, 901, 0, 2, 1, 1, 'H', null, 3, 'config for BI24 (Off-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (73, 20100301, 'DMS', 2, null, null, 200, 'ESTIMATE', 1002, null, null, 2, null, 1, 'H', null, 3, 'config for ESTIMATE (Off-schedule)');
@@ -193,7 +193,7 @@ insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_
 values (73, 20100301, 'DMS', 6, null, null, 100, 'ACTUAL', 1006, null, null, 0, null, 0, 'H', null, 4, 'config for ACTUAL (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (73, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, null, 0, null, 'H', null, 4, 'config for BI24 (On-schedule)');
+values (73, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, 0, 0, 0, 'H', null, 4, 'config for BI24 (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (73, 20100301, 'DMS', 2, null, null, 100, 'ESTIMATE', 1002, null, null, 0, null, 0, 'H', null, 4, 'config for ESTIMATE (On-schedule)');
@@ -215,7 +215,7 @@ insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_
 values (73, 20100301, 'DMS', 6, null, null, 200, 'ACTUAL', 1006, null, null, 0, null, -1, 'H', null, 4, 'config for ACTUAL (Off-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (73, 20100301, 'DBT_OSL', 6, null, null, 200, 'BI24', 900, 901, 0, null, -1, null, 'H', null, 4, 'config for BI24 (Off-schedule)');
+values (73, 20100301, 'DBT_OSL', 6, null, null, 200, 'BI24', 900, 901, 0, 0, -1, -1, 'H', null, 4, 'config for BI24 (Off-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (73, 20100301, 'DMS', 2, null, null, 200, 'ESTIMATE', 1002, null, null, 0, null, -1, 'H', null, 4, 'config for ESTIMATE (Off-schedule)');
@@ -237,7 +237,7 @@ insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_
 values (73, 20100301, 'DMS', 6, null, null, 300, 'ACTUAL', 1006, null, null, 0, null, 2, 'H', null, 4, null);
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (73, 20100301, 'DBT_OSL', 6, null, null, 300, 'BI24', 900, 901, 0, null, 2, null, 'H', null, 4, null);
+values (73, 20100301, 'DBT_OSL', 6, null, null, 300, 'BI24', 900, 901, 0, 0, 2, 2, 'H', null, 4, null);
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (73, 20100301, 'DMS', 2, null, null, 300, 'ESTIMATE', 1002, null, null, 0, null, 2, 'H', null, 4, null);
@@ -252,7 +252,7 @@ insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_
 values (73, 20100301, 'DMS', 6, null, null, 100, 'ACTUAL', 1006, null, null, 0, null, 0, 'H', null, 5, 'config for ACTUAL (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (73, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, null, 0, null, 'H', null, 5, 'config for BI24 (On-schedule)');
+values (73, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, 0, 0, 0, 'H', null, 5, 'config for BI24 (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (73, 20100301, 'DMS', 2, null, null, 100, 'ESTIMATE', 1002, null, null, 0, null, 0, 'H', null, 5, 'config for ESTIMATE (On-schedule)');
@@ -264,7 +264,7 @@ insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_
 values (73, 20100301, 'DMS', 6, null, null, 200, 'ACTUAL', 1006, null, null, 0, null, -1, 'H', null, 5, 'config for ACTUAL (Off-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (73, 20100301, 'DBT_OSL', 6, null, null, 200, 'BI24', 900, 901, 0, null, -1, null, 'H', null, 5, 'config for BI24 (Off-schedule)');
+values (73, 20100301, 'DBT_OSL', 6, null, null, 200, 'BI24', 900, 901, 0, 0, -1, -1, 'H', null, 5, 'config for BI24 (Off-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (73, 20100301, 'DMS', 2, null, null, 200, 'ESTIMATE', 1002, null, null, 0, null, -1, 'H', null, 5, 'config for ESTIMATE (Off-schedule)');
@@ -276,7 +276,7 @@ insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_
 values (73, 20100301, 'DMS', 6, null, null, 100, 'ACTUAL', 1006, null, null, 2, null, 2, 'H', null, 103, 'config for ACTUAL (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (73, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, null, 2, null, 'H', null, 103, 'config for BI24 (On-schedule)');
+values (73, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, 2, 2, 2, 'H', null, 103, 'config for BI24 (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (73, 20100301, 'DMS', 2, null, null, 100, 'ESTIMATE', 1002, null, null, 2, null, 2, 'H', null, 103, 'config for ESTIMATE (On-schedule)');
@@ -298,7 +298,7 @@ insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_
 values (73, 20100301, 'DMS', 6, null, null, 200, 'ACTUAL', 1006, null, null, 2, null, 1, 'H', null, 103, 'config for ACTUAL (Off-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (73, 20100301, 'DBT_OSL', 6, null, null, 200, 'BI24', 900, 901, 0, null, 1, null, 'H', null, 103, 'config for BI24 (Off-schedule)');
+values (73, 20100301, 'DBT_OSL', 6, null, null, 200, 'BI24', 900, 901, 0, 2, 1, 1, 'H', null, 103, 'config for BI24 (Off-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (73, 20100301, 'DMS', 2, null, null, 200, 'ESTIMATE', 1002, null, null, 2, null, 1, 'H', null, 103, 'config for ESTIMATE (Off-schedule)');
@@ -320,7 +320,7 @@ insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_
 values (73, 20100301, 'DMS', 6, null, null, 100, 'ACTUAL', 1006, null, null, 0, null, 0, 'H', null, 104, 'config for ACTUAL (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (73, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, null, 0, null, 'H', null, 104, 'config for BI24 (On-schedule)');
+values (73, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, 0, 0, 0, 'H', null, 104, 'config for BI24 (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (73, 20100301, 'DMS', 2, null, null, 100, 'ESTIMATE', 1002, null, null, 0, null, 0, 'H', null, 104, 'config for ESTIMATE (On-schedule)');
@@ -342,7 +342,7 @@ insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_
 values (73, 20100301, 'DMS', 6, null, null, 200, 'ACTUAL', 1006, null, null, 0, null, -1, 'H', null, 104, 'config for ACTUAL (Off-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (73, 20100301, 'DBT_OSL', 6, null, null, 200, 'BI24', 900, 901, 0, null, -1, null, 'H', null, 104, 'config for BI24 (Off-schedule)');
+values (73, 20100301, 'DBT_OSL', 6, null, null, 200, 'BI24', 900, 901, 0, 0, -1, -1, 'H', null, 104, 'config for BI24 (Off-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (73, 20100301, 'DMS', 2, null, null, 200, 'ESTIMATE', 1002, null, null, 0, null, -1, 'H', null, 104, 'config for ESTIMATE (Off-schedule)');
@@ -364,7 +364,7 @@ insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_
 values (73, 20100301, 'DMS', 6, null, null, 100, 'ACTUAL', 1006, null, null, 0, null, 0, 'H', null, 105, 'config for ACTUAL (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (73, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, null, 0, null, 'H', null, 105, 'config for BI24 (On-schedule)');
+values (73, 20100301, 'DBT_OSL', 6, null, null, 100, 'BI24', 900, 901, 0, 0, 0, 0, 'H', null, 105, 'config for BI24 (On-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (73, 20100301, 'DMS', 2, null, null, 100, 'ESTIMATE', 1002, null, null, 0, null, 0, 'H', null, 105, 'config for ESTIMATE (On-schedule)');
@@ -376,7 +376,7 @@ insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_
 values (73, 20100301, 'DMS', 6, null, null, 200, 'ACTUAL', 1006, null, null, 0, null, -1, 'H', null, 105, 'config for ACTUAL (Off-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
-values (73, 20100301, 'DBT_OSL', 6, null, null, 200, 'BI24', 900, 901, 0, null, -1, null, 'H', null, 105, 'config for BI24 (Off-schedule)');
+values (73, 20100301, 'DBT_OSL', 6, null, null, 200, 'BI24', 900, 901, 0, 0, -1, -1, 'H', null, 105, 'config for BI24 (Off-schedule)');
 
 insert into TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, SRC_TABLE, SRC_SLS_TYP_ID, EST_SRC_TABLE, EST_SRC_SLS_TYP_ID, OFFST_LBL_ID, SLS_TYP_GRP_NM, SLS_TYP_LBL_ID, X_SLS_TYP_LBL_ID, OFFST_VAL_SRC_SLS, OFFST_VAL_TRGT_SLS, OFFST_VAL_SRC_OFFR, OFFST_VAL_TRGT_OFFR, GRID_TYP, R_FACTOR, TRGT_SLS_TYP_ID, COMMNT)
 values (73, 20100301, 'DMS', 2, null, null, 200, 'ESTIMATE', 1002, null, null, 0, null, -1, 'H', null, 105, 'config for ESTIMATE (Off-schedule)');
