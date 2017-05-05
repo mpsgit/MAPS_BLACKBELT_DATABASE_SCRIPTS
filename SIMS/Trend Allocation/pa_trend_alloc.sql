@@ -2357,11 +2357,11 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                                   dly_bilng_trnd.unit_qty,
                                                   dly_bilng_trnd.fsc_cd,
                                                   dly_bilng_trnd.sku_id,
-                                                  tc_trnd.offst_lbl_id,
-                                                  tc_trnd.sls_typ_lbl_id,
-                                                  tc_trnd.src_sls_typ_id,
-                                                  tc_trnd.trgt_sls_perd_id,
-                                                  tc_trnd.trgt_offr_perd_id,
+                                                  tc_fc_dbt.offst_lbl_id,
+                                                  tc_fc_dbt.sls_typ_lbl_id,
+                                                  tc_fc_dbt.src_sls_typ_id,
+                                                  tc_fc_dbt.trgt_sls_perd_id,
+                                                  tc_fc_dbt.trgt_offr_perd_id,
                                                   mpp.perd_part
                                              FROM dly_bilng_trnd,
                                                   (SELECT src_sls_typ_id,
@@ -2417,7 +2417,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                                     WHERE p_sls_perd_id BETWEEN
                                                           eff_sls_perd_id AND
                                                           nvl(next_eff_sls_perd_id,
-                                                              p_sls_perd_id)) tc_trnd,
+                                                              p_sls_perd_id)) tc_fc_dbt,
                                                   (SELECT trnd_bilng_days.prcsng_dt,
                                                           CASE
                                                             WHEN trnd_bilng_days.day_num <
@@ -2455,9 +2455,9 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                             WHERE dly_bilng_trnd.mrkt_id =
                                                   p_mrkt_id
                                               AND dly_bilng_trnd.trnd_sls_perd_id =
-                                                  tc_trnd.src_sls_perd_id
+                                                  tc_fc_dbt.src_sls_perd_id
                                               AND dly_bilng_trnd.offr_perd_id =
-                                                  tc_trnd.src_offr_perd_id
+                                                  tc_fc_dbt.src_offr_perd_id
                                               AND trunc(dly_bilng_trnd.prcsng_dt) <=
                                                   p_bilng_day
                                               AND dly_bilng_trnd.trnd_aloctn_auto_stus_id IN
@@ -2774,14 +2774,14 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                              nvl(r.r_factor_manual, r.r_factor) AS r_factor,
                              row_number() over(PARTITION BY xr.rn_inner_select, nvl(xr.offst_lbl_id, -1), nvl(xr.catgry_id, -1), nvl(xr.sls_cls_cd, '-1'), nvl(xr.veh_id, -1), nvl(xr.perd_part, -1), nvl(xr.sku_id, -1) ORDER BY r.prirty) primary_rule
                         FROM (SELECT dstrbtd_mrkt_sls.offr_sku_line_id,
-                                     tc_est.offst_lbl_id,
+                                     tc_fc_dbt.offst_lbl_id,
                                      prfl.catgry_id,
                                      offr_prfl_prc_point.sls_cls_cd,
                                      offr.veh_id,
                                      NULL AS perd_part,
                                      offr_sku_line.sku_id,
-                                     tc_est.sls_typ_lbl_id,
-                                     tc_est.lbl_desc,
+                                     tc_fc_dbt.sls_typ_lbl_id,
+                                     tc_fc_dbt.lbl_desc,
                                      dstrbtd_mrkt_sls.unit_qty,
                                      offr_prfl_prc_point.sls_prc_amt,
                                      offr_prfl_prc_point.nr_for_qty,
@@ -2861,7 +2861,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                                      nvl(next_eff_sls_perd_id,
                                                          p_sls_perd_id)) tc,
                                              ta_dict td
-                                       WHERE td.lbl_id = tc.offst_lbl_id) tc_est,
+                                       WHERE td.lbl_id = tc.offst_lbl_id) tc_fc_dbt,
                                      (SELECT mrkt_id, sku_id, fsc_cd
                                         FROM (SELECT mrkt_id,
                                                      sku_id,
@@ -2902,11 +2902,11 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                        GROUP BY mrkt_id, sku_id) mrkt_tmp_fsc
                                WHERE dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
                                  AND dstrbtd_mrkt_sls.sls_perd_id =
-                                     tc_est.trgt_sls_perd_id
+                                     tc_fc_dbt.trgt_sls_perd_id
                                  AND dstrbtd_mrkt_sls.offr_perd_id =
-                                     tc_est.trgt_offr_perd_id
+                                     tc_fc_dbt.trgt_offr_perd_id
                                  AND dstrbtd_mrkt_sls.sls_typ_id =
-                                     tc_est.x_src_sls_typ_id
+                                     tc_fc_dbt.x_src_sls_typ_id
                                  AND dstrbtd_mrkt_sls.offr_sku_line_id =
                                      offr_sku_line.offr_sku_line_id
                                  AND offr_sku_line.dltd_ind <> 'Y'
@@ -3055,8 +3055,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                        decode(nr_for_qty, 0, 1, nr_for_qty) *
                        decode(net_to_avon_fct, 0, 1, net_to_avon_fct))) sales_bi24,
              sls_typ_lbl_id,
-             round(SUM(nvl(unit_qty * tc_dms_r_factor, 0))) units_forecasted,
-             round(SUM(nvl(unit_qty * tc_dms_r_factor, 0) * sls_prc_amt /
+             round(SUM(nvl(unit_qty * tc_fc_dms_r_factor, 0))) units_forecasted,
+             round(SUM(nvl(unit_qty * tc_fc_dms_r_factor, 0) * sls_prc_amt /
                        decode(nr_for_qty, 0, 1, nr_for_qty) *
                        decode(net_to_avon_fct, 0, 1, net_to_avon_fct))) sales_forecasted,
              veh_id,
@@ -3074,7 +3074,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                      nr_for_qty,
                      net_to_avon_fct,
                      sls_typ_lbl_id,
-                     tc_dms_r_factor
+                     tc_fc_dms_r_factor
                 FROM (SELECT xr.offr_sku_line_id,
                              xr.offst_lbl_id,
                              xr.catgry_id,
@@ -3088,25 +3088,25 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                              xr.nr_for_qty,
                              xr.net_to_avon_fct,
                              xr.sls_typ_lbl_id,
-                             xr.tc_dms_r_factor,
+                             xr.tc_fc_dms_r_factor,
                              r.rul_nm,
                              nvl(r.r_factor_manual, r.r_factor) AS r_factor,
                              row_number() over(PARTITION BY xr.rn_inner_select, nvl(xr.offst_lbl_id, -1), nvl(xr.catgry_id, -1), nvl(xr.sls_cls_cd, '-1'), nvl(xr.veh_id, -1), nvl(xr.perd_part, -1), nvl(xr.sku_id, -1) ORDER BY r.prirty) primary_rule
                         FROM (SELECT dstrbtd_mrkt_sls.offr_sku_line_id,
-                                     tc_dms.offst_lbl_id,
+                                     tc_fc_dms.offst_lbl_id,
                                      prfl.catgry_id,
                                      offr_prfl_prc_point.sls_cls_cd,
                                      offr.veh_id,
                                      NULL AS perd_part,
                                      offr_sku_line.sku_id,
-                                     tc_dms.x_sls_typ_lbl_id,
+                                     tc_fc_dms.x_sls_typ_lbl_id,
                                      nvl(dstrbtd_mrkt_sls.unit_qty, 0) AS unit_qty,
                                      nvl(offr_prfl_prc_point.sls_prc_amt, 0) AS sls_prc_amt,
                                      nvl(offr_prfl_prc_point.nr_for_qty, 0) AS nr_for_qty,
                                      nvl(offr_prfl_prc_point.net_to_avon_fct,
                                          0) AS net_to_avon_fct,
-                                     tc_dms.sls_typ_lbl_id,
-                                     nvl(tc_dms.r_factor, 1) AS tc_dms_r_factor,
+                                     tc_fc_dms.sls_typ_lbl_id,
+                                     nvl(tc_fc_dms.r_factor, 1) AS tc_fc_dms_r_factor,
                                      row_number() over(ORDER BY dstrbtd_mrkt_sls.offr_sku_line_id) rn_inner_select
                                 FROM dstrbtd_mrkt_sls,
                                      offr_sku_line,
@@ -3165,14 +3165,14 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                        WHERE p_sls_perd_id BETWEEN
                                              eff_sls_perd_id AND
                                              nvl(next_eff_sls_perd_id,
-                                                 p_sls_perd_id)) tc_dms
+                                                 p_sls_perd_id)) tc_fc_dms
                                WHERE dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
                                  AND dstrbtd_mrkt_sls.sls_perd_id =
-                                     tc_dms.src_sls_perd_id
+                                     tc_fc_dms.trgt_sls_perd_id
                                  AND dstrbtd_mrkt_sls.offr_perd_id =
-                                     tc_dms.src_offr_perd_id
+                                     tc_fc_dms.trgt_offr_perd_id
                                  AND dstrbtd_mrkt_sls.sls_typ_id =
-                                     tc_dms.src_sls_typ_id
+                                     tc_fc_dms.src_sls_typ_id
                                  AND dstrbtd_mrkt_sls.offr_sku_line_id =
                                      offr_sku_line.offr_sku_line_id
                                  AND offr_sku_line.dltd_ind <> 'Y'
@@ -3365,8 +3365,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     BEGIN
       SELECT offst_lbl_id_on, offst_lbl_id_off
         INTO l_offst_lbl_id_on, l_offst_lbl_id_off
-        FROM (SELECT tc.offst_lbl_id AS offst_lbl_id_on,
-                     lead(tc.offst_lbl_id) over(ORDER BY upper(td.lbl_desc) DESC) AS offst_lbl_id_off,
+        FROM (SELECT tc_bi24.offst_lbl_id AS offst_lbl_id_on,
+                     lead(tc_bi24.offst_lbl_id) over(ORDER BY upper(td.lbl_desc) DESC) AS offst_lbl_id_off,
                      row_number() over(ORDER BY upper(td.lbl_desc) DESC) AS rn
                 FROM (SELECT src_sls_typ_id,
                              x_src_sls_typ_id,
@@ -3394,9 +3394,9 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                      c_sls_typ_grp_nm_bi24
                                  AND eff_sls_perd_id <= p_campgn_perd_id)
                        WHERE p_campgn_perd_id BETWEEN eff_sls_perd_id AND
-                             nvl(next_eff_sls_perd_id, p_campgn_perd_id)) tc,
+                             nvl(next_eff_sls_perd_id, p_campgn_perd_id)) tc_bi24,
                      ta_dict td
-               WHERE td.lbl_id = tc.offst_lbl_id
+               WHERE td.lbl_id = tc_bi24.offst_lbl_id
                  AND upper(td.int_lbl_desc) IN
                      ('ON-SCHEDULE', 'OFF-SCHEDULE'))
        WHERE rn = 1;
@@ -3549,7 +3549,6 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
          WHERE mrkt_id = p_mrkt_id
            AND sls_perd_id = p_campgn_perd_id
            AND sls_typ_id = p_sls_typ_id
-              --AND sls_typ_grp_nm = c_sls_typ_grp_nm_bi24
            AND bilng_day = p_bilng_day;
       EXCEPTION
         WHEN OTHERS THEN
@@ -3801,8 +3800,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     BEGIN
       SELECT offst_lbl_id_on, offst_lbl_id_off
         INTO l_offst_lbl_id_on, l_offst_lbl_id_off
-        FROM (SELECT tc.offst_lbl_id AS offst_lbl_id_on,
-                     lead(tc.offst_lbl_id) over(ORDER BY upper(td.lbl_desc) DESC) AS offst_lbl_id_off,
+        FROM (SELECT tc_bi24.offst_lbl_id AS offst_lbl_id_on,
+                     lead(tc_bi24.offst_lbl_id) over(ORDER BY upper(td.lbl_desc) DESC) AS offst_lbl_id_off,
                      row_number() over(ORDER BY upper(td.lbl_desc) DESC) AS rn
                 FROM (SELECT src_sls_typ_id,
                              x_src_sls_typ_id,
@@ -3830,9 +3829,9 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                      c_sls_typ_grp_nm_bi24
                                  AND eff_sls_perd_id <= p_campgn_perd_id)
                        WHERE p_campgn_perd_id BETWEEN eff_sls_perd_id AND
-                             nvl(next_eff_sls_perd_id, p_campgn_perd_id)) tc,
+                             nvl(next_eff_sls_perd_id, p_campgn_perd_id)) tc_bi24,
                      ta_dict td
-               WHERE td.lbl_id = tc.offst_lbl_id
+               WHERE td.lbl_id = tc_bi24.offst_lbl_id
                  AND upper(td.int_lbl_desc) IN
                      ('ON-SCHEDULE', 'OFF-SCHEDULE'))
        WHERE rn = 1;
@@ -3880,7 +3879,6 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
          WHERE mrkt_id = p_mrkt_id
            AND sls_perd_id = p_campgn_perd_id
            AND sls_typ_id = p_sls_typ_id
-              --AND sls_typ_grp_nm = c_sls_typ_grp_nm_bi24
            AND bilng_day = p_bilng_day;
       EXCEPTION
         WHEN OTHERS THEN
@@ -4932,21 +4930,20 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     END LOOP;
     -- DMS like data collection
     FOR i IN (SELECT /*+ INDEX(OFFR_PRFL_PRC_POINT PK_OFFR_PRFL_PRC_POINT)
-                         INDEX(OFFR PK_OFFR) */
-                     t.column_value AS fsc_cd,
-                     tc_dms.sls_typ_lbl_id,
-                     round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty, 0))) units,
-                     round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty, 0) *
-                               nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
-                               decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
-                                      0,
-                                      1,
-                                      offr_prfl_prc_point.nr_for_qty) *
-                               decode(nvl(offr_prfl_prc_point.net_to_avon_fct,
-                                          0),
-                                      0,
-                                      1,
-                                      offr_prfl_prc_point.net_to_avon_fct))) sales
+                                       INDEX(OFFR PK_OFFR) */
+               t.column_value AS fsc_cd,
+               tc_dms.sls_typ_lbl_id,
+               round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty, 0))) units,
+               round(SUM(nvl(dstrbtd_mrkt_sls.unit_qty, 0) *
+                         nvl(offr_prfl_prc_point.sls_prc_amt, 0) /
+                         decode(nvl(offr_prfl_prc_point.nr_for_qty, 0),
+                                0,
+                                1,
+                                offr_prfl_prc_point.nr_for_qty) *
+                         decode(nvl(offr_prfl_prc_point.net_to_avon_fct, 0),
+                                0,
+                                1,
+                                offr_prfl_prc_point.net_to_avon_fct))) sales
                 FROM dstrbtd_mrkt_sls,
                      offr_sku_line,
                      offr_prfl_prc_point,
@@ -4981,10 +4978,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                                               offr_sku_line.sku_id,
                                                               p_campgn_perd_id)) =
                      to_number(t.column_value)
-               GROUP BY t.column_value,
-                        tc_dms.sls_typ_lbl_id
-               ORDER BY t.column_value,
-                        tc_dms.sls_typ_lbl_id) LOOP
+               GROUP BY t.column_value, tc_dms.sls_typ_lbl_id
+               ORDER BY t.column_value, tc_dms.sls_typ_lbl_id) LOOP
       c_key := i.fsc_cd || '_' || to_char(i.sls_typ_lbl_id);
       --
       l_trgt_perd_id := l_tbl_hist_prd_dtl(i.fsc_cd ||'_50950').trgt_perd_id;
@@ -5620,8 +5615,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                                           '[^,]+',
                                                           1,
                                                           LEVEL)) RESULT
-                                  FROM (SELECT c_sls_typ_grp_nm_dms || ', ' ||
-                                               c_sls_typ_grp_nm_fc_dbt || ', ' ||
+                                  FROM (SELECT c_sls_typ_grp_nm_fc_dbt || ', ' ||
                                                c_sls_typ_grp_nm_fc_dms col
                                           FROM dual)
                                 CONNECT BY LEVEL <=
@@ -5664,8 +5658,7 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
                                                             '[^,]+',
                                                             1,
                                                             LEVEL)) RESULT
-                                    FROM (SELECT c_sls_typ_grp_nm_dms || ', ' ||
-                                                 c_sls_typ_grp_nm_fc_dbt || ', ' ||
+                                    FROM (SELECT c_sls_typ_grp_nm_fc_dbt || ', ' ||
                                                  c_sls_typ_grp_nm_fc_dms col
                                             FROM dual)
                                   CONNECT BY LEVEL <=
