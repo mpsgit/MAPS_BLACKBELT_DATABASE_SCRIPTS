@@ -5402,11 +5402,14 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     BEGIN
       MERGE INTO mrkt_trnd_sls_perd m
       USING (SELECT p_mrkt_id AS mrkt_id,
-                    (SELECT MAX(trgt_sls_perd_id)
+                    (SELECT MAX(tc_bi24.trgt_sls_perd_id)
                        FROM TABLE(get_ta_config(p_mrkt_id        => p_mrkt_id,
                                                 p_sls_perd_id    => p_campgn_perd_id,
                                                 p_sls_typ_id     => p_sls_typ_id,
-                                                p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24))) AS trnd_sls_perd_id
+                                                p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24)) tc_bi24,
+                            ta_dict td
+                      WHERE td.lbl_id = tc_bi24.offst_lbl_id
+                        AND upper(td.int_lbl_desc) = 'ON-SCHEDULE') AS trnd_sls_perd_id
                FROM dual) d
       ON (m.mrkt_id = d.mrkt_id AND m.trnd_sls_perd_id = d.trnd_sls_perd_id)
       WHEN NOT MATCHED THEN
@@ -5431,11 +5434,14 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     BEGIN
       MERGE INTO mrkt_trnd_sls_perd_sls_typ m
       USING (SELECT p_mrkt_id AS mrkt_id,
-                    (SELECT MAX(trgt_sls_perd_id)
+                    (SELECT MAX(tc_bi24.trgt_sls_perd_id)
                        FROM TABLE(get_ta_config(p_mrkt_id        => p_mrkt_id,
                                                 p_sls_perd_id    => p_campgn_perd_id,
                                                 p_sls_typ_id     => p_sls_typ_id,
-                                                p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24))) AS trnd_sls_perd_id,
+                                                p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24)) tc_bi24,
+                            ta_dict td
+                      WHERE td.lbl_id = tc_bi24.offst_lbl_id
+                        AND upper(td.int_lbl_desc) = 'ON-SCHEDULE') AS trnd_sls_perd_id,
                     p_sls_typ_id AS sls_typ_id
                FROM dual) d
       ON (m.mrkt_id = d.mrkt_id AND m.trnd_sls_perd_id = d.trnd_sls_perd_id AND m.sls_typ_id = d.sls_typ_id)
@@ -5481,11 +5487,14 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
           FROM mrkt_trnd_sls_perd_sls_typ
          WHERE mrkt_id = p_mrkt_id
            AND trnd_sls_perd_id =
-               (SELECT MAX(trgt_sls_perd_id)
+               (SELECT MAX(tc_bi24.trgt_sls_perd_id)
                   FROM TABLE(get_ta_config(p_mrkt_id        => p_mrkt_id,
                                            p_sls_perd_id    => p_campgn_perd_id,
                                            p_sls_typ_id     => p_sls_typ_id,
-                                           p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24)))
+                                           p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24)) tc_bi24,
+                       ta_dict td
+                 WHERE td.lbl_id = tc_bi24.offst_lbl_id
+                   AND upper(td.int_lbl_desc) = 'ON-SCHEDULE')
            AND sls_typ_id = p_sls_typ_id;
       EXCEPTION
         WHEN OTHERS THEN
@@ -6088,11 +6097,14 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     BEGIN
       MERGE INTO mrkt_trnd_sls_perd m
       USING (SELECT p_mrkt_id AS mrkt_id,
-                    (SELECT MAX(trgt_sls_perd_id)
+                    (SELECT MAX(tc_bi24.trgt_sls_perd_id)
                        FROM TABLE(get_ta_config(p_mrkt_id        => p_mrkt_id,
                                                 p_sls_perd_id    => p_campgn_perd_id,
                                                 p_sls_typ_id     => p_sls_typ_id,
-                                                p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24))) AS trnd_sls_perd_id
+                                                p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24)) tc_bi24,
+                            ta_dict td
+                      WHERE td.lbl_id = tc_bi24.offst_lbl_id
+                        AND upper(td.int_lbl_desc) = 'ON-SCHEDULE') AS trnd_sls_perd_id
                FROM dual) d
       ON (m.mrkt_id = d.mrkt_id AND m.trnd_sls_perd_id = d.trnd_sls_perd_id)
       WHEN NOT MATCHED THEN
@@ -6117,11 +6129,14 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
     BEGIN
       MERGE INTO mrkt_trnd_sls_perd_sls_typ m
       USING (SELECT p_mrkt_id AS mrkt_id,
-                    (SELECT MAX(trgt_sls_perd_id)
+                    (SELECT MAX(tc_bi24.trgt_sls_perd_id)
                        FROM TABLE(get_ta_config(p_mrkt_id        => p_mrkt_id,
                                                 p_sls_perd_id    => p_campgn_perd_id,
                                                 p_sls_typ_id     => p_sls_typ_id,
-                                                p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24))) AS trnd_sls_perd_id,
+                                                p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24)) tc_bi24,
+                            ta_dict td
+                      WHERE td.lbl_id = tc_bi24.offst_lbl_id
+                        AND upper(td.int_lbl_desc) = 'ON-SCHEDULE') AS trnd_sls_perd_id,
                     p_sls_typ_id AS sls_typ_id
                FROM dual) d
       ON (m.mrkt_id = d.mrkt_id AND m.trnd_sls_perd_id = d.trnd_sls_perd_id AND m.sls_typ_id = d.sls_typ_id)
@@ -6154,11 +6169,14 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
           FROM mrkt_trnd_sls_perd_sls_typ
          WHERE mrkt_id = p_mrkt_id
            AND trnd_sls_perd_id =
-               (SELECT MAX(trgt_sls_perd_id)
+               (SELECT MAX(tc_bi24.trgt_sls_perd_id)
                   FROM TABLE(get_ta_config(p_mrkt_id        => p_mrkt_id,
                                            p_sls_perd_id    => p_campgn_perd_id,
                                            p_sls_typ_id     => p_sls_typ_id,
-                                           p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24)))
+                                           p_sls_typ_grp_nm => c_sls_typ_grp_nm_bi24)) tc_bi24,
+                       ta_dict td
+                 WHERE td.lbl_id = tc_bi24.offst_lbl_id
+                   AND upper(td.int_lbl_desc) = 'ON-SCHEDULE')
            AND sls_typ_id = p_sls_typ_id;
         --
         CASE
