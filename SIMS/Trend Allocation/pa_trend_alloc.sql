@@ -7604,8 +7604,8 @@ CREATE OR REPLACE PACKAGE BODY pa_trend_alloc AS
               VALUES
                 (db_rec.dly_bilng_id,
                  db_rec.demand_ind,
-                 db_rec.billed_ind,
-                 osl_rec.dms_unit_qty, --db_rec.unit_qty,
+                 db_rec.billed_ind, 
+                 db_rec.unit_qty,  --osl_rec.dms_unit_qty,
                  db_rec.comsn_amt,
                  db_rec.tax_amt,
                  sku_list(i),
