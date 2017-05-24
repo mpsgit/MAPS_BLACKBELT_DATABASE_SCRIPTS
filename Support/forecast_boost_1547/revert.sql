@@ -19,7 +19,7 @@ set head on
 -- tables, indexes, triggers          (6 -Revert)
 @@"create_table/6 -Revert/drop_new_tables.sql"
 -- Copy_Offer     (revert to previous version)
-@@"Copy_Offer/revert_cpy_offr.pck"
+@@"Copy_Offer/revert_cpy_offr.sql"
 
 set head off
 select user || '@' || instance_name || ' on ' || host_name from v$instance;

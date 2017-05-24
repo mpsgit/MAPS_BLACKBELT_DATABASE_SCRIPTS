@@ -55,8 +55,8 @@ create unique index UI_FRCSTBSTXCLSNMRKTPRD_MPVCSS on FRCST_BOOST_XCLUSN_MRKT_PE
   maxtrans 255
   storage
   (
-    initial 40K
-    next 40K
+    initial 64K
+    next 1M
     minextents 1
     maxextents unlimited
     pctincrease 50
