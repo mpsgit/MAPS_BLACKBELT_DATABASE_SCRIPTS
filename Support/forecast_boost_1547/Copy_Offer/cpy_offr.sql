@@ -1371,9 +1371,9 @@ AS
                           FROM frcst_boost_xclusn_mrkt_perd fx
                          WHERE fx.mrkt_id = ln_trgt_mrkt_id
                            AND fx.trgt_offr_perd_id = ln_trgt_offr_perd_id
-                           AND nvl(fx.catgry_id, nvl(pf.catgry_id, -1)) = nvl(pf.catgry_id, -1)
-                           AND nvl(fx.sls_cls_cd, nvl(osl.sls_cls_cd, '-1')) = nvl(osl.sls_cls_cd, '-1')
-                           AND nvl(fx.sgmt_id, nvl(pf.sgmt_id, -1)) = nvl(pf.sgmt_id, -1));
+                           AND INSTR(',' || nvl(catgry_id_list, '-1') ||' ,', ',' || nvl(pf.catgry_id, -1) ||',') > 0
+                           AND INSTR(',' || nvl(sls_cls_cd_list, '-1') || ',', ',' || nvl(osl.sls_cls_cd, '-1') ||',') > 0
+                           AND INSTR(',' || nvl(sgmt_id_list, '-1') || ',', ',' || nvl(pf.sgmt_id, -1) ||',') > 0);
               EXCEPTION
                  WHEN OTHERS THEN
                     app_plsql_log.info
@@ -1705,9 +1705,9 @@ AS
                                 FROM frcst_boost_xclusn_mrkt_perd fx
                                WHERE fx.mrkt_id = l_tbl_trgt_mrkt_id (i)
                                  AND fx.trgt_offr_perd_id = l_tbl_trgt_offr_perd_id (i)
-                                 AND nvl(fx.catgry_id, nvl(pf.catgry_id, -1)) = nvl(pf.catgry_id, -1)
-                                 AND nvl(fx.sls_cls_cd, nvl(osl.sls_cls_cd, '-1')) = nvl(osl.sls_cls_cd, '-1')
-                                 AND nvl(fx.sgmt_id, nvl(pf.sgmt_id, -1)) = nvl(pf.sgmt_id, -1));
+                                 AND INSTR(',' || nvl(catgry_id_list, '-1') ||' ,', ',' || nvl(pf.catgry_id, -1) ||',') > 0
+                                 AND INSTR(',' || nvl(sls_cls_cd_list, '-1') || ',', ',' || nvl(osl.sls_cls_cd, '-1') ||',') > 0
+                                 AND INSTR(',' || nvl(sgmt_id_list, '-1') || ',', ',' || nvl(pf.sgmt_id, -1) ||',') > 0);
 
                       ls_btch_log_sub := l_err_prfl_lvl;
                       ls_btch_log_txt :=
@@ -2969,16 +2969,18 @@ APP_PLSQL_LOG.info('Start of P_ADD_ADD_REG_PRC_ITEMS');
 
         app_plsql_log.info(l_procedure_name||'Boost or reboost unit calculation enters... !!!');
         app_plsql_log.info(l_procedure_name||'Excluded sales classes: (not used anymore): '||l_fb_xclud_sls_cls_cd);
-        for i in (SELECT nvl(to_char(fx.catgry_id), 'NULL') as category,
-                         nvl(fx.sls_cls_cd, 'NULL') as salesclass,
-                         nvl(to_char(fx.sgmt_id), 'NULL') as segment
+        for i in (SELECT nvl(fx.catgry_id_list, 'NULL') as category_list,
+                         nvl(fx.sls_cls_cd_list, 'NULL') as salesclass_list,
+                         nvl(fx.sgmt_id_list, 'NULL') as segment_list
                     FROM frcst_boost_xclusn_mrkt_perd fx
                    WHERE fx.mrkt_id = p_trgt_mrkt_id
                      AND fx.trgt_offr_perd_id = p_trgt_offr_perd_id
-                   ORDER BY fx.catgry_id, fx.sls_cls_cd, fx.sgmt_id) loop
+                   ORDER BY fx.catgry_id_list, fx.sls_cls_cd_list, fx.sgmt_id_list) loop
           app_plsql_log.info(l_procedure_name
-                             ||'Excluded Category, Sales Class, Segment (frcst_boost_xclusn_mrkt_perd table): '
-                             ||i.category||'_'||i.salesclass||'_'||i.segment);
+                             ||'Excluded Categories: '''||i.category_list
+                             ||''' and Sales Classes: '''||i.salesclass_list
+                             ||''' and Segments: '''||i.segment_list
+                             ||''' (by FRCST_BOOST_XCLUSN_MRKT_PERD table)');
         end loop;
         --
         SELECT trgt_mrkt_id, trgt_sls_perd_id, trgt_items, trgt_sls_typ_id, trgt_unit_qty, unit_calc_ind,
@@ -3132,17 +3134,17 @@ APP_PLSQL_LOG.info('Start of P_ADD_ADD_REG_PRC_ITEMS');
                            and pf.prfl_cd = osl.prfl_cd
                            and dms.sls_perd_id = dms.offr_perd_id
                            AND osl.dltd_ind <> 'Y'
-                           --AND INSTR(',' || l_fb_xclud_sls_cls_cd|| ',', ',' || osl.sls_cls_cd ||',') <= 0
-                           -- start
                            AND NOT EXISTS
                                    (SELECT 1
                                       FROM frcst_boost_xclusn_mrkt_perd fx
                                      WHERE fx.mrkt_id = p_trgt_mrkt_id
                                        AND fx.trgt_offr_perd_id = p_trgt_offr_perd_id
-                                       AND nvl(fx.catgry_id, nvl(pf.catgry_id, -1)) = nvl(pf.catgry_id, -1)
-                                       AND nvl(fx.sls_cls_cd, nvl(osl.sls_cls_cd, '-1')) = nvl(osl.sls_cls_cd, '-1')
-                                       AND nvl(fx.sgmt_id, nvl(pf.sgmt_id, -1)) = nvl(pf.sgmt_id, -1))
-                           -- end
+                                       AND INSTR(',' || nvl(catgry_id_list, '-1') ||' ,', 
+                                                 ',' || nvl(pf.catgry_id, -1) ||',') > 0
+                                       AND INSTR(',' || nvl(sls_cls_cd_list, '-1') || ',', 
+                                                 ',' || nvl(osl.sls_cls_cd, '-1') ||',') > 0
+                                       AND INSTR(',' || nvl(sgmt_id_list, '-1') || ',', 
+                                                 ',' || nvl(pf.sgmt_id, -1) ||',') > 0)
                            and oppp.sls_cls_cd = osl.sls_cls_cd
                            and ms.mrkt_id = o.mrkt_id
                            and ms.sku_id = osl.sku_id
@@ -9615,9 +9617,7 @@ end;
                                        AND trgt_mrkt_id = trgt_offr_perd_refmrkt
                                   ORDER BY sd.srce_mrkt_id, sd.srce_offr_perd_id, sd.srce_ver_id,
                                            sd.trgt_mrkt_id, sd.trgt_offr_perd_id, sd.trgt_ver_id)
-            LOOP -- SzA
-            -- copy export-on-demand details from source market to target
-            pa_xport_on_dmnd.FB_COPY_XPORT_ON_DMND(parm_rec.srce_mrkt_id, parm_rec.trgt_mrkt_id, parm_rec.srce_offr_perd_id);
+            LOOP
             --
             if not (parm_rec.srce_mrkt_id = srce_mrkt_id
               and   parm_rec.srce_offr_perd_id = srce_offr_per_id
@@ -9625,6 +9625,14 @@ end;
               and   parm_rec.trgt_mrkt_id = trg_mrkt_id
               and   parm_rec.trgt_offr_perd_id = trg_offr_per_id
               and   parm_rec.trgt_ver_id = trg_ver_id) then
+              -- copy export-on-demand details from source market to target
+              if not (parm_rec.srce_mrkt_id = srce_mrkt_id
+                and   parm_rec.srce_offr_perd_id = srce_offr_per_id
+                and   parm_rec.trgt_mrkt_id = trg_mrkt_id) then
+                pa_xport_on_dmnd.FB_COPY_XPORT_ON_DMND(parm_rec.srce_mrkt_id, 
+                                                       parm_rec.trgt_mrkt_id, 
+                                                       parm_rec.srce_offr_perd_id);
+              end if;
               --
               UPDATE_TRGT_UNITS(p_parm_id,
                                 parm_rec.srce_mrkt_id,
@@ -9698,7 +9706,7 @@ end;
                   null;
                end;
             END IF;
-          END LOOP; -- SzA
+          END LOOP;
 
        END IF;
 
