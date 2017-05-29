@@ -1,0 +1,2 @@
+﻿drop table FRCST_BOOST_XCLUSN_MRKT_PERD;
+
