@@ -1,0 +1,6 @@
+create or replace type OBJ_MRKTPRDTHRWFRWRDPRCT_TABLE FORCE 
+as table of OBJ_MRKTPRDTHRWFRWRDPRCT_LINE;
+/
+show error
+
+

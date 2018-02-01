@@ -1,0 +1,20 @@
+create or replace type OBJ_PA_TREND_ALLOC_RULES_LINE FORCE as object
+(
+  RUL_ID          NUMBER,
+  RUL_NM          VARCHAR2(50),
+  OFFST_LBL_ID    NUMBER,
+  CATGRY_ID       NUMBER,
+  SLS_CLS_CD      VARCHAR2(5),
+  VEH_ID          NUMBER,
+  PERD_PART       NUMBER,
+  SKU_LIST        VARCHAR2(2048),
+  PRIRTY          NUMBER,
+  PERIOD_LIST     VARCHAR2(2048),
+  R_FACTOR        NUMBER,
+  R_FACTOR_MANUAL NUMBER,
+  CASH_VALUE      NUMBER,
+  USE_ESTIMATE    CHAR(1)
+);
+/
+show error
+

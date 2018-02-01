@@ -1,0 +1,110 @@
+--------------------------------------------------------
+--  File created - Friday-December-01-2017   
+--------------------------------------------------------
+--------------------------------------------------------
+--  DDL for Table TA_CONFIG
+--------------------------------------------------------
+
+  CREATE TABLE TA_CONFIG 
+   (	MRKT_ID NUMBER, 
+	EFF_SLS_PERD_ID NUMBER, 
+	SRC_TABLE VARCHAR2(10 BYTE), 
+	SRC_SLS_TYP_ID NUMBER, 
+	EST_SRC_TABLE VARCHAR2(10 BYTE), 
+	EST_SRC_SLS_TYP_ID NUMBER, 
+	OFFST_LBL_ID NUMBER, 
+	SLS_TYP_GRP_NM VARCHAR2(20 BYTE), 
+	SLS_TYP_LBL_ID NUMBER, 
+	X_SLS_TYP_LBL_ID NUMBER, 
+	OFFST_VAL_SRC_SLS NUMBER, 
+	OFFST_VAL_TRGT_SLS NUMBER, 
+	OFFST_VAL_SRC_OFFR NUMBER, 
+	OFFST_VAL_TRGT_OFFR NUMBER, 
+	GRID_TYP VARCHAR2(1 BYTE), 
+	R_FACTOR NUMBER, 
+	TRGT_SLS_TYP_ID NUMBER, 
+	COMMNT VARCHAR2(2000 BYTE)
+   ) SEGMENT CREATION IMMEDIATE 
+  PCTFREE 10 PCTUSED 40 INITRANS 1 MAXTRANS 255 NOCOMPRESS LOGGING
+  STORAGE(INITIAL 65536 NEXT 1048576 MINEXTENTS 1 MAXEXTENTS 2147483645
+  PCTINCREASE 0 FREELISTS 1 FREELIST GROUPS 1 BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
+  TABLESPACE &data_tablespace_name ;
+ 
+
+   COMMENT ON COLUMN TA_CONFIG.MRKT_ID IS 'Market_ID';
+ 
+   COMMENT ON COLUMN TA_CONFIG.EFF_SLS_PERD_ID IS 'Effective Sales Period';
+ 
+   COMMENT ON COLUMN TA_CONFIG.SRC_TABLE IS 'INFORMATIVE only - Source table for getting quantity units';
+ 
+   COMMENT ON COLUMN TA_CONFIG.SRC_SLS_TYP_ID IS 'Sales Type for filtering the source table';
+ 
+   COMMENT ON COLUMN TA_CONFIG.EST_SRC_TABLE IS 'INFORMATIVE only - Source for estimates at trend allocation (if data not found in SRC_TABLE)';
+ 
+   COMMENT ON COLUMN TA_CONFIG.EST_SRC_SLS_TYP_ID IS 'Sales type for filtering the EST_SRC table';
+ 
+   COMMENT ON COLUMN TA_CONFIG.OFFST_LBL_ID IS 'ID of record from TA_DICT table, defining screen settings for the result LINES';
+ 
+   COMMENT ON COLUMN TA_CONFIG.SLS_TYP_GRP_NM IS 'Group of the sales type, defining the used calculation - must be in (''BI24'', ''ESTIMATE'', ''TREND'', ''ACTUAL'', ''FORECASTED_DBT'', ''FORECASTED_DMS'')';
+ 
+   COMMENT ON COLUMN TA_CONFIG.SLS_TYP_LBL_ID IS 'ID of record from TA_DICT table, defining screen settings for the result COLUMNS';
+ 
+   COMMENT ON COLUMN TA_CONFIG.X_SLS_TYP_LBL_ID IS 'ID of record from TA_DICT table, defining screen settings for the secondary result COLUMNS';
+ 
+   COMMENT ON COLUMN TA_CONFIG.OFFST_VAL_SRC_SLS IS 'Offset for sales period to get source sales period corresponding to OFFST_LBL_ID';
+ 
+   COMMENT ON COLUMN TA_CONFIG.OFFST_VAL_TRGT_SLS IS 'Offset for sales period to get target sales period corresponding to OFFST_LBL_ID';
+ 
+   COMMENT ON COLUMN TA_CONFIG.OFFST_VAL_SRC_OFFR IS 'Offset for sales period to get source offer period corresponding to OFFST_LBL_ID';
+ 
+   COMMENT ON COLUMN TA_CONFIG.OFFST_VAL_TRGT_OFFR IS 'Offset for sales period to get target offer period corresponding to OFFST_LBL_ID';
+ 
+   COMMENT ON COLUMN TA_CONFIG.GRID_TYP IS 'INFORMATIVE only - (H)istoric or Trend (A)llocation grid will show the data corresponding to this config line';
+ 
+   COMMENT ON COLUMN TA_CONFIG.R_FACTOR IS 'R-factor used for creating input data when estimate is used instead of facts.';
+ 
+   COMMENT ON COLUMN TA_CONFIG.TRGT_SLS_TYP_ID IS 'Sales type used for selecting the CONFIG to apply';
+ 
+   COMMENT ON COLUMN TA_CONFIG.COMMNT IS 'Comment on the CONFIG line';
+ 
+   COMMENT ON TABLE TA_CONFIG  IS 'Configuration rules for Trend Allocation';
+--------------------------------------------------------
+--  DDL for Index PK_TA_CONFIG
+--------------------------------------------------------
+
+  CREATE UNIQUE INDEX PK_TA_CONFIG ON TA_CONFIG (MRKT_ID, EFF_SLS_PERD_ID, TRGT_SLS_TYP_ID, SLS_TYP_GRP_NM, OFFST_LBL_ID) 
+  PCTFREE 10 INITRANS 2 MAXTRANS 255 COMPUTE STATISTICS 
+  STORAGE(INITIAL 65536 NEXT 1048576 MINEXTENTS 1 MAXEXTENTS 2147483645
+  PCTINCREASE 0 FREELISTS 1 FREELIST GROUPS 1 BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
+  TABLESPACE &index_tablespace_name ;
+--------------------------------------------------------
+--  Constraints for Table TA_CONFIG
+--------------------------------------------------------
+
+  ALTER TABLE TA_CONFIG ADD CONSTRAINT C_TA_CONFIG_GRIDTYP CHECK (GRID_TYP in('H','A')) ENABLE;
+ 
+  ALTER TABLE TA_CONFIG ADD CONSTRAINT C_TA_CONFIG_SLSTYPGRPNM CHECK (SLS_TYP_GRP_NM in('BI24', 'ESTIMATE', 'TREND', 'ACTUAL', 'FORECASTED_DBT', 'FORECASTED_DMS')) ENABLE;
+ 
+  ALTER TABLE TA_CONFIG ADD CONSTRAINT PK_TA_CONFIG PRIMARY KEY (MRKT_ID, EFF_SLS_PERD_ID, TRGT_SLS_TYP_ID, SLS_TYP_GRP_NM, OFFST_LBL_ID)
+  USING INDEX PCTFREE 10 INITRANS 2 MAXTRANS 255 COMPUTE STATISTICS 
+  STORAGE(INITIAL 65536 NEXT 1048576 MINEXTENTS 1 MAXEXTENTS 2147483645
+  PCTINCREASE 0 FREELISTS 1 FREELIST GROUPS 1 BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
+  TABLESPACE &index_tablespace_name  ENABLE;
+ 
+  ALTER TABLE TA_CONFIG MODIFY (MRKT_ID NOT NULL ENABLE);
+ 
+  ALTER TABLE TA_CONFIG MODIFY (EFF_SLS_PERD_ID NOT NULL ENABLE);
+ 
+  ALTER TABLE TA_CONFIG MODIFY (SRC_TABLE NOT NULL ENABLE);
+ 
+  ALTER TABLE TA_CONFIG MODIFY (SRC_SLS_TYP_ID NOT NULL ENABLE);
+ 
+  ALTER TABLE TA_CONFIG MODIFY (OFFST_LBL_ID NOT NULL ENABLE);
+ 
+  ALTER TABLE TA_CONFIG MODIFY (SLS_TYP_GRP_NM NOT NULL ENABLE);
+ 
+  ALTER TABLE TA_CONFIG MODIFY (SLS_TYP_LBL_ID NOT NULL ENABLE);
+ 
+  ALTER TABLE TA_CONFIG MODIFY (GRID_TYP NOT NULL ENABLE);
+ 
+  ALTER TABLE TA_CONFIG MODIFY (TRGT_SLS_TYP_ID NOT NULL ENABLE);

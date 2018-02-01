@@ -1,0 +1,5 @@
+create or replace TYPE OBJ_PA_TREND_ALLOC_PRD_DTL_TBL FORCE 
+AS TABLE OF OBJ_PA_TREND_ALLOC_PRD_DTL_LN;
+/
+show error
+
