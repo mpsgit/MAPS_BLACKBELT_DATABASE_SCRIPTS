@@ -121,7 +121,7 @@ create or replace PACKAGE pa_trend_alloc AS
     tax_amt          NUMBER);
   TYPE t_reproc_save IS TABLE OF r_reproc_save INDEX BY VARCHAR2(128);
 
-  TYPE r_reproc_est2 IS RECORD(
+  TYPE r_reproc_trendsetter IS RECORD(
     offr_sku_line_id dstrbtd_mrkt_sls.offr_sku_line_id%TYPE,
     rul_nm           custm_seg_mstr.rul_nm%TYPE,
     offst_lbl_id     ta_dict.lbl_id%TYPE,
@@ -134,7 +134,7 @@ create or replace PACKAGE pa_trend_alloc AS
     veh_id           offr.veh_id%TYPE,
     comsn_amt        NUMBER,
     tax_amt          NUMBER);
-  TYPE t_reproc_est2 IS TABLE OF r_reproc_est2;
+  TYPE t_reproc_trendsetter IS TABLE OF r_reproc_trendsetter;
 
   TYPE r_rules IS RECORD(
     rul_nm       custm_seg_mstr.rul_nm%TYPE,
@@ -166,7 +166,7 @@ create or replace PACKAGE pa_trend_alloc AS
     sku_id       offr_sku_line.sku_id%TYPE,
     units        NUMBER,
     sales        NUMBER);
-  TYPE t_current_est2 IS TABLE OF r_current;
+  TYPE t_current_trendsetter IS TABLE OF r_current;
   TYPE t_current IS TABLE OF r_current INDEX BY PLS_INTEGER;
 
   FUNCTION get_ta_config(p_mrkt_id        IN ta_config.mrkt_id%TYPE,
@@ -210,6 +210,17 @@ create or replace PACKAGE pa_trend_alloc AS
                             p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
                             p_sku_id         IN dly_bilng_trnd.sku_id%TYPE)
     RETURN custm_rul_perd.use_estimate%TYPE;
+
+  FUNCTION get_period_list(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                           p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                           p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                           p_offst_lbl_id   IN custm_seg_mstr.offst_lbl_id%TYPE,
+                           p_catgry_id      IN custm_seg_mstr.catgry_id%TYPE,
+                           p_sls_cls_cd     IN custm_seg_mstr.sls_cls_cd%TYPE,
+                           p_veh_id         IN custm_seg_mstr.veh_id%TYPE,
+                           p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
+                           p_sku_id         IN dly_bilng_trnd.sku_id%TYPE)
+    RETURN custm_rul_perd.period_list%TYPE;
 
   FUNCTION get_trend_alloc_head_view(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
                                      p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
@@ -460,3 +471,5 @@ create or replace PACKAGE pa_trend_alloc AS
                                  p_stus        OUT NUMBER);
   --
 END pa_trend_alloc;
+/
+show error

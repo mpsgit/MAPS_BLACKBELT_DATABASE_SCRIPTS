@@ -731,6 +731,102 @@ create or replace PACKAGE BODY pa_trend_alloc AS
     RETURN l_use_estimate;
   END get_use_estimate;
 
+  -- get_period_list
+  FUNCTION get_period_list(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                           p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                           p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                           p_offst_lbl_id   IN custm_seg_mstr.offst_lbl_id%TYPE,
+                           p_catgry_id      IN custm_seg_mstr.catgry_id%TYPE,
+                           p_sls_cls_cd     IN custm_seg_mstr.sls_cls_cd%TYPE,
+                           p_veh_id         IN custm_seg_mstr.veh_id%TYPE,
+                           p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
+                           p_sku_id         IN dly_bilng_trnd.sku_id%TYPE)
+    RETURN custm_rul_perd.period_list%TYPE
+    IS
+    -- local variables
+    l_period_list  custm_rul_perd.period_list%TYPE;
+  BEGIN
+    BEGIN
+      SELECT period_list
+        INTO l_period_list
+        FROM (SELECT rul_id,
+                     rul_nm,
+                     offst_lbl_id,
+                     catgry_id,
+                     sls_cls_cd,
+                     veh_id,
+                     perd_part,
+                     sku_list,
+                     prirty,
+                     period_list,
+                     r_factor,
+                     r_factor_manual,
+                     cash_value,
+                     use_estimate,
+                     row_number() OVER(ORDER BY prirty) AS primary_rule
+                FROM (SELECT rm.rul_id,
+                             rm.rul_nm,
+                             CAST(NULL AS NUMBER) offst_lbl_id,
+                             CAST(NULL AS NUMBER) catgry_id,
+                             CAST(NULL AS NUMBER) sls_cls_cd,
+                             CAST(NULL AS NUMBER) veh_id,
+                             CAST(NULL AS NUMBER) perd_part,
+                             listagg(rs.sku_id, ',') within GROUP(ORDER BY rs.sku_id) sku_list,
+                             0 prirty,
+                             r.period_list,
+                             r.r_factor,
+                             r.r_factor_manual,
+                             r.cash_value,
+                             upper(r.use_estimate) use_estimate
+                        FROM custm_rul_mstr     rm,
+                             custm_rul_perd     r,
+                             custm_rul_sku_list rs
+                       WHERE rm.mrkt_id = p_mrkt_id
+                         AND r.campgn_perd_id = p_campgn_perd_id
+                         AND rm.rul_id = rs.rul_id
+                         AND rm.rul_id = r.rul_id
+                       GROUP BY rm.rul_id,
+                                rm.rul_nm,
+                                r.period_list,
+                                r.r_factor,
+                                r.r_factor_manual,
+                                r.cash_value,
+                                upper(r.use_estimate)
+                      UNION
+                      SELECT ms.rul_id,
+                             ms.rul_nm,
+                             ms.offst_lbl_id,
+                             ms.catgry_id,
+                             ms.sls_cls_cd,
+                             ms.veh_id,
+                             ms.perd_part,
+                             CAST(NULL AS VARCHAR(2048)) sku_list,
+                             nvl(s.prirty, 9999) prirty,
+                             s.period_list,
+                             s.r_factor,
+                             s.r_factor_manual,
+                             s.cash_value,
+                             upper(s.use_estimate) use_estimate
+                        FROM custm_seg_mstr ms, custm_seg_perd s
+                       WHERE ms.mrkt_id = p_mrkt_id
+                         AND ms.rul_id = s.rul_id(+)
+                         AND p_campgn_perd_id = s.campgn_perd_id(+)
+                         AND p_sls_typ_id = s.sls_typ_id(+))
+               WHERE nvl(p_offst_lbl_id, -1) = nvl(offst_lbl_id(+), nvl(p_offst_lbl_id, -1))
+                 AND nvl(p_catgry_id, -1) = nvl(catgry_id(+), nvl(p_catgry_id, -1))
+                 AND nvl(p_sls_cls_cd, '-1') = nvl(sls_cls_cd(+), nvl(p_sls_cls_cd, '-1'))
+                 AND nvl(p_veh_id, -1) = nvl(veh_id(+), nvl(p_veh_id, -1))
+                 AND nvl(p_perd_part, -1) = nvl(perd_part(+), nvl(p_perd_part, -1))
+                 AND instr(nvl(sku_list(+), nvl(p_sku_id, '-1')), nvl(p_sku_id, '-1')) > 0)
+       WHERE primary_rule = 1;
+    EXCEPTION
+      WHEN OTHERS THEN
+        l_period_list := NULL;
+    END;
+    --
+    RETURN l_period_list;
+  END get_period_list;
+
   -- get_bi24
   FUNCTION get_bi24(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
                     p_sls_perd_id          IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
@@ -2421,23 +2517,23 @@ create or replace PACKAGE BODY pa_trend_alloc AS
     RETURN l_table_reproc_trnd;
   END get_reproc_trnd;
 
-  -- get_reproc_trnd2
-  FUNCTION get_reproc_trnd2(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                            p_sls_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                            p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                            p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
-                            p_user_id              IN VARCHAR2 DEFAULT NULL,
-                            p_run_id               IN NUMBER DEFAULT NULL)
+  -- get_reproc_trnd_fsc_cd
+  FUNCTION get_reproc_trnd_fsc_cd(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                                  p_sls_perd_id          IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                                  p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                                  p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
+                                  p_user_id              IN VARCHAR2 DEFAULT NULL,
+                                  p_run_id               IN NUMBER DEFAULT NULL)
     RETURN t_reproc IS
     -- local variables
-    l_table_reproc_trnd2   t_reproc;
-    l_trg_perd_id          dstrbtd_mrkt_sls.sls_perd_id%TYPE;
-    l_src_sls_typ_id       ta_config.src_sls_typ_id%TYPE;
+    l_table_reproc_trnd_fsc_cd  t_reproc;
+    l_trg_perd_id               dstrbtd_mrkt_sls.sls_perd_id%TYPE;
+    l_src_sls_typ_id            ta_config.src_sls_typ_id%TYPE;
     -- for LOG
     l_run_id         NUMBER := nvl(p_run_id,
                                    app_plsql_output.generate_new_run_id);
     l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
-    l_module_name    VARCHAR2(30) := 'GET_REPROC_TRND2';
+    l_module_name    VARCHAR2(30) := 'GET_REPROC_TRND_FSC_CD';
     l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
                                        to_char(p_mrkt_id) || ', ' ||
                                        'p_sls_perd_id: ' ||
@@ -2449,7 +2545,7 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                                        'p_user_id: ' || l_user_id || ', ' ||
                                        'p_run_id: ' || to_char(l_run_id) || ')';
     -- exception
-    e_get_reproc_trnd2 EXCEPTION;
+    e_get_reproc_trnd_fsc_cd EXCEPTION;
     --
   BEGIN
     --
@@ -2490,7 +2586,7 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                            to_char(p_bilng_day, 'yyyymmdd') || ', ' ||
                            'p_user_id: ' || l_user_id || ', ' ||
                            'p_run_id: ' || to_char(l_run_id) || ')';
-    -- forecasted - TRND2
+    -- forecasted - TRND_FSC_CD
     BEGIN
       SELECT x.offr_sku_line_id,
              x.rul_nm,
@@ -2509,7 +2605,7 @@ create or replace PACKAGE BODY pa_trend_alloc AS
              NULL comsn_amt,
              NULL tax_amt
         BULK COLLECT
-        INTO l_table_reproc_trnd2
+        INTO l_table_reproc_trnd_fsc_cd
         FROM (SELECT dstrbtd_mrkt_sls.offr_sku_line_id,
                      tc_fc_dbt.offst_lbl_id,
                      prfl.catgry_id,
@@ -2771,14 +2867,14 @@ create or replace PACKAGE BODY pa_trend_alloc AS
         app_plsql_log.error(l_module_name || ' error code:' || SQLCODE ||
                             ' error message: ' || SQLERRM ||
                             l_parameter_list);
-        RAISE e_get_reproc_trnd2;
+        RAISE e_get_reproc_trnd_fsc_cd;
     END;
     --
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
     app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
     --
-    RETURN l_table_reproc_trnd2;
-  END get_reproc_trnd2;
+    RETURN l_table_reproc_trnd_fsc_cd;
+  END get_reproc_trnd_fsc_cd;
 
   -- get_reproc_est
   FUNCTION get_reproc_est(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
@@ -3138,22 +3234,22 @@ create or replace PACKAGE BODY pa_trend_alloc AS
     RETURN l_table_reproc_est;
   END get_reproc_est;
 
-  -- get_reproc_est2
-  FUNCTION get_reproc_est2(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                           p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                           p_bilng_day   IN dly_bilng_trnd.prcsng_dt%TYPE,
-                           p_user_id     IN VARCHAR2 DEFAULT NULL,
-                           p_run_id      IN NUMBER DEFAULT NULL)
-    RETURN t_reproc_est2 IS
+  -- get_reproc_trendsetter
+  FUNCTION get_reproc_trendsetter(p_mrkt_id     IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                                  p_sls_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                                  p_sls_typ_id  IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                                  p_bilng_day   IN dly_bilng_trnd.prcsng_dt%TYPE,
+                                  p_user_id     IN VARCHAR2 DEFAULT NULL,
+                                  p_run_id      IN NUMBER DEFAULT NULL)
+    RETURN t_reproc_trendsetter IS
     -- local variables
-    l_table_reproc_est2 t_reproc_est2;
-    l_trg_perd_id       dstrbtd_mrkt_sls.sls_perd_id%TYPE;
+    l_table_reproc_trendsetter t_reproc_trendsetter;
+    l_trg_perd_id              dstrbtd_mrkt_sls.sls_perd_id%TYPE;
     -- for LOG
     l_run_id         NUMBER := nvl(p_run_id,
                                    app_plsql_output.generate_new_run_id);
     l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
-    l_module_name    VARCHAR2(30) := 'GET_REPROC_EST2';
+    l_module_name    VARCHAR2(30) := 'GET_REPROC_TRENDSETTER';
     l_parameter_list VARCHAR2(2048) := ' (p_mrkt_id: ' ||
                                        to_char(p_mrkt_id) || ', ' ||
                                        'p_sls_perd_id: ' ||
@@ -3167,7 +3263,7 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                                        'p_user_id: ' || l_user_id || ', ' ||
                                        'p_run_id: ' || to_char(l_run_id) || ')';
     -- exception
-    e_get_reproc_est2 EXCEPTION;
+    e_get_reproc_trendsetter EXCEPTION;
     --
   BEGIN
     --
@@ -3175,7 +3271,7 @@ create or replace PACKAGE BODY pa_trend_alloc AS
     app_plsql_output.set_run_id(l_run_id);
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
     app_plsql_log.info(l_module_name || ' start' || l_parameter_list);
-    -- forecasted - EST2
+    -- forecasted - TRENDSETTER
     BEGIN
       SELECT offr_sku_line_id,
              rul_nm,
@@ -3194,7 +3290,7 @@ create or replace PACKAGE BODY pa_trend_alloc AS
              NULL comsn_amt,
              NULL tax_amt
         BULK COLLECT
-        INTO l_table_reproc_est2
+        INTO l_table_reproc_trendsetter
         FROM (SELECT dstrbtd_mrkt_sls.offr_sku_line_id,
                      tc_fc_dms.offst_lbl_id,
                      prfl.catgry_id,
@@ -3314,14 +3410,14 @@ create or replace PACKAGE BODY pa_trend_alloc AS
         app_plsql_log.error(l_module_name || ' error code:' || SQLCODE ||
                             ' error message: ' || SQLERRM ||
                             l_parameter_list);
-        RAISE e_get_reproc_est2;
+        RAISE e_get_reproc_trendsetter;
     END;
     --
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
     app_plsql_log.info(l_module_name || ' end' || l_parameter_list);
     --
-    RETURN l_table_reproc_est2;
-  END get_reproc_est2;
+    RETURN l_table_reproc_trendsetter;
+  END get_reproc_trendsetter;
 
   -- get_trend_alloc_re_proc_rule
   FUNCTION get_trend_alloc_re_proc_rule(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
@@ -3337,15 +3433,15 @@ create or replace PACKAGE BODY pa_trend_alloc AS
     PIPELINED AS
     PRAGMA AUTONOMOUS_TRANSACTION;
     -- local variables
-    l_tbl_bi24         t_hist_detail := t_hist_detail();
-    l_tbl_reproc_trnd  t_reproc := t_reproc();
-    l_tbl_reproc_trnd2 t_reproc := t_reproc();
-    l_tbl_reproc_est   t_reproc := t_reproc();
-    l_tbl_reproc_est2  t_reproc_est2 := t_reproc_est2();
-    l_tbl_reproc_rule  t_reproc_rule;
-    l_offst_lbl_id_on  NUMBER;
-    l_offst_lbl_id_off NUMBER;
-    c_key              VARCHAR2(512);
+    l_tbl_bi24               t_hist_detail := t_hist_detail();
+    l_tbl_reproc_trnd        t_reproc := t_reproc();
+    l_tbl_reproc_trnd_fsc_cd t_reproc := t_reproc();
+    l_tbl_reproc_est         t_reproc := t_reproc();
+    l_tbl_reproc_trendsetter t_reproc_trendsetter := t_reproc_trendsetter();
+    l_tbl_reproc_rule        t_reproc_rule;
+    l_offst_lbl_id_on        NUMBER;
+    l_offst_lbl_id_off       NUMBER;
+    c_key                    VARCHAR2(512);
     -- for LOG
     l_run_id         NUMBER := app_plsql_output.generate_new_run_id;
     l_user_id        VARCHAR2(35) := nvl(p_user_id, USER());
@@ -3439,31 +3535,46 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                        isselected,
                        SUM(units) units,
                        SUM(sales) sales
-                  FROM (SELECT r.rul_nm,
+                  FROM (SELECT get_rule_nm(p_mrkt_id,
+                                           p_campgn_perd_id,
+                                           p_sls_typ_id,
+                                           offst_lbl_id,
+                                           catgry_id,
+                                           sls_cls_cd,
+                                           veh_id,
+                                           perd_part,
+                                           sku_id) rul_nm,
                                p_campgn_perd_id sls_perd_id,
                                p_bilng_day bilng_day,
                                CASE
-                                 WHEN instr(r.period_list, p_campgn_perd_id) > 0 THEN
+                                 WHEN instr(get_period_list(p_mrkt_id,
+                                                            p_campgn_perd_id,
+                                                            p_sls_typ_id,
+                                                            offst_lbl_id,
+                                                            catgry_id,
+                                                            sls_cls_cd,
+                                                            veh_id,
+                                                            perd_part,
+                                                            sku_id), p_campgn_perd_id) > 0 THEN
                                   'Y'
                                  ELSE
                                   'N'
                                END isselected,
-                               d.units,
-                               d.sales,
-                               row_number() over(PARTITION BY nvl(d.offst_lbl_id, -1), nvl(d.catgry_id, -1), nvl(d.sls_cls_cd, '-1'), nvl(d.veh_id, -1), nvl(d.perd_part, -1), nvl(d.sku_id, -1) ORDER BY r.prirty) primary_rule
+                               units,
+                               sales
                           FROM ( -- BI24 only
                                 SELECT dtls.offst_lbl_id,
-                                        prfl.catgry_id,
-                                        dtls.sls_cls_cd,
-                                        dtls.veh_id,
-                                        dtls.perd_part,
-                                        dtls.sku_id,
-                                        SUM(dtls.units) AS units,
-                                        SUM(dtls.sales) AS sales
+                                       prfl.catgry_id,
+                                       dtls.sls_cls_cd,
+                                       dtls.veh_id,
+                                       dtls.perd_part,
+                                       dtls.sku_id,
+                                       SUM(dtls.units) AS units,
+                                       SUM(dtls.sales) AS sales
                                   FROM trend_alloc_hist_dtls dtls,
-                                        ta_dict               td,
-                                        sku,
-                                        prfl
+                                       ta_dict               td,
+                                       sku,
+                                       prfl
                                  WHERE dtls.mrkt_id = p_mrkt_id
                                    AND dtls.sls_perd_id = p_campgn_perd_id
                                    AND dtls.sls_typ_id = p_sls_typ_id
@@ -3475,63 +3586,11 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                                    AND dtls.sku_id = sku.sku_id(+)
                                    AND sku.prfl_cd = prfl.prfl_cd(+)
                                  GROUP BY dtls.offst_lbl_id,
-                                           prfl.catgry_id,
-                                           dtls.sls_cls_cd,
-                                           dtls.veh_id,
-                                           dtls.perd_part,
-                                           dtls.sku_id) d,
-                               (SELECT rm.rul_nm,
-                                       CAST(NULL AS NUMBER) offst_lbl_id,
-                                       CAST(NULL AS NUMBER) catgry_id,
-                                       CAST(NULL AS NUMBER) sls_cls_cd,
-                                       CAST(NULL AS NUMBER) veh_id,
-                                       CAST(NULL AS NUMBER) perd_part,
-                                       listagg(rs.sku_id, ',') within GROUP(ORDER BY rs.sku_id) sku_list,
-                                       0 prirty,
-                                       r.period_list,
-                                       r.r_factor,
-                                       r.r_factor_manual
-                                  FROM custm_rul_mstr     rm,
-                                       custm_rul_perd     r,
-                                       custm_rul_sku_list rs
-                                 WHERE rm.mrkt_id = p_mrkt_id
-                                   AND r.campgn_perd_id = p_campgn_perd_id
-                                   AND rm.rul_id = rs.rul_id
-                                   AND rm.rul_id = r.rul_id
-                                 GROUP BY rm.rul_nm,
-                                          r.period_list,
-                                          r.r_factor,
-                                          r.r_factor_manual
-                                UNION
-                                SELECT ms.rul_nm,
-                                       ms.offst_lbl_id,
-                                       ms.catgry_id,
-                                       ms.sls_cls_cd,
-                                       ms.veh_id,
-                                       ms.perd_part,
-                                       CAST(NULL AS VARCHAR(2048)) sku_list,
-                                       s.prirty,
-                                       s.period_list,
-                                       s.r_factor,
-                                       s.r_factor_manual
-                                  FROM custm_seg_mstr ms, custm_seg_perd s
-                                 WHERE ms.mrkt_id = p_mrkt_id
-                                   AND ms.rul_id = s.rul_id
-                                   AND p_campgn_perd_id = s.campgn_perd_id
-                                   AND p_sls_typ_id = s.sls_typ_id) r
-                         WHERE nvl(d.offst_lbl_id, -1) =
-                               nvl(r.offst_lbl_id(+), nvl(d.offst_lbl_id, -1))
-                           AND nvl(d.catgry_id, -1) =
-                               nvl(r.catgry_id(+), nvl(d.catgry_id, -1))
-                           AND nvl(d.sls_cls_cd, '-1') =
-                               nvl(r.sls_cls_cd(+), nvl(d.sls_cls_cd, '-1'))
-                           AND nvl(d.veh_id, -1) =
-                               nvl(r.veh_id(+), nvl(d.veh_id, -1))
-                           AND nvl(d.perd_part, -1) =
-                               nvl(r.perd_part(+), nvl(d.perd_part, -1))
-                           AND instr(nvl(r.sku_list(+), nvl(d.sku_id, -1)),
-                                     nvl(d.sku_id, -1)) > 0)
-                 WHERE primary_rule = 1
+                                          prfl.catgry_id,
+                                          dtls.sls_cls_cd,
+                                          dtls.veh_id,
+                                          dtls.perd_part,
+                                          dtls.sku_id))
                  GROUP BY rul_nm, sls_perd_id, bilng_day, isselected) LOOP
         c_key := i.rul_nm;
         l_tbl_reproc_rule(c_key).rul_nm := i.rul_nm;
@@ -3559,22 +3618,22 @@ create or replace PACKAGE BODY pa_trend_alloc AS
       END LOOP;
       l_tbl_reproc_trnd.delete;
     END IF;
-    -- TRND2
-    l_tbl_reproc_trnd2 := get_reproc_trnd2(p_mrkt_id              => p_mrkt_id,
-                                           p_sls_perd_id          => p_campgn_perd_id,
-                                           p_sls_typ_id           => p_sls_typ_id,
-                                           p_bilng_day            => p_bilng_day,
-                                           p_user_id              => l_user_id,
-                                           p_run_id               => l_run_id);
-    -- SUM (TRND2)
-    IF l_tbl_reproc_trnd2.count > 0 THEN
-      FOR i IN l_tbl_reproc_trnd2.first .. l_tbl_reproc_trnd2.last LOOP
-        c_key := l_tbl_reproc_trnd2(i).rul_nm;
-        l_tbl_reproc_rule(c_key).rul_nm := l_tbl_reproc_trnd2(i).rul_nm;
-        l_tbl_reproc_rule(c_key).units_actual := nvl(l_tbl_reproc_rule(c_key).units_actual, 0) + l_tbl_reproc_trnd2(i).units;
-        l_tbl_reproc_rule(c_key).sales_actual := nvl(l_tbl_reproc_rule(c_key).sales_actual, 0) + l_tbl_reproc_trnd2(i).sales;
+    -- TRND_FSC_CD
+    l_tbl_reproc_trnd_fsc_cd := get_reproc_trnd_fsc_cd(p_mrkt_id              => p_mrkt_id,
+                                                       p_sls_perd_id          => p_campgn_perd_id,
+                                                       p_sls_typ_id           => p_sls_typ_id,
+                                                       p_bilng_day            => p_bilng_day,
+                                                       p_user_id              => l_user_id,
+                                                       p_run_id               => l_run_id);
+    -- SUM (TRND_FSC_CD)
+    IF l_tbl_reproc_trnd_fsc_cd.count > 0 THEN
+      FOR i IN l_tbl_reproc_trnd_fsc_cd.first .. l_tbl_reproc_trnd_fsc_cd.last LOOP
+        c_key := l_tbl_reproc_trnd_fsc_cd(i).rul_nm;
+        l_tbl_reproc_rule(c_key).rul_nm := l_tbl_reproc_trnd_fsc_cd(i).rul_nm;
+        l_tbl_reproc_rule(c_key).units_actual := nvl(l_tbl_reproc_rule(c_key).units_actual, 0) + l_tbl_reproc_trnd_fsc_cd(i).units;
+        l_tbl_reproc_rule(c_key).sales_actual := nvl(l_tbl_reproc_rule(c_key).sales_actual, 0) + l_tbl_reproc_trnd_fsc_cd(i).sales;
       END LOOP;
-      l_tbl_reproc_trnd2.delete;
+      l_tbl_reproc_trnd_fsc_cd.delete;
     END IF;
     -- EST
     l_tbl_reproc_est := get_reproc_est(p_mrkt_id              => p_mrkt_id,
@@ -3595,26 +3654,26 @@ create or replace PACKAGE BODY pa_trend_alloc AS
       END LOOP;
       l_tbl_reproc_est.delete;
     END IF;
-    -- EST2
-    l_tbl_reproc_est2 := get_reproc_est2(p_mrkt_id     => p_mrkt_id,
-                                         p_sls_perd_id => p_campgn_perd_id,
-                                         p_sls_typ_id  => p_sls_typ_id,
-                                         p_bilng_day   => p_bilng_day,
-                                         p_user_id     => l_user_id,
-                                         p_run_id      => l_run_id);
-    -- SUM (EST2)
-    IF l_tbl_reproc_est2.count > 0 THEN
-      FOR i IN l_tbl_reproc_est2.first .. l_tbl_reproc_est2.last LOOP
-        c_key := l_tbl_reproc_est2(i).rul_nm;
-        l_tbl_reproc_rule(c_key).rul_nm := l_tbl_reproc_est2(i).rul_nm;
+    -- TRENDSETTER
+    l_tbl_reproc_trendsetter := get_reproc_trendsetter(p_mrkt_id     => p_mrkt_id,
+                                                       p_sls_perd_id => p_campgn_perd_id,
+                                                       p_sls_typ_id  => p_sls_typ_id,
+                                                       p_bilng_day   => p_bilng_day,
+                                                       p_user_id     => l_user_id,
+                                                       p_run_id      => l_run_id);
+    -- SUM (TRENDSETTER)
+    IF l_tbl_reproc_trendsetter.count > 0 THEN
+      FOR i IN l_tbl_reproc_trendsetter.first .. l_tbl_reproc_trendsetter.last LOOP
+        c_key := l_tbl_reproc_trendsetter(i).rul_nm;
+        l_tbl_reproc_rule(c_key).rul_nm := l_tbl_reproc_trendsetter(i).rul_nm;
         -- BI24
-        l_tbl_reproc_rule(c_key).units_bi24 := nvl(l_tbl_reproc_rule(c_key).units_bi24, 0) + l_tbl_reproc_est2(i).units_bi24;
-        l_tbl_reproc_rule(c_key).sales_bi24 := nvl(l_tbl_reproc_rule(c_key).sales_bi24, 0) + l_tbl_reproc_est2(i).sales_bi24;
+        l_tbl_reproc_rule(c_key).units_bi24 := nvl(l_tbl_reproc_rule(c_key).units_bi24, 0) + l_tbl_reproc_trendsetter(i).units_bi24;
+        l_tbl_reproc_rule(c_key).sales_bi24 := nvl(l_tbl_reproc_rule(c_key).sales_bi24, 0) + l_tbl_reproc_trendsetter(i).sales_bi24;
         -- FORECASTED
-        l_tbl_reproc_rule(c_key).units_actual := nvl(l_tbl_reproc_rule(c_key).units_actual, 0) + l_tbl_reproc_est2(i).units_forecasted;
-        l_tbl_reproc_rule(c_key).sales_actual := nvl(l_tbl_reproc_rule(c_key).sales_actual, 0) + l_tbl_reproc_est2(i).sales_forecasted;
+        l_tbl_reproc_rule(c_key).units_actual := nvl(l_tbl_reproc_rule(c_key).units_actual, 0) + l_tbl_reproc_trendsetter(i).units_forecasted;
+        l_tbl_reproc_rule(c_key).sales_actual := nvl(l_tbl_reproc_rule(c_key).sales_actual, 0) + l_tbl_reproc_trendsetter(i).sales_forecasted;
       END LOOP;
-      l_tbl_reproc_est2.delete;
+      l_tbl_reproc_trendsetter.delete;
     END IF;
     -- PIPE (HEAD)
     IF l_tbl_reproc_rule.count > 0 THEN
@@ -4261,7 +4320,7 @@ create or replace PACKAGE BODY pa_trend_alloc AS
     -- local variable
     l_tbl_bi24        t_hist_detail := t_hist_detail();
     l_catgry_id       prfl.catgry_id%TYPE;
-    l_tbl_est2        t_current_est2 := t_current_est2();
+    l_tbl_trendsetter t_current_trendsetter := t_current_trendsetter();
     l_tbl_current     t_current;
     c_key             PLS_INTEGER := 0;
     -- for LOG
@@ -4319,7 +4378,7 @@ create or replace PACKAGE BODY pa_trend_alloc AS
       END LOOP;
       l_tbl_bi24.delete;
     END IF;
-    -- EST2
+    -- TRENDSETTER
     SELECT offst_lbl_id,
            catgry_id,
            sls_cls_cd,
@@ -4331,7 +4390,7 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                      decode(nr_for_qty, 0, 1, nr_for_qty) *
                      decode(net_to_avon_fct, 0, 1, net_to_avon_fct)))
       BULK COLLECT
-      INTO l_tbl_est2
+      INTO l_tbl_trendsetter
       FROM (SELECT tc_fc_dms.offst_lbl_id,
                    prfl.catgry_id,
                    offr_prfl_prc_point.sls_cls_cd,
@@ -4425,19 +4484,19 @@ create or replace PACKAGE BODY pa_trend_alloc AS
            veh_id,
            perd_part,
            sku_id;
-    IF l_tbl_est2.count > 0 THEN
-      FOR i IN l_tbl_est2.first .. l_tbl_est2.last LOOP
+    IF l_tbl_trendsetter.count > 0 THEN
+      FOR i IN l_tbl_trendsetter.first .. l_tbl_trendsetter.last LOOP
         c_key := c_key + 1;
-        l_tbl_current(c_key).offst_lbl_id := l_tbl_est2 (i).offst_lbl_id;
-        l_tbl_current(c_key).catgry_id := l_tbl_est2 (i).catgry_id;
-        l_tbl_current(c_key).sls_cls_cd := l_tbl_est2 (i).sls_cls_cd;
-        l_tbl_current(c_key).veh_id := l_tbl_est2 (i).veh_id;
-        l_tbl_current(c_key).perd_part := l_tbl_est2 (i).perd_part;
-        l_tbl_current(c_key).sku_id := l_tbl_est2 (i).sku_id;
-        l_tbl_current(c_key).units := l_tbl_est2 (i).units;
-        l_tbl_current(c_key).sales := l_tbl_est2 (i).sales;
+        l_tbl_current(c_key).offst_lbl_id := l_tbl_trendsetter (i).offst_lbl_id;
+        l_tbl_current(c_key).catgry_id := l_tbl_trendsetter (i).catgry_id;
+        l_tbl_current(c_key).sls_cls_cd := l_tbl_trendsetter (i).sls_cls_cd;
+        l_tbl_current(c_key).veh_id := l_tbl_trendsetter (i).veh_id;
+        l_tbl_current(c_key).perd_part := l_tbl_trendsetter (i).perd_part;
+        l_tbl_current(c_key).sku_id := l_tbl_trendsetter (i).sku_id;
+        l_tbl_current(c_key).units := l_tbl_trendsetter (i).units;
+        l_tbl_current(c_key).sales := l_tbl_trendsetter (i).sales;
       END LOOP;
-      l_tbl_est2.delete;
+      l_tbl_trendsetter.delete;
     END IF;
     -- PIPE (CURRENT)
     IF l_tbl_current.count > 0 THEN
@@ -5064,9 +5123,9 @@ create or replace PACKAGE BODY pa_trend_alloc AS
     l_cycl_cnt                   NUMBER;
     l_deleted_rows               NUMBER;
     l_tbl_reproc_trnd            t_reproc := t_reproc();
-    l_tbl_reproc_trnd2           t_reproc := t_reproc();
+    l_tbl_reproc_trnd_fsc_cd     t_reproc := t_reproc();
     l_tbl_reproc_est             t_reproc := t_reproc();
-    l_tbl_reproc_est2            t_reproc_est2 := t_reproc_est2();
+    l_tbl_reproc_trendsetter     t_reproc_trendsetter := t_reproc_trendsetter();
     l_tbl_reproc                 t_reproc_save;
     l_tbl_save                   t_save;
     c_key                        VARCHAR2(32);
@@ -5385,24 +5444,14 @@ create or replace PACKAGE BODY pa_trend_alloc AS
         IF l_tbl_reproc_trnd.count > 0 THEN
           FOR i IN l_tbl_reproc_trnd.first .. l_tbl_reproc_trnd.last LOOP
             c_key := l_tbl_reproc_trnd(i).offr_sku_line_id;
-            l_tbl_reproc(c_key).offr_sku_line_id := l_tbl_reproc_trnd(i)
-                                                    .offr_sku_line_id;
-            l_tbl_reproc(c_key).offst_lbl_id := l_tbl_reproc_trnd(i)
-                                                .offst_lbl_id;
-            l_tbl_reproc(c_key).sls_typ_lbl_id := l_tbl_reproc_trnd(i)
-                                                  .sls_typ_lbl_id;
-            l_tbl_reproc(c_key).units := nvl(l_tbl_reproc(c_key).units, 0) + l_tbl_reproc_trnd(i)
-                                        .units;
-            l_tbl_reproc(c_key).sales := nvl(l_tbl_reproc(c_key).sales, 0) + l_tbl_reproc_trnd(i)
-                                        .sales;
+            l_tbl_reproc(c_key).offr_sku_line_id := l_tbl_reproc_trnd(i).offr_sku_line_id;
+            l_tbl_reproc(c_key).offst_lbl_id := l_tbl_reproc_trnd(i).offst_lbl_id;
+            l_tbl_reproc(c_key).sls_typ_lbl_id := l_tbl_reproc_trnd(i).sls_typ_lbl_id;
+            l_tbl_reproc(c_key).units := nvl(l_tbl_reproc(c_key).units, 0) + l_tbl_reproc_trnd(i).units;
+            l_tbl_reproc(c_key).sales := nvl(l_tbl_reproc(c_key).sales, 0) + l_tbl_reproc_trnd(i).sales;
             l_tbl_reproc(c_key).veh_id := l_tbl_reproc_trnd(i).veh_id;
-            l_tbl_reproc(c_key).comsn_amt := nvl(l_tbl_reproc(c_key)
-                                                 .comsn_amt,
-                                                 0) + l_tbl_reproc_trnd(i)
-                                            .comsn_amt;
-            l_tbl_reproc(c_key).tax_amt := nvl(l_tbl_reproc(c_key).tax_amt,
-                                               0) + l_tbl_reproc_trnd(i)
-                                          .tax_amt;
+            l_tbl_reproc(c_key).comsn_amt := nvl(l_tbl_reproc(c_key).comsn_amt, 0) + l_tbl_reproc_trnd(i).comsn_amt;
+            l_tbl_reproc(c_key).tax_amt := nvl(l_tbl_reproc(c_key).tax_amt, 0) + l_tbl_reproc_trnd(i).tax_amt;
           END LOOP;
           l_tbl_reproc_trnd.delete;
         END IF;
@@ -5485,27 +5534,27 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                              l_parameter_list);
           l_tbl_reproc.delete;
         END IF;
-        -- TRND2
-        l_tbl_reproc_trnd2 := get_reproc_trnd2(p_mrkt_id     => p_mrkt_id,
-                                               p_sls_perd_id => p_campgn_perd_id,
-                                               p_sls_typ_id  => p_sls_typ_id,
-                                               p_bilng_day   => p_bilng_day,
-                                               p_user_id     => l_user_id,
-                                               p_run_id      => l_run_id);
-        -- SUM (TRND2)
-        IF l_tbl_reproc_trnd2.count > 0 THEN
-          FOR i IN l_tbl_reproc_trnd2.first .. l_tbl_reproc_trnd2.last LOOP
-            c_key := l_tbl_reproc_trnd2(i).offr_sku_line_id;
-            l_tbl_reproc(c_key).offr_sku_line_id := l_tbl_reproc_trnd2(i).offr_sku_line_id;
-            l_tbl_reproc(c_key).offst_lbl_id := l_tbl_reproc_trnd2(i).offst_lbl_id;
-            l_tbl_reproc(c_key).sls_typ_lbl_id := l_tbl_reproc_trnd2(i).sls_typ_lbl_id;
-            l_tbl_reproc(c_key).units := nvl(l_tbl_reproc(c_key).units, 0) + l_tbl_reproc_trnd2(i).units;
-            l_tbl_reproc(c_key).sales := nvl(l_tbl_reproc(c_key).sales, 0) + l_tbl_reproc_trnd2(i).sales;
-            l_tbl_reproc(c_key).veh_id := l_tbl_reproc_trnd2(i).veh_id;
-            l_tbl_reproc(c_key).comsn_amt := nvl(l_tbl_reproc(c_key).comsn_amt, 0) + l_tbl_reproc_trnd2(i).comsn_amt;
-            l_tbl_reproc(c_key).tax_amt := nvl(l_tbl_reproc(c_key).tax_amt, 0) + l_tbl_reproc_trnd2(i).tax_amt;
+        -- TRND_FSC_CD
+        l_tbl_reproc_trnd_fsc_cd := get_reproc_trnd_fsc_cd(p_mrkt_id     => p_mrkt_id,
+                                                           p_sls_perd_id => p_campgn_perd_id,
+                                                           p_sls_typ_id  => p_sls_typ_id,
+                                                           p_bilng_day   => p_bilng_day,
+                                                           p_user_id     => l_user_id,
+                                                           p_run_id      => l_run_id);
+        -- SUM (TRND_FSC_CD)
+        IF l_tbl_reproc_trnd_fsc_cd.count > 0 THEN
+          FOR i IN l_tbl_reproc_trnd_fsc_cd.first .. l_tbl_reproc_trnd_fsc_cd.last LOOP
+            c_key := l_tbl_reproc_trnd_fsc_cd(i).offr_sku_line_id;
+            l_tbl_reproc(c_key).offr_sku_line_id := l_tbl_reproc_trnd_fsc_cd(i).offr_sku_line_id;
+            l_tbl_reproc(c_key).offst_lbl_id := l_tbl_reproc_trnd_fsc_cd(i).offst_lbl_id;
+            l_tbl_reproc(c_key).sls_typ_lbl_id := l_tbl_reproc_trnd_fsc_cd(i).sls_typ_lbl_id;
+            l_tbl_reproc(c_key).units := nvl(l_tbl_reproc(c_key).units, 0) + l_tbl_reproc_trnd_fsc_cd(i).units;
+            l_tbl_reproc(c_key).sales := nvl(l_tbl_reproc(c_key).sales, 0) + l_tbl_reproc_trnd_fsc_cd(i).sales;
+            l_tbl_reproc(c_key).veh_id := l_tbl_reproc_trnd_fsc_cd(i).veh_id;
+            l_tbl_reproc(c_key).comsn_amt := nvl(l_tbl_reproc(c_key).comsn_amt, 0) + l_tbl_reproc_trnd_fsc_cd(i).comsn_amt;
+            l_tbl_reproc(c_key).tax_amt := nvl(l_tbl_reproc(c_key).tax_amt, 0) + l_tbl_reproc_trnd_fsc_cd(i).tax_amt;
           END LOOP;
-          l_tbl_reproc_trnd2.delete;
+          l_tbl_reproc_trnd_fsc_cd.delete;
         END IF;
         IF l_tbl_reproc.count > 0 THEN
           l_cycl_cnt := 0;
@@ -5601,24 +5650,14 @@ create or replace PACKAGE BODY pa_trend_alloc AS
         IF l_tbl_reproc_est.count > 0 THEN
           FOR i IN l_tbl_reproc_est.first .. l_tbl_reproc_est.last LOOP
             c_key := l_tbl_reproc_est(i).offr_sku_line_id;
-            l_tbl_reproc(c_key).offr_sku_line_id := l_tbl_reproc_est(i)
-                                                    .offr_sku_line_id;
-            l_tbl_reproc(c_key).offst_lbl_id := l_tbl_reproc_est(i)
-                                                .offst_lbl_id;
-            l_tbl_reproc(c_key).sls_typ_lbl_id := l_tbl_reproc_est(i)
-                                                  .sls_typ_lbl_id;
-            l_tbl_reproc(c_key).units := nvl(l_tbl_reproc(c_key).units, 0) + l_tbl_reproc_est(i)
-                                        .units;
-            l_tbl_reproc(c_key).sales := nvl(l_tbl_reproc(c_key).sales, 0) + l_tbl_reproc_est(i)
-                                        .sales;
+            l_tbl_reproc(c_key).offr_sku_line_id := l_tbl_reproc_est(i).offr_sku_line_id;
+            l_tbl_reproc(c_key).offst_lbl_id := l_tbl_reproc_est(i).offst_lbl_id;
+            l_tbl_reproc(c_key).sls_typ_lbl_id := l_tbl_reproc_est(i).sls_typ_lbl_id;
+            l_tbl_reproc(c_key).units := nvl(l_tbl_reproc(c_key).units, 0) + l_tbl_reproc_est(i).units;
+            l_tbl_reproc(c_key).sales := nvl(l_tbl_reproc(c_key).sales, 0) + l_tbl_reproc_est(i).sales;
             l_tbl_reproc(c_key).veh_id := l_tbl_reproc_est(i).veh_id;
-            l_tbl_reproc(c_key).comsn_amt := nvl(l_tbl_reproc(c_key)
-                                                 .comsn_amt,
-                                                 0) + l_tbl_reproc_est(i)
-                                            .comsn_amt;
-            l_tbl_reproc(c_key).tax_amt := nvl(l_tbl_reproc(c_key).tax_amt,
-                                               0) + l_tbl_reproc_est(i)
-                                          .tax_amt;
+            l_tbl_reproc(c_key).comsn_amt := nvl(l_tbl_reproc(c_key).comsn_amt, 0) + l_tbl_reproc_est(i).comsn_amt;
+            l_tbl_reproc(c_key).tax_amt := nvl(l_tbl_reproc(c_key).tax_amt, 0) + l_tbl_reproc_est(i).tax_amt;
           END LOOP;
           l_tbl_reproc_est.delete;
         END IF;
@@ -5705,37 +5744,27 @@ create or replace PACKAGE BODY pa_trend_alloc AS
           l_tbl_reproc.delete;
         END IF;
 -- end if;
-        -- EST2
-        l_tbl_reproc_est2 := get_reproc_est2(p_mrkt_id     => p_mrkt_id,
-                                             p_sls_perd_id => p_campgn_perd_id,
-                                             p_sls_typ_id  => p_sls_typ_id,
-                                             p_bilng_day   => p_bilng_day,
-                                             p_user_id     => l_user_id,
-                                             p_run_id      => l_run_id);
-        -- SUM (EST2)
-        IF l_tbl_reproc_est2.count > 0 THEN
-          FOR i IN l_tbl_reproc_est2.first .. l_tbl_reproc_est2.last LOOP
-            c_key := l_tbl_reproc_est2(i).offr_sku_line_id;
-            l_tbl_reproc(c_key).offr_sku_line_id := l_tbl_reproc_est2(i)
-                                                    .offr_sku_line_id;
-            l_tbl_reproc(c_key).offst_lbl_id := l_tbl_reproc_est2(i)
-                                                .offst_lbl_id;
-            l_tbl_reproc(c_key).sls_typ_lbl_id := l_tbl_reproc_est2(i)
-                                                  .sls_typ_lbl_id;
-            l_tbl_reproc(c_key).units := nvl(l_tbl_reproc(c_key).units, 0) + l_tbl_reproc_est2(i)
-                                        .units_forecasted;
-            l_tbl_reproc(c_key).sales := nvl(l_tbl_reproc(c_key).sales, 0) + l_tbl_reproc_est2(i)
-                                        .sales_forecasted;
-            l_tbl_reproc(c_key).veh_id := l_tbl_reproc_est2(i).veh_id;
-            l_tbl_reproc(c_key).comsn_amt := nvl(l_tbl_reproc(c_key)
-                                                 .comsn_amt,
-                                                 0) + l_tbl_reproc_est2(i)
-                                            .comsn_amt;
-            l_tbl_reproc(c_key).tax_amt := nvl(l_tbl_reproc(c_key).tax_amt,
-                                               0) + l_tbl_reproc_est2(i)
-                                          .tax_amt;
+        -- TRENDSETTER
+        l_tbl_reproc_trendsetter := get_reproc_trendsetter(p_mrkt_id     => p_mrkt_id,
+                                                           p_sls_perd_id => p_campgn_perd_id,
+                                                           p_sls_typ_id  => p_sls_typ_id,
+                                                           p_bilng_day   => p_bilng_day,
+                                                           p_user_id     => l_user_id,
+                                                           p_run_id      => l_run_id);
+        -- SUM (TRENDSETTER)
+        IF l_tbl_reproc_trendsetter.count > 0 THEN
+          FOR i IN l_tbl_reproc_trendsetter.first .. l_tbl_reproc_trendsetter.last LOOP
+            c_key := l_tbl_reproc_trendsetter(i).offr_sku_line_id;
+            l_tbl_reproc(c_key).offr_sku_line_id := l_tbl_reproc_trendsetter(i).offr_sku_line_id;
+            l_tbl_reproc(c_key).offst_lbl_id := l_tbl_reproc_trendsetter(i).offst_lbl_id;
+            l_tbl_reproc(c_key).sls_typ_lbl_id := l_tbl_reproc_trendsetter(i).sls_typ_lbl_id;
+            l_tbl_reproc(c_key).units := nvl(l_tbl_reproc(c_key).units, 0) + l_tbl_reproc_trendsetter(i).units_forecasted;
+            l_tbl_reproc(c_key).sales := nvl(l_tbl_reproc(c_key).sales, 0) + l_tbl_reproc_trendsetter(i).sales_forecasted;
+            l_tbl_reproc(c_key).veh_id := l_tbl_reproc_trendsetter(i).veh_id;
+            l_tbl_reproc(c_key).comsn_amt := nvl(l_tbl_reproc(c_key) .comsn_amt, 0) + l_tbl_reproc_trendsetter(i).comsn_amt;
+            l_tbl_reproc(c_key).tax_amt := nvl(l_tbl_reproc(c_key).tax_amt, 0) + l_tbl_reproc_trendsetter(i).tax_amt;
           END LOOP;
-          l_tbl_reproc_est2.delete;
+          l_tbl_reproc_trendsetter.delete;
         END IF;
         IF l_tbl_reproc.count > 0 THEN
           l_cycl_cnt := 0;
@@ -5816,11 +5845,11 @@ create or replace PACKAGE BODY pa_trend_alloc AS
             c_key := l_tbl_reproc.next(c_key);
           END LOOP;
           app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
-          app_plsql_log.info(l_module_name || ' est2 (cycle): ' || l_cycl_cnt || ' est2 (insert): ' || l_ins_cnt || l_parameter_list);
+          app_plsql_log.info(l_module_name || ' trendsetter (cycle): ' || l_cycl_cnt || ' trendsetter (insert): ' || l_ins_cnt || l_parameter_list);
           l_tbl_reproc.delete;
         END IF;
         --
-        -- SAVE with l_spec_sls_typ_id the same records (which was processed in (trnd, est, est2)
+        -- SAVE with l_spec_sls_typ_id the same records (which was processed in (trnd, est, trendsetter)
         --
         -- set l_spec_sls_typ_id (versioned special sales type ID) for SAVE
         SELECT CASE
@@ -9773,3 +9802,5 @@ null
   END unplan_offr_creation;
   --
 END pa_trend_alloc;
+/
+show error
