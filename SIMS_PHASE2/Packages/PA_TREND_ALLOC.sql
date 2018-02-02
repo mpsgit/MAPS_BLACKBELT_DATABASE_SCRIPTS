@@ -178,49 +178,17 @@ create or replace PACKAGE pa_trend_alloc AS
     RETURN obj_ta_config_table
     PIPELINED;
 
-  FUNCTION get_rule_nm(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                       p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                       p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                       p_offst_lbl_id   IN custm_seg_mstr.offst_lbl_id%TYPE,
-                       p_catgry_id      IN custm_seg_mstr.catgry_id%TYPE,
-                       p_sls_cls_cd     IN custm_seg_mstr.sls_cls_cd%TYPE,
-                       p_veh_id         IN custm_seg_mstr.veh_id%TYPE,
-                       p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
-                       p_sku_id         IN dly_bilng_trnd.sku_id%TYPE)
-    RETURN custm_seg_mstr.rul_nm%TYPE;
-
-  FUNCTION get_r_factor(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                        p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                        p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                        p_offst_lbl_id   IN custm_seg_mstr.offst_lbl_id%TYPE,
-                        p_catgry_id      IN custm_seg_mstr.catgry_id%TYPE,
-                        p_sls_cls_cd     IN custm_seg_mstr.sls_cls_cd%TYPE,
-                        p_veh_id         IN custm_seg_mstr.veh_id%TYPE,
-                        p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
-                        p_sku_id         IN dly_bilng_trnd.sku_id%TYPE)
-    RETURN custm_rul_perd.r_factor%TYPE;
-
-  FUNCTION get_use_estimate(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                            p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                            p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                            p_offst_lbl_id   IN custm_seg_mstr.offst_lbl_id%TYPE,
-                            p_catgry_id      IN custm_seg_mstr.catgry_id%TYPE,
-                            p_sls_cls_cd     IN custm_seg_mstr.sls_cls_cd%TYPE,
-                            p_veh_id         IN custm_seg_mstr.veh_id%TYPE,
-                            p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
-                            p_sku_id         IN dly_bilng_trnd.sku_id%TYPE)
-    RETURN custm_rul_perd.use_estimate%TYPE;
-
-  FUNCTION get_period_list(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                           p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                           p_offst_lbl_id   IN custm_seg_mstr.offst_lbl_id%TYPE,
-                           p_catgry_id      IN custm_seg_mstr.catgry_id%TYPE,
-                           p_sls_cls_cd     IN custm_seg_mstr.sls_cls_cd%TYPE,
-                           p_veh_id         IN custm_seg_mstr.veh_id%TYPE,
-                           p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
-                           p_sku_id         IN dly_bilng_trnd.sku_id%TYPE)
-    RETURN custm_rul_perd.period_list%TYPE;
+  FUNCTION get_rule_attr(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                         p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                         p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                         p_offst_lbl_id   IN custm_seg_mstr.offst_lbl_id%TYPE,
+                         p_catgry_id      IN custm_seg_mstr.catgry_id%TYPE,
+                         p_sls_cls_cd     IN custm_seg_mstr.sls_cls_cd%TYPE,
+                         p_veh_id         IN custm_seg_mstr.veh_id%TYPE,
+                         p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
+                         p_sku_id         IN dly_bilng_trnd.sku_id%TYPE,
+                         p_attr_nm        IN VARCHAR2)
+    RETURN VARCHAR2;
 
   FUNCTION get_trend_alloc_head_view(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
                                      p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,

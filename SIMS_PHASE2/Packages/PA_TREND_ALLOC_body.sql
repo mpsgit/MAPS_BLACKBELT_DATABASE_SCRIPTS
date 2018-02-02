@@ -443,24 +443,35 @@ create or replace PACKAGE BODY pa_trend_alloc AS
     RETURN l_periods;
   END get_periods;
 
-  -- get_rule_nm
-  FUNCTION get_rule_nm(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                       p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                       p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                       p_offst_lbl_id   IN custm_seg_mstr.offst_lbl_id%TYPE,
-                       p_catgry_id      IN custm_seg_mstr.catgry_id%TYPE,
-                       p_sls_cls_cd     IN custm_seg_mstr.sls_cls_cd%TYPE,
-                       p_veh_id         IN custm_seg_mstr.veh_id%TYPE,
-                       p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
-                       p_sku_id         IN dly_bilng_trnd.sku_id%TYPE)
-    RETURN custm_seg_mstr.rul_nm%TYPE
+  -- get_rule_attr
+  FUNCTION get_rule_attr(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                         p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                         p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                         p_offst_lbl_id   IN custm_seg_mstr.offst_lbl_id%TYPE,
+                         p_catgry_id      IN custm_seg_mstr.catgry_id%TYPE,
+                         p_sls_cls_cd     IN custm_seg_mstr.sls_cls_cd%TYPE,
+                         p_veh_id         IN custm_seg_mstr.veh_id%TYPE,
+                         p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
+                         p_sku_id         IN dly_bilng_trnd.sku_id%TYPE,
+                         p_attr_nm        IN VARCHAR2)
+    RETURN VARCHAR2
     IS
     -- local variables
-    l_rul_nm  custm_rul_mstr.rul_nm%TYPE;
+    l_rul_attr VARCHAR2(2048);
   BEGIN
     BEGIN
-      SELECT rul_nm
-        INTO l_rul_nm
+      SELECT CASE
+               WHEN p_attr_nm = 'rul_id' THEN CAST(rul_id as varchar2(2048))
+               WHEN p_attr_nm = 'rul_nm' THEN CAST(rul_nm as varchar2(2048))
+               WHEN p_attr_nm = 'sku_list' THEN CAST(sku_list as varchar2(2048))
+               WHEN p_attr_nm = 'prirty' THEN CAST(prirty as varchar2(2048))
+               WHEN p_attr_nm = 'period_list' THEN CAST(period_list as varchar2(2048))
+               WHEN p_attr_nm = 'r_factor' THEN CAST(NVL(r_factor, r_factor_manual) as varchar2(2048))
+               WHEN p_attr_nm = 'cash_value' THEN CAST(cash_value as varchar2(2048))
+               WHEN p_attr_nm = 'use_estimate' THEN CAST(use_estimate as varchar2(2048))
+               ELSE NULL
+             END
+        INTO l_rul_attr
         FROM (SELECT rul_id,
                      rul_nm,
                      offst_lbl_id,
@@ -524,7 +535,8 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                          AND ms.rul_id = s.rul_id(+)
                          AND p_campgn_perd_id = s.campgn_perd_id(+)
                          AND p_sls_typ_id = s.sls_typ_id(+))
-               WHERE nvl(p_offst_lbl_id, -1) = nvl(offst_lbl_id(+), nvl(p_offst_lbl_id, -1))
+               WHERE prirty IS NOT NULL
+                 AND nvl(p_offst_lbl_id, -1) = nvl(offst_lbl_id(+), nvl(p_offst_lbl_id, -1))
                  AND nvl(p_catgry_id, -1) = nvl(catgry_id(+), nvl(p_catgry_id, -1))
                  AND nvl(p_sls_cls_cd, '-1') = nvl(sls_cls_cd(+), nvl(p_sls_cls_cd, '-1'))
                  AND nvl(p_veh_id, -1) = nvl(veh_id(+), nvl(p_veh_id, -1))
@@ -533,299 +545,11 @@ create or replace PACKAGE BODY pa_trend_alloc AS
        WHERE primary_rule = 1;
     EXCEPTION
       WHEN OTHERS THEN
-        l_rul_nm := NULL;
+        l_rul_attr := NULL;
     END;
     --
-    RETURN l_rul_nm;
-  END get_rule_nm;
-
-  -- get_r_factor
-  FUNCTION get_r_factor(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                        p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                        p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                        p_offst_lbl_id   IN custm_seg_mstr.offst_lbl_id%TYPE,
-                        p_catgry_id      IN custm_seg_mstr.catgry_id%TYPE,
-                        p_sls_cls_cd     IN custm_seg_mstr.sls_cls_cd%TYPE,
-                        p_veh_id         IN custm_seg_mstr.veh_id%TYPE,
-                        p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
-                        p_sku_id         IN dly_bilng_trnd.sku_id%TYPE)
-    RETURN custm_rul_perd.r_factor%TYPE
-    IS
-    -- local variables
-    l_r_factor  custm_rul_perd.r_factor%TYPE;
-  BEGIN
-    BEGIN
-      SELECT nvl(r_factor, r_factor_manual)
-        INTO l_r_factor
-        FROM (SELECT rul_id,
-                     rul_nm,
-                     offst_lbl_id,
-                     catgry_id,
-                     sls_cls_cd,
-                     veh_id,
-                     perd_part,
-                     sku_list,
-                     prirty,
-                     period_list,
-                     r_factor,
-                     r_factor_manual,
-                     cash_value,
-                     use_estimate,
-                     row_number() OVER(ORDER BY prirty, rul_id) AS primary_rule
-                FROM (SELECT rm.rul_id,
-                             rm.rul_nm,
-                             CAST(NULL AS NUMBER) offst_lbl_id,
-                             CAST(NULL AS NUMBER) catgry_id,
-                             CAST(NULL AS NUMBER) sls_cls_cd,
-                             CAST(NULL AS NUMBER) veh_id,
-                             CAST(NULL AS NUMBER) perd_part,
-                             listagg(rs.sku_id, ',') within GROUP(ORDER BY rs.sku_id) sku_list,
-                             0 prirty,
-                             r.period_list,
-                             r.r_factor,
-                             r.r_factor_manual,
-                             r.cash_value,
-                             upper(r.use_estimate) use_estimate
-                        FROM custm_rul_mstr     rm,
-                             custm_rul_perd     r,
-                             custm_rul_sku_list rs
-                       WHERE rm.mrkt_id = p_mrkt_id
-                         AND r.campgn_perd_id = p_campgn_perd_id
-                         AND rm.rul_id = rs.rul_id
-                         AND rm.rul_id = r.rul_id
-                       GROUP BY rm.rul_id,
-                                rm.rul_nm,
-                                r.period_list,
-                                r.r_factor,
-                                r.r_factor_manual,
-                                r.cash_value,
-                                upper(r.use_estimate)
-                      UNION
-                      SELECT ms.rul_id,
-                             ms.rul_nm,
-                             ms.offst_lbl_id,
-                             ms.catgry_id,
-                             ms.sls_cls_cd,
-                             ms.veh_id,
-                             ms.perd_part,
-                             CAST(NULL AS VARCHAR(2048)) sku_list,
-                             nvl(s.prirty, 9999) prirty,
-                             s.period_list,
-                             s.r_factor,
-                             s.r_factor_manual,
-                             s.cash_value,
-                             upper(s.use_estimate) use_estimate
-                        FROM custm_seg_mstr ms, custm_seg_perd s
-                       WHERE ms.mrkt_id = p_mrkt_id
-                         AND ms.rul_id = s.rul_id(+)
-                         AND p_campgn_perd_id = s.campgn_perd_id(+)
-                         AND p_sls_typ_id = s.sls_typ_id(+))
-               WHERE nvl(p_offst_lbl_id, -1) = nvl(offst_lbl_id(+), nvl(p_offst_lbl_id, -1))
-                 AND nvl(p_catgry_id, -1) = nvl(catgry_id(+), nvl(p_catgry_id, -1))
-                 AND nvl(p_sls_cls_cd, '-1') = nvl(sls_cls_cd(+), nvl(p_sls_cls_cd, '-1'))
-                 AND nvl(p_veh_id, -1) = nvl(veh_id(+), nvl(p_veh_id, -1))
-                 AND nvl(p_perd_part, -1) = nvl(perd_part(+), nvl(p_perd_part, -1))
-                 AND instr(nvl(sku_list(+), nvl(p_sku_id, '-1')), nvl(p_sku_id, '-1')) > 0)
-       WHERE primary_rule = 1;
-    EXCEPTION
-      WHEN OTHERS THEN
-        l_r_factor := NULL;
-    END;
-    --
-    RETURN l_r_factor;
-  END get_r_factor;
-
-  -- get_use_estimate
-  FUNCTION get_use_estimate(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                            p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                            p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                            p_offst_lbl_id   IN custm_seg_mstr.offst_lbl_id%TYPE,
-                            p_catgry_id      IN custm_seg_mstr.catgry_id%TYPE,
-                            p_sls_cls_cd     IN custm_seg_mstr.sls_cls_cd%TYPE,
-                            p_veh_id         IN custm_seg_mstr.veh_id%TYPE,
-                            p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
-                            p_sku_id         IN dly_bilng_trnd.sku_id%TYPE)
-    RETURN custm_rul_perd.use_estimate%TYPE
-    IS
-    -- local variables
-    l_use_estimate  custm_rul_mstr.rul_nm%TYPE;
-  BEGIN
-    BEGIN
-      SELECT use_estimate
-        INTO l_use_estimate
-        FROM (SELECT rul_id,
-                     rul_nm,
-                     offst_lbl_id,
-                     catgry_id,
-                     sls_cls_cd,
-                     veh_id,
-                     perd_part,
-                     sku_list,
-                     prirty,
-                     period_list,
-                     r_factor,
-                     r_factor_manual,
-                     cash_value,
-                     use_estimate,
-                     row_number() OVER(ORDER BY prirty) AS primary_rule
-                FROM (SELECT rm.rul_id,
-                             rm.rul_nm,
-                             CAST(NULL AS NUMBER) offst_lbl_id,
-                             CAST(NULL AS NUMBER) catgry_id,
-                             CAST(NULL AS NUMBER) sls_cls_cd,
-                             CAST(NULL AS NUMBER) veh_id,
-                             CAST(NULL AS NUMBER) perd_part,
-                             listagg(rs.sku_id, ',') within GROUP(ORDER BY rs.sku_id) sku_list,
-                             0 prirty,
-                             r.period_list,
-                             r.r_factor,
-                             r.r_factor_manual,
-                             r.cash_value,
-                             upper(r.use_estimate) use_estimate
-                        FROM custm_rul_mstr     rm,
-                             custm_rul_perd     r,
-                             custm_rul_sku_list rs
-                       WHERE rm.mrkt_id = p_mrkt_id
-                         AND r.campgn_perd_id = p_campgn_perd_id
-                         AND rm.rul_id = rs.rul_id
-                         AND rm.rul_id = r.rul_id
-                       GROUP BY rm.rul_id,
-                                rm.rul_nm,
-                                r.period_list,
-                                r.r_factor,
-                                r.r_factor_manual,
-                                r.cash_value,
-                                upper(r.use_estimate)
-                      UNION
-                      SELECT ms.rul_id,
-                             ms.rul_nm,
-                             ms.offst_lbl_id,
-                             ms.catgry_id,
-                             ms.sls_cls_cd,
-                             ms.veh_id,
-                             ms.perd_part,
-                             CAST(NULL AS VARCHAR(2048)) sku_list,
-                             nvl(s.prirty, 9999) prirty,
-                             s.period_list,
-                             s.r_factor,
-                             s.r_factor_manual,
-                             s.cash_value,
-                             upper(s.use_estimate) use_estimate
-                        FROM custm_seg_mstr ms, custm_seg_perd s
-                       WHERE ms.mrkt_id = p_mrkt_id
-                         AND ms.rul_id = s.rul_id(+)
-                         AND p_campgn_perd_id = s.campgn_perd_id(+)
-                         AND p_sls_typ_id = s.sls_typ_id(+))
-               WHERE nvl(p_offst_lbl_id, -1) = nvl(offst_lbl_id(+), nvl(p_offst_lbl_id, -1))
-                 AND nvl(p_catgry_id, -1) = nvl(catgry_id(+), nvl(p_catgry_id, -1))
-                 AND nvl(p_sls_cls_cd, '-1') = nvl(sls_cls_cd(+), nvl(p_sls_cls_cd, '-1'))
-                 AND nvl(p_veh_id, -1) = nvl(veh_id(+), nvl(p_veh_id, -1))
-                 AND nvl(p_perd_part, -1) = nvl(perd_part(+), nvl(p_perd_part, -1))
-                 AND instr(nvl(sku_list(+), nvl(p_sku_id, '-1')), nvl(p_sku_id, '-1')) > 0)
-       WHERE primary_rule = 1;
-    EXCEPTION
-      WHEN OTHERS THEN
-        l_use_estimate := NULL;
-    END;
-    --
-    RETURN l_use_estimate;
-  END get_use_estimate;
-
-  -- get_period_list
-  FUNCTION get_period_list(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                           p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                           p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                           p_offst_lbl_id   IN custm_seg_mstr.offst_lbl_id%TYPE,
-                           p_catgry_id      IN custm_seg_mstr.catgry_id%TYPE,
-                           p_sls_cls_cd     IN custm_seg_mstr.sls_cls_cd%TYPE,
-                           p_veh_id         IN custm_seg_mstr.veh_id%TYPE,
-                           p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
-                           p_sku_id         IN dly_bilng_trnd.sku_id%TYPE)
-    RETURN custm_rul_perd.period_list%TYPE
-    IS
-    -- local variables
-    l_period_list  custm_rul_perd.period_list%TYPE;
-  BEGIN
-    BEGIN
-      SELECT period_list
-        INTO l_period_list
-        FROM (SELECT rul_id,
-                     rul_nm,
-                     offst_lbl_id,
-                     catgry_id,
-                     sls_cls_cd,
-                     veh_id,
-                     perd_part,
-                     sku_list,
-                     prirty,
-                     period_list,
-                     r_factor,
-                     r_factor_manual,
-                     cash_value,
-                     use_estimate,
-                     row_number() OVER(ORDER BY prirty) AS primary_rule
-                FROM (SELECT rm.rul_id,
-                             rm.rul_nm,
-                             CAST(NULL AS NUMBER) offst_lbl_id,
-                             CAST(NULL AS NUMBER) catgry_id,
-                             CAST(NULL AS NUMBER) sls_cls_cd,
-                             CAST(NULL AS NUMBER) veh_id,
-                             CAST(NULL AS NUMBER) perd_part,
-                             listagg(rs.sku_id, ',') within GROUP(ORDER BY rs.sku_id) sku_list,
-                             0 prirty,
-                             r.period_list,
-                             r.r_factor,
-                             r.r_factor_manual,
-                             r.cash_value,
-                             upper(r.use_estimate) use_estimate
-                        FROM custm_rul_mstr     rm,
-                             custm_rul_perd     r,
-                             custm_rul_sku_list rs
-                       WHERE rm.mrkt_id = p_mrkt_id
-                         AND r.campgn_perd_id = p_campgn_perd_id
-                         AND rm.rul_id = rs.rul_id
-                         AND rm.rul_id = r.rul_id
-                       GROUP BY rm.rul_id,
-                                rm.rul_nm,
-                                r.period_list,
-                                r.r_factor,
-                                r.r_factor_manual,
-                                r.cash_value,
-                                upper(r.use_estimate)
-                      UNION
-                      SELECT ms.rul_id,
-                             ms.rul_nm,
-                             ms.offst_lbl_id,
-                             ms.catgry_id,
-                             ms.sls_cls_cd,
-                             ms.veh_id,
-                             ms.perd_part,
-                             CAST(NULL AS VARCHAR(2048)) sku_list,
-                             nvl(s.prirty, 9999) prirty,
-                             s.period_list,
-                             s.r_factor,
-                             s.r_factor_manual,
-                             s.cash_value,
-                             upper(s.use_estimate) use_estimate
-                        FROM custm_seg_mstr ms, custm_seg_perd s
-                       WHERE ms.mrkt_id = p_mrkt_id
-                         AND ms.rul_id = s.rul_id(+)
-                         AND p_campgn_perd_id = s.campgn_perd_id(+)
-                         AND p_sls_typ_id = s.sls_typ_id(+))
-               WHERE nvl(p_offst_lbl_id, -1) = nvl(offst_lbl_id(+), nvl(p_offst_lbl_id, -1))
-                 AND nvl(p_catgry_id, -1) = nvl(catgry_id(+), nvl(p_catgry_id, -1))
-                 AND nvl(p_sls_cls_cd, '-1') = nvl(sls_cls_cd(+), nvl(p_sls_cls_cd, '-1'))
-                 AND nvl(p_veh_id, -1) = nvl(veh_id(+), nvl(p_veh_id, -1))
-                 AND nvl(p_perd_part, -1) = nvl(perd_part(+), nvl(p_perd_part, -1))
-                 AND instr(nvl(sku_list(+), nvl(p_sku_id, '-1')), nvl(p_sku_id, '-1')) > 0)
-       WHERE primary_rule = 1;
-    EXCEPTION
-      WHEN OTHERS THEN
-        l_period_list := NULL;
-    END;
-    --
-    RETURN l_period_list;
-  END get_period_list;
+    RETURN l_rul_attr;
+  END get_rule_attr;
 
   -- get_bi24
   FUNCTION get_bi24(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
@@ -2436,16 +2160,7 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                     1) bi24_adj,
                 -- FSC
                 sct_fsc_ovrrd.sct_unit_qty,
-                get_rule_nm(p_mrkt_id,
-                            p_sls_perd_id,
-                            p_sls_typ_id,
-                            dbt.offst_lbl_id,
-                            prfl.catgry_id,
-                            offr_prfl_prc_point.sls_cls_cd,
-                            offr.veh_id,
-                            dbt.perd_part,
-                            dbt.sku_id) rul_nm,
-                 get_r_factor(p_mrkt_id,
+                get_rule_attr(p_mrkt_id,
                               p_sls_perd_id,
                               p_sls_typ_id,
                               dbt.offst_lbl_id,
@@ -2453,7 +2168,18 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                               offr_prfl_prc_point.sls_cls_cd,
                               offr.veh_id,
                               dbt.perd_part,
-                              dbt.sku_id)  r_factor
+                              dbt.sku_id,
+                              'rul_nm') rul_nm,
+                 get_rule_attr(p_mrkt_id,
+                               p_sls_perd_id,
+                               p_sls_typ_id,
+                               dbt.offst_lbl_id,
+                               prfl.catgry_id,
+                               offr_prfl_prc_point.sls_cls_cd,
+                               offr.veh_id,
+                               dbt.perd_part,
+                               dbt.sku_id,
+                               'r_factor')  r_factor
                  FROM dbt,
                       sct_fsc_ovrrd,
                       dly_bilng_trnd_offr_sku_line,
@@ -2620,24 +2346,26 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                      offr_prfl_prc_point.nr_for_qty,
                      offr_prfl_prc_point.net_to_avon_fct,
                      sfo.fsc_cd,
-                     get_rule_nm(p_mrkt_id,
-                                 p_sls_perd_id,
-                                 p_sls_typ_id,
-                                 tc_fc_dbt.offst_lbl_id,
-                                 prfl.catgry_id,
-                                 offr_prfl_prc_point.sls_cls_cd,
-                                 offr.veh_id,
-                                 NULL,
-                                 offr_sku_line.sku_id) rul_nm,
-                     get_r_factor(p_mrkt_id,
-                                  p_sls_perd_id,
-                                  p_sls_typ_id,
-                                  tc_fc_dbt.offst_lbl_id,
-                                  prfl.catgry_id,
-                                  offr_prfl_prc_point.sls_cls_cd,
-                                  offr.veh_id,
-                                  NULL,
-                                  offr_sku_line.sku_id)  r_factor
+                     get_rule_attr(p_mrkt_id,
+                                   p_sls_perd_id,
+                                   p_sls_typ_id,
+                                   tc_fc_dbt.offst_lbl_id,
+                                   prfl.catgry_id,
+                                   offr_prfl_prc_point.sls_cls_cd,
+                                   offr.veh_id,
+                                   NULL,
+                                   offr_sku_line.sku_id,
+                                   'rul_nm') rul_nm,
+                     get_rule_attr(p_mrkt_id,
+                                   p_sls_perd_id,
+                                   p_sls_typ_id,
+                                   tc_fc_dbt.offst_lbl_id,
+                                   prfl.catgry_id,
+                                   offr_prfl_prc_point.sls_cls_cd,
+                                   offr.veh_id,
+                                   NULL,
+                                   offr_sku_line.sku_id,
+                                   'r_factor')  r_factor
                 FROM dstrbtd_mrkt_sls,
                      (SELECT sct_fsc_ovrrd.mrkt_id,
                              sct_fsc_ovrrd.sls_perd_id,
@@ -2981,33 +2709,36 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                      offr_prfl_prc_point.nr_for_qty,
                      offr_prfl_prc_point.net_to_avon_fct,
                      nvl(mrkt_tmp_fsc_master.fsc_cd, mrkt_tmp_fsc.fsc_cd) fsc_cd,
-                     get_rule_nm(p_mrkt_id,
-                                 p_sls_perd_id,
-                                 p_sls_typ_id,
-                                 tc_fc_dbt.offst_lbl_id,
-                                 prfl.catgry_id,
-                                 offr_prfl_prc_point.sls_cls_cd,
-                                 offr.veh_id,
-                                 NULL,
-                                 offr_sku_line.sku_id) rul_nm,
-                     get_r_factor(p_mrkt_id,
-                                  p_sls_perd_id,
-                                  p_sls_typ_id,
-                                  tc_fc_dbt.offst_lbl_id,
-                                  prfl.catgry_id,
-                                  offr_prfl_prc_point.sls_cls_cd,
-                                  offr.veh_id,
-                                  NULL,
-                                  offr_sku_line.sku_id) r_factor,
-                     get_use_estimate(p_mrkt_id,
-                                      p_sls_perd_id,
-                                      p_sls_typ_id,
-                                      tc_fc_dbt.offst_lbl_id,
-                                      prfl.catgry_id,
-                                      offr_prfl_prc_point.sls_cls_cd,
-                                      offr.veh_id,
-                                      NULL,
-                                      offr_sku_line.sku_id) use_estimate
+                     get_rule_attr(p_mrkt_id,
+                                   p_sls_perd_id,
+                                   p_sls_typ_id,
+                                   tc_fc_dbt.offst_lbl_id,
+                                   prfl.catgry_id,
+                                   offr_prfl_prc_point.sls_cls_cd,
+                                   offr.veh_id,
+                                   NULL,
+                                   offr_sku_line.sku_id,
+                                   'rul_nm') rul_nm,
+                     get_rule_attr(p_mrkt_id,
+                                   p_sls_perd_id,
+                                   p_sls_typ_id,
+                                   tc_fc_dbt.offst_lbl_id,
+                                   prfl.catgry_id,
+                                   offr_prfl_prc_point.sls_cls_cd,
+                                   offr.veh_id,
+                                   NULL,
+                                   offr_sku_line.sku_id,
+                                   'r_factor') r_factor,
+                     get_rule_attr(p_mrkt_id,
+                                   p_sls_perd_id,
+                                   p_sls_typ_id,
+                                   tc_fc_dbt.offst_lbl_id,
+                                   prfl.catgry_id,
+                                   offr_prfl_prc_point.sls_cls_cd,
+                                   offr.veh_id,
+                                   NULL,
+                                   offr_sku_line.sku_id,
+                                   'use_estimate') use_estimate
                 FROM dstrbtd_mrkt_sls,
                      (WITH dbt AS (SELECT /*+ INDEX(DLY_BILNG_TRND INDEX_DLY_BILNG_TRND_M_S) */
                                           dly_bilng_trnd.dly_bilng_id
@@ -3305,24 +3036,26 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                      nvl(offr_prfl_prc_point.net_to_avon_fct, 0) AS net_to_avon_fct,
                      tc_fc_dms.sls_typ_lbl_id,
                      nvl(tc_fc_dms.r_factor, 1) AS tc_fc_dms_r_factor,
-                     get_rule_nm(p_mrkt_id,
-                                 p_sls_perd_id,
-                                 p_sls_typ_id,
-                                 tc_fc_dms.offst_lbl_id,
-                                 prfl.catgry_id,
-                                 offr_prfl_prc_point.sls_cls_cd,
-                                 offr.veh_id,
-                                 NULL,
-                                 offr_sku_line.sku_id) rul_nm,
-                     get_r_factor(p_mrkt_id,
-                                  p_sls_perd_id,
-                                  p_sls_typ_id,
-                                  tc_fc_dms.offst_lbl_id,
-                                  prfl.catgry_id,
-                                  offr_prfl_prc_point.sls_cls_cd,
-                                  offr.veh_id,
-                                  NULL,
-                                  offr_sku_line.sku_id) r_factor
+                     get_rule_attr(p_mrkt_id,
+                                   p_sls_perd_id,
+                                   p_sls_typ_id,
+                                   tc_fc_dms.offst_lbl_id,
+                                   prfl.catgry_id,
+                                   offr_prfl_prc_point.sls_cls_cd,
+                                   offr.veh_id,
+                                   NULL,
+                                   offr_sku_line.sku_id,
+                                   'rul_nm') rul_nm,
+                     get_rule_attr(p_mrkt_id,
+                                   p_sls_perd_id,
+                                   p_sls_typ_id,
+                                   tc_fc_dms.offst_lbl_id,
+                                   prfl.catgry_id,
+                                   offr_prfl_prc_point.sls_cls_cd,
+                                   offr.veh_id,
+                                   NULL,
+                                   offr_sku_line.sku_id,
+                                   'r_factor') r_factor
                 FROM dstrbtd_mrkt_sls,
                      offr_sku_line,
                      offr_prfl_prc_point,
@@ -3535,27 +3268,29 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                        isselected,
                        SUM(units) units,
                        SUM(sales) sales
-                  FROM (SELECT get_rule_nm(p_mrkt_id,
-                                           p_campgn_perd_id,
-                                           p_sls_typ_id,
-                                           offst_lbl_id,
-                                           catgry_id,
-                                           sls_cls_cd,
-                                           veh_id,
-                                           perd_part,
-                                           sku_id) rul_nm,
+                  FROM (SELECT get_rule_attr(p_mrkt_id,
+                                             p_campgn_perd_id,
+                                             p_sls_typ_id,
+                                             offst_lbl_id,
+                                             catgry_id,
+                                             sls_cls_cd,
+                                             veh_id,
+                                             perd_part,
+                                             sku_id,
+                                             'rul_nm') rul_nm,
                                p_campgn_perd_id sls_perd_id,
                                p_bilng_day bilng_day,
                                CASE
-                                 WHEN instr(get_period_list(p_mrkt_id,
-                                                            p_campgn_perd_id,
-                                                            p_sls_typ_id,
-                                                            offst_lbl_id,
-                                                            catgry_id,
-                                                            sls_cls_cd,
-                                                            veh_id,
-                                                            perd_part,
-                                                            sku_id), p_campgn_perd_id) > 0 THEN
+                                 WHEN instr(get_rule_attr(p_mrkt_id,
+                                                          p_campgn_perd_id,
+                                                          p_sls_typ_id,
+                                                          offst_lbl_id,
+                                                          catgry_id,
+                                                          sls_cls_cd,
+                                                          veh_id,
+                                                          perd_part,
+                                                          sku_id,
+                                                          'period_list'), p_campgn_perd_id) > 0 THEN
                                   'Y'
                                  ELSE
                                   'N'
