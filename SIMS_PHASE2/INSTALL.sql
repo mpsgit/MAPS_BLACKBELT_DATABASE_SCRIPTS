@@ -43,7 +43,8 @@
 @@Tables/CUSTM_SEG_PERD.sql
 @@Tables/MRKT_PERD_PARTS.sql
 @@Tables/MRKT_TRND_SLS_PERD_SLS_TYP.sql
-@@Tables/MAPS_MENU_ITEM.sql
+@@Tables/MRKT_PERD_THROW_FORWRD_PRCT.sql
+@@Tables/TEMP_CONFIG.sql
 -----------------------------------------------
 -- "OLD" version of tables has to be dropped --
 -----------------------------------------------
@@ -54,6 +55,10 @@ drop table TREND_ALLOC_HIST_DTLS_LOG cascade constraints;
 -----------------------------------------------
 @@Tables/TREND_ALLOC_HIST_DTLS.sql
 @@Tables/TREND_ALLOC_HIST_DTLS_LOG.sql
+/*
+@@Tables/TA_DICT.sql
+@@Tables/TA_CONFIG.sql
+*/
 ----------------------------------
 -- alter table      TA_DICT     -- 
 ----------------------------------

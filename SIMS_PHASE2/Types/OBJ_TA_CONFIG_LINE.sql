@@ -9,7 +9,8 @@ create or replace type OBJ_TA_CONFIG_LINE FORCE as object
   TRGT_SLS_PERD_ID  number,
   SRC_OFFR_PERD_ID  number,
   TRGT_OFFR_PERD_ID number,
-  R_FACTOR          number
+  R_FACTOR          number,
+  SLS_TYP_GRP_NM    varchar2(20 byte)
 );
 /
 show error

@@ -178,6 +178,15 @@ create or replace PACKAGE pa_trend_alloc AS
     RETURN obj_ta_config_table
     PIPELINED;
 
+  FUNCTION get_rules(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                     p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                     p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                     p_bilng_day      IN dly_bilng_trnd.prcsng_dt%TYPE,
+                     p_user_id        IN VARCHAR2 DEFAULT NULL,
+                     p_run_id         IN NUMBER DEFAULT NULL)
+    RETURN obj_pa_trend_alloc_rules_table
+    PIPELINED;
+
   FUNCTION get_rule_attr(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
                          p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
                          p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
@@ -187,7 +196,7 @@ create or replace PACKAGE pa_trend_alloc AS
                          p_veh_id         IN custm_seg_mstr.veh_id%TYPE,
                          p_perd_part      IN custm_seg_mstr.perd_part%TYPE,
                          p_sku_id         IN dly_bilng_trnd.sku_id%TYPE,
-                         p_attr_nm        IN VARCHAR2)
+                         p_attr_nm        IN VARCHAR2) 
     RETURN VARCHAR2;
 
   FUNCTION get_trend_alloc_head_view(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
@@ -208,18 +217,6 @@ create or replace PACKAGE pa_trend_alloc AS
     RETURN obj_pa_trend_alloc_hist_hd_tbl
     PIPELINED;
 
-  FUNCTION get_trend_alloc_re_proc_rule(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                                        p_campgn_perd_id       IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                                        p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                                        p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
-                                        p_cash_value           IN NUMBER DEFAULT NULL,
-                                        p_r_factor             IN NUMBER DEFAULT NULL,
-                                        p_use_offers_on_sched  IN CHAR DEFAULT 'N',
-                                        p_use_offers_off_sched IN CHAR DEFAULT 'N',
-                                        p_user_id              IN VARCHAR2 DEFAULT NULL)
-    RETURN obj_pa_trend_alloc_sgmnt_table
-    PIPELINED;
-
   FUNCTION get_trend_alloc_hist_dtls(p_mrkt_id      IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
                                      p_sls_perd_id  IN dly_bilng_trnd.trnd_sls_perd_id%TYPE,
                                      p_trg_perd_id  IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
@@ -230,13 +227,16 @@ create or replace PACKAGE pa_trend_alloc AS
     RETURN obj_pa_trend_alloc_hist_dt_tbl
     PIPELINED;
 
-  FUNCTION get_rules(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
-                     p_campgn_perd_id IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
-                     p_sls_typ_id     IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
-                     p_bilng_day      IN dly_bilng_trnd.prcsng_dt%TYPE,
-                     p_user_id        IN VARCHAR2 DEFAULT NULL,
-                     p_run_id         IN NUMBER DEFAULT NULL)
-    RETURN obj_pa_trend_alloc_rules_table
+  FUNCTION get_trend_alloc_re_proc_rule(p_mrkt_id              IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
+                                        p_campgn_perd_id       IN dstrbtd_mrkt_sls.sls_perd_id%TYPE,
+                                        p_sls_typ_id           IN dstrbtd_mrkt_sls.sls_typ_id%TYPE,
+                                        p_bilng_day            IN dly_bilng_trnd.prcsng_dt%TYPE,
+                                        p_cash_value           IN NUMBER DEFAULT NULL,
+                                        p_r_factor             IN NUMBER DEFAULT NULL,
+                                        p_use_offers_on_sched  IN CHAR DEFAULT 'N',
+                                        p_use_offers_off_sched IN CHAR DEFAULT 'N',
+                                        p_user_id              IN VARCHAR2 DEFAULT NULL)
+    RETURN obj_pa_trend_alloc_sgmnt_table
     PIPELINED;
 
   FUNCTION get_trend_alloc_resegment(p_mrkt_id        IN dstrbtd_mrkt_sls.mrkt_id%TYPE,
@@ -310,10 +310,10 @@ create or replace PACKAGE pa_trend_alloc AS
   supply_bst_id    CONSTANT NUMBER := 104;
   supply_fst_id    CONSTANT NUMBER := 105;
   --
-  sc_est_day_0     CONSTANT NUMBER := 300;
-  sc_bst_day_0     CONSTANT NUMBER := 400;
-  bst_day_0        CONSTANT NUMBER := 500;
-  est_day_0        CONSTANT NUMBER := 600;
+  sc_est_day_0 CONSTANT NUMBER := 300;
+  sc_bst_day_0 CONSTANT NUMBER := 400;
+  bst_day_0    CONSTANT NUMBER := 500;
+  est_day_0    CONSTANT NUMBER := 600;
   -- auto status values
   auto_not_processed    CONSTANT NUMBER := 0;
   auto_excluded         CONSTANT NUMBER := 1;
