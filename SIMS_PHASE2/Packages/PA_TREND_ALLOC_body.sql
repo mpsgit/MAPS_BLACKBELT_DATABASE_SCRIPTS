@@ -2363,15 +2363,14 @@ create or replace PACKAGE BODY pa_trend_alloc AS
              NULL tax_amt
         BULK COLLECT
         INTO l_table_reproc_trnd_fsc_cd
-        FROM (SELECT dstrbtd_mrkt_sls.offr_sku_line_id,
-                     tc_fc_dbt.offst_lbl_id,
+        FROM (SELECT offr_sku_line.offr_sku_line_id,
+                     sfo.offst_lbl_id,
                      prfl.catgry_id,
                      offr_prfl_prc_point.sls_cls_cd,
                      offr.veh_id,
                      NULL AS perd_part,
                      offr_sku_line.sku_id,
-                     tc_fc_dbt.sls_typ_lbl_id,
-                     tc_fc_dbt.lbl_desc,
+                     sfo.sls_typ_lbl_id,
                      sfo.sct_unit_qty AS unit_qty,
                      offr_prfl_prc_point.sls_prc_amt,
                      offr_prfl_prc_point.nr_for_qty,
@@ -2380,7 +2379,7 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                      get_rule_attr(p_mrkt_id,
                                    p_sls_perd_id,
                                    p_sls_typ_id,
-                                   tc_fc_dbt.offst_lbl_id,
+                                   sfo.offst_lbl_id,
                                    prfl.catgry_id,
                                    offr_prfl_prc_point.sls_cls_cd,
                                    offr.veh_id,
@@ -2390,72 +2389,20 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                      get_rule_attr(p_mrkt_id,
                                    p_sls_perd_id,
                                    p_sls_typ_id,
-                                   tc_fc_dbt.offst_lbl_id,
+                                   sfo.offst_lbl_id,
                                    prfl.catgry_id,
                                    offr_prfl_prc_point.sls_cls_cd,
                                    offr.veh_id,
                                    NULL,
                                    offr_sku_line.sku_id,
                                    'r_factor') r_factor
-                FROM dstrbtd_mrkt_sls,
-                     (SELECT sct_fsc_ovrrd.mrkt_id,
-                             sct_fsc_ovrrd.sls_perd_id,
-                             sct_fsc_ovrrd.sls_typ_id,
-                             sct_fsc_ovrrd.offst_lbl_id,
-                             sct_fsc_ovrrd.fsc_cd,
-                             nvl(mrkt_tmp_fsc_master.sku_id,
-                                 mrkt_tmp_fsc.sku_id) sku_id,
-                             sct_fsc_ovrrd.sct_unit_qty
-                        FROM sct_fsc_ovrrd,
-                             (SELECT mrkt_id, sku_id, fsc_cd
-                                FROM (SELECT mrkt_id,
-                                             sku_id,
-                                             to_number(mstr_fsc_cd) fsc_cd,
-                                             strt_perd_id from_strt_perd_id,
-                                             nvl(lead(strt_perd_id, 1)
-                                                 over(PARTITION BY mrkt_id,
-                                                      sku_id ORDER BY
-                                                      strt_perd_id),
-                                                 99999999) to_strt_perd_id
-                                        FROM mstr_fsc_asgnmt
-                                       WHERE p_mrkt_id = mrkt_id
-                                         AND l_trg_perd_id >= strt_perd_id)
-                               WHERE l_trg_perd_id >= from_strt_perd_id
-                                 AND l_trg_perd_id < to_strt_perd_id) mrkt_tmp_fsc_master,
-                             (SELECT mrkt_id, MAX(sku_id) sku_id, fsc_cd
-                                FROM (SELECT mrkt_id,
-                                             sku_id,
-                                             to_number(fsc_cd) fsc_cd,
-                                             strt_perd_id from_strt_perd_id,
-                                             nvl(lead(strt_perd_id, 1)
-                                                 over(PARTITION BY mrkt_id,
-                                                      fsc_cd ORDER BY
-                                                      strt_perd_id),
-                                                 99999999) to_strt_perd_id
-                                        FROM mrkt_fsc
-                                       WHERE p_mrkt_id = mrkt_id
-                                         AND l_trg_perd_id >= strt_perd_id
-                                         AND 'N' = dltd_ind)
-                               WHERE l_trg_perd_id >= from_strt_perd_id
-                                 AND l_trg_perd_id < to_strt_perd_id
-                               GROUP BY mrkt_id, fsc_cd) mrkt_tmp_fsc
-                       WHERE sct_fsc_ovrrd.mrkt_id = p_mrkt_id
-                         AND sct_fsc_ovrrd.sls_perd_id = l_trg_perd_id
-                         AND sct_fsc_ovrrd.sls_typ_id = p_sls_typ_id
-                            -- mrkt_tmp_fsc_master
-                         AND p_mrkt_id = mrkt_tmp_fsc_master.mrkt_id(+)
-                         AND sct_fsc_ovrrd.fsc_cd =
-                             mrkt_tmp_fsc_master.fsc_cd(+)
-                            -- mrkt_tmp_fsc
-                         AND p_mrkt_id = mrkt_tmp_fsc.mrkt_id(+)
-                         AND sct_fsc_ovrrd.fsc_cd = mrkt_tmp_fsc.fsc_cd(+)) sfo,
-                     (WITH dbt AS (SELECT /*+ INDEX(DLY_BILNG_TRND INDEX_DLY_BILNG_TRND_M_S) */
-                                    dly_bilng_trnd.dly_bilng_id
+                FROM (WITH dbt AS (SELECT /*+ INDEX(DLY_BILNG_TRND INDEX_DLY_BILNG_TRND_M_S) */
+                                          dly_bilng_trnd.dly_bilng_id,
+                                          dly_bilng_trnd.fsc_cd,
+                                          dly_bilng_trnd.sku_id,
+                                          tc_fc_dbt.sls_typ_lbl_id
                                      FROM dly_bilng_trnd,
-                                          (SELECT *
-                                             FROM temp_config
-                                            WHERE instr(c_sls_typ_grp_nm_fc_dbt,
-                                                        sls_typ_grp_nm) > 0) tc_fc_dbt
+                                          (SELECT * FROM temp_config WHERE instr(c_sls_typ_grp_nm_fc_dbt, sls_typ_grp_nm) > 0) tc_fc_dbt
                                     WHERE dly_bilng_trnd.mrkt_id = p_mrkt_id
                                       AND dly_bilng_trnd.trnd_sls_perd_id =
                                           tc_fc_dbt.src_sls_perd_id
@@ -2467,67 +2414,36 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                                           (auto_matched,
                                            auto_suggested_single,
                                            auto_suggested_multi))
-                       SELECT /*+ INDEX(DLY_BILNG_TRND_OFFR_SKU_LINE PK_DB_TRND_OFFR_SKU_LINE) */
-                       DISTINCT osl.offr_sku_line_id
-                         FROM dbt, dly_bilng_trnd_offr_sku_line osl
-                        WHERE dbt.dly_bilng_id = osl.dly_bilng_id
-                          AND osl.sls_typ_id = l_src_sls_typ_id) dbtosl, offr_sku_line, offr_prfl_prc_point, offr, sku, prfl, (SELECT tc.src_sls_typ_id,
-                                                                                                                                      tc.x_src_sls_typ_id,
-                                                                                                                                      tc.offst_lbl_id,
-                                                                                                                                      tc.sls_typ_lbl_id,
-                                                                                                                                      tc.x_sls_typ_lbl_id,
-                                                                                                                                      tc.src_sls_perd_id,
-                                                                                                                                      tc.trgt_sls_perd_id,
-                                                                                                                                      tc.src_offr_perd_id,
-                                                                                                                                      tc.trgt_offr_perd_id,
-                                                                                                                                      tc.r_factor,
-                                                                                                                                      upper(td.lbl_desc) AS lbl_desc
-                                                                                                                                 FROM (SELECT *
-                                                                                                                                         FROM temp_config
-                                                                                                                                        WHERE instr(c_sls_typ_grp_nm_fc_dbt,
-                                                                                                                                                    sls_typ_grp_nm) > 0) tc,
-                                                                                                                                      ta_dict td
-                                                                                                                                WHERE td.lbl_id =
-                                                                                                                                      tc.offst_lbl_id) tc_fc_dbt
-                        WHERE dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
-                          AND dstrbtd_mrkt_sls.sls_perd_id =
-                              tc_fc_dbt.trgt_sls_perd_id
-                          AND dstrbtd_mrkt_sls.offr_perd_id =
-                              tc_fc_dbt.trgt_offr_perd_id
-                             /* ORIGINAL where condition in
-                                  get_reproc_est 
-                             AND dstrbtd_mrkt_sls.sls_typ_id = tc_fc_dbt.x_src_sls_typ_id
-                             ------------------------------------------------------------
-                             but we need here the sls_typ_id = 6 (demand actual)
-                             OR 
-                             input paramter: p_sls_typ_id
-                             ------------------------------------------------------------
-                             */
-                          AND dstrbtd_mrkt_sls.sls_typ_id =
-                              tc_fc_dbt.src_sls_typ_id /* p_sls_typ_id */
-                          AND dstrbtd_mrkt_sls.offr_sku_line_id =
-                              offr_sku_line.offr_sku_line_id
-                          AND offr_sku_line.dltd_ind <> 'Y'
-                             --------------------------------------------------
-                             -- dms -> sfo
-                          AND dstrbtd_mrkt_sls.mrkt_id = sfo.mrkt_id
-                          AND dstrbtd_mrkt_sls.sls_perd_id = sfo.sls_perd_id
-                             /* AND dstrbtd_mrkt_sls.sls_typ_id = sfo.sls_typ_id */
-                             -- sfo -> tc_fc_dbt
-                          AND sfo.offst_lbl_id = tc_fc_dbt.offst_lbl_id
-                             -- sfo -> offr_sku_line
-                          AND sfo.sku_id = offr_sku_line.sku_id
-                             --------------------------------------------------
-                          AND offr_sku_line.offr_prfl_prcpt_id =
-                              offr_prfl_prc_point.offr_prfl_prcpt_id
-                          AND offr_prfl_prc_point.offr_id = offr.offr_id
-                          AND offr.offr_typ = 'CMP'
-                          AND offr.ver_id = 0
-                          AND offr_sku_line.sku_id = sku.sku_id(+)
-                          AND sku.prfl_cd = prfl.prfl_cd(+)
-                          AND offr_sku_line.offr_sku_line_id =
-                              dbtosl.offr_sku_line_id(+)
-                          AND dbtosl.offr_sku_line_id IS NULL
+                      SELECT DISTINCT
+                             sct_fsc_ovrrd.mrkt_id,
+                             sct_fsc_ovrrd.sls_perd_id,
+                             sct_fsc_ovrrd.sls_typ_id,
+                             sct_fsc_ovrrd.offst_lbl_id,
+                             sct_fsc_ovrrd.fsc_cd,
+                             sct_fsc_ovrrd.sct_unit_qty,
+                             dbt.sku_id,
+                             dbt.sls_typ_lbl_id
+                        FROM sct_fsc_ovrrd,
+                             dbt,
+                             dly_bilng_trnd_offr_sku_line osl
+                       WHERE sct_fsc_ovrrd.mrkt_id = p_mrkt_id
+                         AND sct_fsc_ovrrd.sls_perd_id = l_trg_perd_id
+                         AND sct_fsc_ovrrd.sls_typ_id = p_sls_typ_id
+                         AND sct_fsc_ovrrd.fsc_cd = dbt.fsc_cd
+                         AND dbt.dly_bilng_id = osl.dly_bilng_id
+                         AND osl.sls_typ_id = l_src_sls_typ_id
+                         AND osl.dly_bilng_id IS NULL) sfo,
+                     offr_sku_line, 
+                     offr_prfl_prc_point, 
+                     offr, sku, prfl
+               WHERE sfo.sku_id = offr_sku_line.sku_id
+                 AND offr_sku_line.offr_prfl_prcpt_id =
+                     offr_prfl_prc_point.offr_prfl_prcpt_id
+                 AND offr_prfl_prc_point.offr_id = offr.offr_id
+                 AND offr.offr_typ = 'CMP'
+                 AND offr.ver_id = 0
+                 AND offr_sku_line.sku_id = sku.sku_id(+)
+                 AND sku.prfl_cd = prfl.prfl_cd(+)
               ) x
        GROUP BY x.offr_sku_line_id,
                 x.rul_nm,
@@ -2646,7 +2562,6 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                      NULL AS perd_part,
                      offr_sku_line.sku_id,
                      tc_fc_dbt.sls_typ_lbl_id,
-                     tc_fc_dbt.lbl_desc,
                      dstrbtd_mrkt_sls.unit_qty,
                      offr_prfl_prc_point.sls_prc_amt,
                      offr_prfl_prc_point.nr_for_qty,
@@ -2705,101 +2620,92 @@ create or replace PACKAGE BODY pa_trend_alloc AS
                        DISTINCT osl.offr_sku_line_id
                          FROM dbt, dly_bilng_trnd_offr_sku_line osl
                         WHERE dbt.dly_bilng_id = osl.dly_bilng_id
-                          AND osl.sls_typ_id = l_src_sls_typ_id) dbtosl, offr_sku_line, offr_prfl_prc_point, offr, sku, prfl, (SELECT tc.src_sls_typ_id,
-                                                                                                                                      tc.x_src_sls_typ_id,
-                                                                                                                                      tc.offst_lbl_id,
-                                                                                                                                      tc.sls_typ_lbl_id,
-                                                                                                                                      tc.x_sls_typ_lbl_id,
-                                                                                                                                      tc.src_sls_perd_id,
-                                                                                                                                      tc.trgt_sls_perd_id,
-                                                                                                                                      tc.src_offr_perd_id,
-                                                                                                                                      tc.trgt_offr_perd_id,
-                                                                                                                                      tc.r_factor,
-                                                                                                                                      upper(td.lbl_desc) AS lbl_desc
-                                                                                                                                 FROM (SELECT *
-                                                                                                                                         FROM temp_config
-                                                                                                                                        WHERE instr(c_sls_typ_grp_nm_fc_dbt,
-                                                                                                                                                    sls_typ_grp_nm) > 0) tc,
-                                                                                                                                      ta_dict td
-                                                                                                                                WHERE td.lbl_id =
-                                                                                                                                      tc.offst_lbl_id) tc_fc_dbt, (SELECT mrkt_id,
-                                                                                                                                                                          sku_id,
-                                                                                                                                                                          fsc_cd
-                                                                                                                                                                     FROM (SELECT mrkt_id,
-                                                                                                                                                                                  sku_id,
-                                                                                                                                                                                  to_number(mstr_fsc_cd) fsc_cd,
-                                                                                                                                                                                  strt_perd_id from_strt_perd_id,
-                                                                                                                                                                                  nvl(lead(strt_perd_id,
-                                                                                                                                                                                           1)
-                                                                                                                                                                                      over(PARTITION BY
-                                                                                                                                                                                           mrkt_id,
-                                                                                                                                                                                           sku_id
-                                                                                                                                                                                           ORDER BY
-                                                                                                                                                                                           strt_perd_id),
-                                                                                                                                                                                      99999999) to_strt_perd_id
-                                                                                                                                                                             FROM mstr_fsc_asgnmt
-                                                                                                                                                                            WHERE p_mrkt_id =
-                                                                                                                                                                                  mrkt_id
-                                                                                                                                                                              AND l_trg_perd_id >=
-                                                                                                                                                                                  strt_perd_id)
-                                                                                                                                                                    WHERE l_trg_perd_id >=
-                                                                                                                                                                          from_strt_perd_id
-                                                                                                                                                                      AND l_trg_perd_id <
-                                                                                                                                                                          to_strt_perd_id) mrkt_tmp_fsc_master, (SELECT mrkt_id,
-                                                                                                                                                                                                                        sku_id,
-                                                                                                                                                                                                                        MAX(fsc_cd) fsc_cd
-                                                                                                                                                                                                                   FROM (SELECT mrkt_id,
-                                                                                                                                                                                                                                sku_id,
-                                                                                                                                                                                                                                to_number(fsc_cd) fsc_cd,
-                                                                                                                                                                                                                                strt_perd_id from_strt_perd_id,
-                                                                                                                                                                                                                                nvl(lead(strt_perd_id,
-                                                                                                                                                                                                                                         1)
-                                                                                                                                                                                                                                    over(PARTITION BY
-                                                                                                                                                                                                                                         mrkt_id,
-                                                                                                                                                                                                                                         fsc_cd
-                                                                                                                                                                                                                                         ORDER BY
-                                                                                                                                                                                                                                         strt_perd_id),
-                                                                                                                                                                                                                                    99999999) to_strt_perd_id
-                                                                                                                                                                                                                           FROM mrkt_fsc
-                                                                                                                                                                                                                          WHERE p_mrkt_id =
-                                                                                                                                                                                                                                mrkt_id
-                                                                                                                                                                                                                            AND l_trg_perd_id >=
-                                                                                                                                                                                                                                strt_perd_id
-                                                                                                                                                                                                                            AND 'N' =
-                                                                                                                                                                                                                                dltd_ind)
-                                                                                                                                                                                                                  WHERE l_trg_perd_id >=
-                                                                                                                                                                                                                        from_strt_perd_id
-                                                                                                                                                                                                                    AND l_trg_perd_id <
-                                                                                                                                                                                                                        to_strt_perd_id
-                                                                                                                                                                                                                  GROUP BY mrkt_id,
-                                                                                                                                                                                                                           sku_id) mrkt_tmp_fsc
-                        WHERE dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
-                          AND dstrbtd_mrkt_sls.sls_perd_id =
-                              tc_fc_dbt.trgt_sls_perd_id
-                          AND dstrbtd_mrkt_sls.offr_perd_id =
-                              tc_fc_dbt.trgt_offr_perd_id
-                          AND dstrbtd_mrkt_sls.sls_typ_id =
-                              tc_fc_dbt.x_src_sls_typ_id
-                          AND dstrbtd_mrkt_sls.offr_sku_line_id =
-                              offr_sku_line.offr_sku_line_id
-                          AND offr_sku_line.dltd_ind <> 'Y'
-                          AND offr_sku_line.offr_prfl_prcpt_id =
-                              offr_prfl_prc_point.offr_prfl_prcpt_id
-                          AND offr_prfl_prc_point.offr_id = offr.offr_id
-                          AND offr.offr_typ = 'CMP'
-                          AND offr.ver_id = 0
-                          AND offr_sku_line.sku_id = sku.sku_id(+)
-                          AND sku.prfl_cd = prfl.prfl_cd(+)
-                          AND offr_sku_line.offr_sku_line_id =
-                              dbtosl.offr_sku_line_id(+)
-                          AND dbtosl.offr_sku_line_id IS NULL
-                             -- mrkt_tmp_fsc_master
-                          AND p_mrkt_id = mrkt_tmp_fsc_master.mrkt_id(+)
-                          AND offr_sku_line.sku_id =
-                              mrkt_tmp_fsc_master.sku_id(+)
-                             -- mrkt_tmp_fsc
-                          AND p_mrkt_id = mrkt_tmp_fsc.mrkt_id(+)
-                          AND offr_sku_line.sku_id = mrkt_tmp_fsc.sku_id(+)
+                          AND osl.sls_typ_id = l_src_sls_typ_id) dbtosl, 
+                     offr_sku_line, 
+                     offr_prfl_prc_point, 
+                     offr, 
+                     sku, 
+                     prfl, 
+                     (SELECT * FROM temp_config WHERE instr(c_sls_typ_grp_nm_fc_dbt, sls_typ_grp_nm) > 0) tc_fc_dbt, 
+                     ( SELECT mrkt_id,
+                              sku_id,
+                              fsc_cd
+                         FROM (SELECT mrkt_id,
+                                      sku_id,
+                                      to_number(mstr_fsc_cd) fsc_cd,
+                                      strt_perd_id from_strt_perd_id,
+                                      nvl(lead(strt_perd_id,
+                                               1)
+                                          over(PARTITION BY
+                                               mrkt_id,
+                                               sku_id
+                                               ORDER BY
+                                               strt_perd_id),
+                                          99999999) to_strt_perd_id
+                                 FROM mstr_fsc_asgnmt
+                                WHERE p_mrkt_id =
+                                      mrkt_id
+                                  AND l_trg_perd_id >=
+                                      strt_perd_id)
+                        WHERE l_trg_perd_id >=
+                              from_strt_perd_id
+                          AND l_trg_perd_id <
+                              to_strt_perd_id ) mrkt_tmp_fsc_master, 
+                     ( SELECT mrkt_id,
+                              sku_id,
+                              MAX(fsc_cd) fsc_cd
+                         FROM (SELECT mrkt_id,
+                                      sku_id,
+                                      to_number(fsc_cd) fsc_cd,
+                                      strt_perd_id from_strt_perd_id,
+                                      nvl(lead(strt_perd_id,
+                                               1)
+                                          over(PARTITION BY
+                                               mrkt_id,
+                                               fsc_cd
+                                               ORDER BY
+                                               strt_perd_id),
+                                          99999999) to_strt_perd_id
+                                 FROM mrkt_fsc
+                                WHERE p_mrkt_id =
+                                      mrkt_id
+                                  AND l_trg_perd_id >=
+                                      strt_perd_id
+                                  AND 'N' =
+                                      dltd_ind)
+                        WHERE l_trg_perd_id >=
+                              from_strt_perd_id
+                          AND l_trg_perd_id <
+                              to_strt_perd_id
+                        GROUP BY mrkt_id,
+                                 sku_id ) mrkt_tmp_fsc
+              WHERE dstrbtd_mrkt_sls.mrkt_id = p_mrkt_id
+                AND dstrbtd_mrkt_sls.sls_perd_id =
+                    tc_fc_dbt.trgt_sls_perd_id
+                AND dstrbtd_mrkt_sls.offr_perd_id =
+                    tc_fc_dbt.trgt_offr_perd_id
+                AND dstrbtd_mrkt_sls.sls_typ_id =
+                    tc_fc_dbt.x_src_sls_typ_id
+                AND dstrbtd_mrkt_sls.offr_sku_line_id =
+                    offr_sku_line.offr_sku_line_id
+                AND offr_sku_line.dltd_ind <> 'Y'
+                AND offr_sku_line.offr_prfl_prcpt_id =
+                    offr_prfl_prc_point.offr_prfl_prcpt_id
+                AND offr_prfl_prc_point.offr_id = offr.offr_id
+                AND offr.offr_typ = 'CMP'
+                AND offr.ver_id = 0
+                AND offr_sku_line.sku_id = sku.sku_id(+)
+                AND sku.prfl_cd = prfl.prfl_cd(+)
+                AND offr_sku_line.offr_sku_line_id =
+                    dbtosl.offr_sku_line_id(+)
+                AND dbtosl.offr_sku_line_id IS NULL
+                   -- mrkt_tmp_fsc_master
+                AND p_mrkt_id = mrkt_tmp_fsc_master.mrkt_id(+)
+                AND offr_sku_line.sku_id =
+                    mrkt_tmp_fsc_master.sku_id(+)
+                   -- mrkt_tmp_fsc
+                AND p_mrkt_id = mrkt_tmp_fsc.mrkt_id(+)
+                AND offr_sku_line.sku_id = mrkt_tmp_fsc.sku_id(+)
               ) x,
              sct_fsc_ovrrd
        WHERE p_mrkt_id = sct_fsc_ovrrd.mrkt_id(+)
