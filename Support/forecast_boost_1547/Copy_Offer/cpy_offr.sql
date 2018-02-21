@@ -3139,7 +3139,7 @@ APP_PLSQL_LOG.info('Start of P_ADD_ADD_REG_PRC_ITEMS');
                                       FROM frcst_boost_xclusn_mrkt_perd fx
                                      WHERE fx.mrkt_id = p_trgt_mrkt_id
                                        AND fx.trgt_offr_perd_id = p_trgt_offr_perd_id
-                                       AND INSTR(',' || nvl(catgry_id_list, '-1') ||' ,', 
+                                       AND INSTR(',' || nvl(catgry_id_list, '-1') ||',', 
                                                  ',' || nvl(pf.catgry_id, -1) ||',') > 0
                                        AND INSTR(',' || nvl(sls_cls_cd_list, '-1') || ',', 
                                                  ',' || nvl(osl.sls_cls_cd, '-1') ||',') > 0
