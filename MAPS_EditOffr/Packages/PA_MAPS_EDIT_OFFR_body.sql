@@ -2860,7 +2860,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     ln_sls_typ_grp_id NUMBER;
     ln_max_sls_typ_id NUMBER;
   BEGIN
-  
     FOR mp IN (SELECT * FROM TABLE(p_mrkt_perd)) LOOP
       --market period loop
       FOR veh IN (SELECT veh_id
@@ -2940,6 +2939,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_offr_id                NUMBER;
     l_brchr_plcmt_id         NUMBER;
     l_offr_prfl_prcpt_id     NUMBER;
+    l_offr_sku_line_id       NUMBER;
     l_crncy_cd               NUMBER;
     l_tax_pct                NUMBER;
     l_comsn_pct              NUMBER;
@@ -2984,6 +2984,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_prod_endrsmt_id        NUMBER;
 
   BEGIN
+    p_status := pa_maps_errors.SUCCESS;
+
     l_default_arr := parse_config_items(p_mrkt_id, co_ci_defval_offr_id);
 
     l_pg_wght_pct      := to_number(l_default_arr(1));
@@ -3024,6 +3026,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
             0, l_unit_rptg_lvl_id, l_rpt_sbtl_typ_id, l_pg_typ_id, l_offr_cls_id);
 
     IF p_prfl_cd_list.COUNT > 0 THEN
+      l_default_arr.DELETE;
       l_default_arr := parse_config_items(p_mrkt_id, co_ci_defval_prcpt_id);
 
       l_promtn_clm_id          := to_number(l_default_arr(1));
@@ -3057,7 +3060,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                  featrd_side_cd = l_concept_featrd_side_cd;
         EXCEPTION
           WHEN NO_DATA_FOUND THEN -- sales class placement doesn't exist so we need to create one
-
             l_location := 'create sales class placement';
             INSERT INTO offr_prfl_sls_cls_plcmt
               ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, mrkt_id, veh_id,
@@ -3066,13 +3068,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
               ( l_offr_id, l_sls_cls_cd, p_prfl_cd_list(i), l_pg_ofs_nr, l_concept_featrd_side_cd, p_mrkt_id, p_veh_id,
                 p_offr_perd_id, 0, l_pg_wght_pct, l_prod_endrsmt_id, l_pg_typ_id);
         END; -- check sales class placement exists
-        
-        SELECT seq.NEXTVAL INTO l_offr_prfl_prcpt_id FROM dual;
 
-        -- make sure we don't set impact category if it's the same as the main category
-/*        IF UPPER(TRIM(p_product.impct_catgry_nm)) = UPPER(TRIM(p_product.catgry_nm)) THEN
-          p_product.impct_catgry_id := NULL;
-        END IF;*/
+        SELECT seq.NEXTVAL INTO l_offr_prfl_prcpt_id FROM dual;
 
         -- read market-specific data for price point
         l_location := 'get currency';
@@ -3128,12 +3125,78 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
         SET    prfl_cnt = nvl(prfl_cnt, 0) + 1
         WHERE  offr_id  = l_offr_id;
 
+        FOR sku_rec IN (
+          SELECT s.sku_id,
+                 srp.reg_prc_amt
+            FROM sku s,
+                 sku_reg_prc srp
+           WHERE srp.sku_id = s.sku_id
+             AND srp.mrkt_id = p_mrkt_id
+             AND srp.offr_perd_id = p_offr_perd_id
+             AND s.prfl_cd = p_prfl_cd_list(i)
+        )
+        LOOP
+          -- see if sales class sku entry exists
+          BEGIN
+            l_location := 'sales class sku check';
+            SELECT 1 INTO l_found
+            FROM   offr_sls_cls_sku
+            WHERE  offr_id        = l_offr_id and
+                   sls_cls_cd     = l_sls_cls_cd and
+                   prfl_cd        = p_prfl_cd_list(i) and
+                   pg_ofs_nr      = l_pg_ofs_nr and
+                   featrd_side_cd = l_concept_featrd_side_cd and
+                   sku_id         = sku_rec.sku_id;
+          EXCEPTION
+            WHEN NO_DATA_FOUND THEN -- sales class sku doesn't exist so we need to create it
+
+              l_location := 'create sales class sku';
+              INSERT INTO offr_sls_cls_sku
+                ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, sku_id, mrkt_id,
+                  smplg_ind, hero_ind, micr_ncpsltn_ind, reg_prc_amt, cost_amt)
+              VALUES
+                ( l_offr_id, l_sls_cls_cd, p_prfl_cd_list(i), l_pg_ofs_nr, l_concept_featrd_side_cd, 
+                  sku_rec.sku_id, p_mrkt_id, 'N', 'N', 'N', sku_rec.reg_prc_amt, l_wghtd_avg_cost_amt);
+          END; -- check if sales class sku exists
+
+          SELECT seq.NEXTVAL INTO l_offr_sku_line_id FROM dual;
+
+          l_location := 'create OSL';
+          INSERT INTO offr_sku_line
+            (offr_sku_line_id, offr_id, veh_id, featrd_side_cd, offr_perd_id, mrkt_id, sku_id,
+             pg_ofs_nr, prfl_cd, crncy_cd, prmry_sku_offr_ind, sls_cls_cd, offr_prfl_prcpt_id,
+             demo_avlbl_ind, dltd_ind, unit_splt_pct, sls_prc_amt, cost_typ)
+          VALUES
+            (l_offr_sku_line_id, l_offr_id, p_veh_id, l_concept_featrd_side_cd, p_offr_perd_id, p_mrkt_id,
+             sku_rec.sku_id, l_pg_ofs_nr, p_prfl_cd_list(i), l_crncy_cd, 'N', l_sls_cls_cd, 
+             l_offr_prfl_prcpt_id, 'N', 'N', 0, l_sls_prc_amt, 'P');
+
+            -- new sku added so increment sku counters for OFFR, OPSCP and OPP
+            UPDATE offr
+            SET    sku_cnt = nvl(sku_cnt, 0) + 1
+            WHERE  offr_id = l_offr_id;
+
+            UPDATE offr_prfl_sls_cls_plcmt
+            SET    sku_cnt = nvl(sku_cnt, 0) + 1
+            WHERE  offr_id        = l_offr_id and
+                   sls_cls_cd     = l_sls_cls_cd and
+                   prfl_cd        = p_prfl_cd_list(i) and
+                   pg_ofs_nr      = l_pg_ofs_nr and
+                   featrd_side_cd = l_concept_featrd_side_cd;
+
+            UPDATE offr_prfl_prc_point
+            SET    sku_cnt = nvl(sku_cnt, 0) + 1
+            WHERE  offr_prfl_prcpt_id = l_offr_prfl_prcpt_id;
+
+            -- re-calculate unit split percentage across all skus in the price-point
+            --set_unit_split_pct (p_mrkt_id, p_offr_perd_id, l_offr_prfl_prcpt_id);
+          END LOOP;
       END LOOP;
     END IF;
 
   EXCEPTION
     WHEN OTHERS THEN
---      l_return_status := PA_MAPS_ERRORS.OFFER_CREATION_ERROR;
+      p_status := PA_MAPS_ERRORS.OFFER_CREATION_ERROR;
       APP_PLSQL_LOG.info(l_procedure_name || ': Error adding offer at ' || l_location);
       APP_PLSQL_LOG.info(l_procedure_name || SQLERRM(SQLCODE));
 
@@ -3155,16 +3218,16 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     null;
   END add_prcpoints_to_offr;
 
-  PROCEDURE copying_offers(p_offr_id           IN NUMBER,
-                           p_trg_mrkt_id       IN NUMBER,
-                           p_trg_offr_perd_id  IN NUMBER,
-                           p_trg_veh_id        IN NUMBER,
-                           p_trg_offr_typ      IN VARCHAR2 DEFAULT 'CMP',
-                           p_status           OUT VARCHAR2,
-                           p_edit_offr_table  OUT obj_edit_offr_table) IS
+  PROCEDURE copy_offer(p_offr_id           IN NUMBER,
+                       p_trg_mrkt_id       IN NUMBER,
+                       p_trg_offr_perd_id  IN NUMBER,
+                       p_trg_veh_id        IN NUMBER,
+                       p_trg_offr_typ      IN VARCHAR2 DEFAULT 'CMP',
+                       p_status           OUT VARCHAR2,
+                       p_edit_offr_table  OUT obj_edit_offr_table) IS
   BEGIN
     null;
-  END copying_offers;
+  END copy_offer;
 
 END PA_MAPS_EDIT_OFFR;
 /

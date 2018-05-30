@@ -56,13 +56,13 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                                   p_status                  OUT VARCHAR2,
                                   p_edit_offr_table         OUT obj_edit_offr_table);
 
-  PROCEDURE copying_offers(p_offr_id           IN NUMBER,
-                           p_trg_mrkt_id       IN NUMBER,
-                           p_trg_offr_perd_id  IN NUMBER,
-                           p_trg_veh_id        IN NUMBER,
-                           p_trg_offr_typ      IN VARCHAR2 DEFAULT 'CMP',
-                           p_status           OUT VARCHAR2,
-                           p_edit_offr_table  OUT obj_edit_offr_table);
+  PROCEDURE copy_offer(p_offr_id           IN NUMBER,
+                       p_trg_mrkt_id       IN NUMBER,
+                       p_trg_offr_perd_id  IN NUMBER,
+                       p_trg_veh_id        IN NUMBER,
+                       p_trg_offr_typ      IN VARCHAR2 DEFAULT 'CMP',
+                       p_status           OUT VARCHAR2,
+                       p_edit_offr_table  OUT obj_edit_offr_table);
 
 END pa_maps_edit_offr;
 /

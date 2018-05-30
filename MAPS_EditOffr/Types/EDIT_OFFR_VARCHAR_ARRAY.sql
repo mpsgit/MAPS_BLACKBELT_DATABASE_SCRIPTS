@@ -1,0 +1,2 @@
+CREATE OR REPLACE TYPE edit_offr_varchar_array AS VARRAY (15000) OF VARCHAR2(8);
+/
