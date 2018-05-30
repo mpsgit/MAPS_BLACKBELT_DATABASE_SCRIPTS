@@ -36,14 +36,33 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
     RETURN obj_edit_offr_sls_typ_table
     PIPELINED;
 
-  PROCEDURE create_new_offer(p_mrkt_id IN NUMBER,
-                             p_veh_id  IN NUMBER,
-                             p_offr_perd_id IN NUMBER,
-                             p_offr_desc_txt IN VARCHAR2,
-                             p_prfl_cd_list IN number_array,
-                             p_mrkt_veh_perd_sctn_id IN NUMBER,
-                             p_sctn_page_ofs_nr IN NUMBER,
-                             p_status OUT VARCHAR2);
-                             
+  PROCEDURE add_offer(p_mrkt_id                IN NUMBER,
+                      p_offr_perd_id           IN NUMBER,
+                      p_veh_id                 IN NUMBER,                      
+                      p_offr_desc_txt          IN VARCHAR2,
+                      p_mrkt_veh_perd_sctn_id  IN NUMBER,
+                      p_sctn_page_ofs_nr       IN NUMBER,
+                      p_prfl_cd_list           IN number_array,
+                      p_status                OUT VARCHAR2,
+                      p_edit_offr_table       OUT obj_edit_offr_table);
+                      
+  PROCEDURE add_concepts_to_offr(p_offr_id          IN NUMBER,
+                                 p_prfl_cd_list     IN number_array,
+                                 p_status          OUT VARCHAR2,
+                                 p_edit_offr_table OUT obj_edit_offr_table);
+
+  PROCEDURE add_prcpoints_to_offr(p_offr_id                  IN NUMBER,
+                                  p_offr_prfl_prcpt_id_list  IN number_array,
+                                  p_status                  OUT VARCHAR2,
+                                  p_edit_offr_table         OUT obj_edit_offr_table);
+
+  PROCEDURE copying_offers(p_offr_id           IN NUMBER,
+                           p_trg_mrkt_id       IN NUMBER,
+                           p_trg_offr_perd_id  IN NUMBER,
+                           p_trg_veh_id        IN NUMBER,
+                           p_trg_offr_typ      IN VARCHAR2 DEFAULT 'CMP',
+                           p_status           OUT VARCHAR2,
+                           p_edit_offr_table  OUT obj_edit_offr_table);
+
 END pa_maps_edit_offr;
 /

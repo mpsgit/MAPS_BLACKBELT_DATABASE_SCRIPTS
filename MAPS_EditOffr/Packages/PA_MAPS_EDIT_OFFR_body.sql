@@ -1290,8 +1290,6 @@ PROCEDURE save_edit_offr_table(p_data_line IN obj_edit_offr_table,
   l_get_offr_table obj_edit_offr_table;
   l_offr_lock_user VARCHAR2(35);
   l_offr_lock      NUMBER;
-  l_diff_count     NUMBER;
-  l_lock_stus      NUMBER;
   l_status         NUMBER;
   l_result         NUMBER;
 BEGIN
@@ -2926,16 +2924,18 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     RETURN l_str_array;
   END parse_config_items;
 
-  PROCEDURE create_new_offer(p_mrkt_id IN NUMBER,
-                             p_veh_id  IN NUMBER,
-                             p_offr_perd_id IN NUMBER,
-                             p_offr_desc_txt IN VARCHAR2,
-                             p_prfl_cd_list IN number_array,
-                             p_mrkt_veh_perd_sctn_id IN NUMBER,
-                             p_sctn_page_ofs_nr IN NUMBER,
-                             p_status OUT VARCHAR2) IS
+  PROCEDURE add_offer(p_mrkt_id                IN NUMBER,
+                      p_offr_perd_id           IN NUMBER,
+                      p_veh_id                 IN NUMBER,                      
+                      p_offr_desc_txt          IN VARCHAR2,
+                      p_mrkt_veh_perd_sctn_id  IN NUMBER,
+                      p_sctn_page_ofs_nr       IN NUMBER,
+                      p_prfl_cd_list           IN number_array,
+                      p_status                OUT VARCHAR2,
+                      p_edit_offr_table       OUT obj_edit_offr_table) IS
 
-    l_location         VARCHAR2(1000);
+    l_procedure_name         VARCHAR2(50) := 'ADD_OFFER';
+    l_location               VARCHAR2(1000);
 
     l_offr_id                NUMBER;
     l_brchr_plcmt_id         NUMBER;
@@ -3130,6 +3130,41 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
       END LOOP;
     END IF;
-  END create_new_offer;
-end PA_MAPS_EDIT_OFFR;
+
+  EXCEPTION
+    WHEN OTHERS THEN
+--      l_return_status := PA_MAPS_ERRORS.OFFER_CREATION_ERROR;
+      APP_PLSQL_LOG.info(l_procedure_name || ': Error adding offer at ' || l_location);
+      APP_PLSQL_LOG.info(l_procedure_name || SQLERRM(SQLCODE));
+
+  END add_offer;
+
+  PROCEDURE add_concepts_to_offr(p_offr_id          IN NUMBER,
+                                 p_prfl_cd_list     IN number_array,
+                                 p_status          OUT VARCHAR2,
+                                 p_edit_offr_table OUT obj_edit_offr_table) IS
+  BEGIN
+    null;
+  END add_concepts_to_offr;
+
+  PROCEDURE add_prcpoints_to_offr(p_offr_id                  IN NUMBER,
+                                  p_offr_prfl_prcpt_id_list  IN number_array,
+                                  p_status                  OUT VARCHAR2,
+                                  p_edit_offr_table         OUT obj_edit_offr_table) IS
+  BEGIN
+    null;
+  END add_prcpoints_to_offr;
+
+  PROCEDURE copying_offers(p_offr_id           IN NUMBER,
+                           p_trg_mrkt_id       IN NUMBER,
+                           p_trg_offr_perd_id  IN NUMBER,
+                           p_trg_veh_id        IN NUMBER,
+                           p_trg_offr_typ      IN VARCHAR2 DEFAULT 'CMP',
+                           p_status           OUT VARCHAR2,
+                           p_edit_offr_table  OUT obj_edit_offr_table) IS
+  BEGIN
+    null;
+  END copying_offers;
+
+END PA_MAPS_EDIT_OFFR;
 /
