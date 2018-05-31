@@ -2944,7 +2944,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_brchr_plcmt_id         NUMBER;
     l_offr_prfl_prcpt_id     NUMBER;
     l_offr_sku_line_id       NUMBER;
-    l_crncy_cd               NUMBER;
+    l_crncy_cd               VARCHAR2(5);
     l_tax_pct                NUMBER;
     l_comsn_pct              NUMBER;
     l_gta_mthd_id            NUMBER;
@@ -3005,20 +3005,17 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_unit_rptg_lvl_id := to_number(l_default_arr(11));
     l_rpt_sbtl_typ_id  := to_number(l_default_arr(12));
 
-    BEGIN
-      l_location := 'Query mrkt_veh_perd_sctn';
-      SELECT mvps.brchr_plcmt_id
-        INTO l_brchr_plcmt_id
-        FROM mrkt_veh_perd_sctn mvps
-       WHERE mvps.mrkt_veh_perd_sctn_id = p_mrkt_veh_perd_sctn_id
-         AND mrkt_id                    = p_mrkt_id
-         AND offr_perd_id               = p_offr_perd_id
-         AND veh_id                     = p_veh_id
-         AND ver_id                     = 0;
-    EXCEPTION
-      WHEN no_data_found THEN
-        null;
-    END;
+    l_location := 'Query mrkt_veh_perd_sctn';
+    SELECT mvps.brchr_plcmt_id,
+           p_sctn_page_ofs_nr - mvps.strtg_page_nr - mvps.strtg_page_side_nr
+      INTO l_brchr_plcmt_id,
+           l_sctn_page_ofs_nr
+      FROM mrkt_veh_perd_sctn mvps
+     WHERE mvps.mrkt_veh_perd_sctn_id = p_mrkt_veh_perd_sctn_id
+       AND mrkt_id                    = p_mrkt_id
+       AND offr_perd_id               = p_offr_perd_id
+       AND veh_id                     = p_veh_id
+       AND ver_id                     = 0;
 
     SELECT seq.NEXTVAL INTO l_offr_id FROM dual;
 
