@@ -1,5 +1,5 @@
-delete from mrkt_config_item where config_item_id in (9200, 9210);
-delete from config_item where config_item_id in (9200, 9210);
+DELETE FROM mrkt_config_item WHERE config_item_id IN (9200, 9210);
+DELETE FROM config_item WHERE config_item_id IN (9200, 9210);
 
 INSERT INTO config_item (config_item_id, config_item_desc_txt, config_item_labl_txt, seq_nr)
 VALUES (9200, 'Offr default values for offer manipulation', 'Offr default values for offer manipulation', 150);

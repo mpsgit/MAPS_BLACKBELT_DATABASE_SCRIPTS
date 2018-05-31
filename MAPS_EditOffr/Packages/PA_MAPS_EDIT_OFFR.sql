@@ -43,16 +43,22 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                       p_mrkt_veh_perd_sctn_id  IN NUMBER,
                       p_sctn_page_ofs_nr       IN NUMBER,
                       p_prfl_cd_list           IN number_array,
+                      p_user_nm                IN VARCHAR2,
+                      p_clstr_id               IN NUMBER,
                       p_status                OUT VARCHAR2,
                       p_edit_offr_table       OUT obj_edit_offr_table);
                       
   PROCEDURE add_concepts_to_offr(p_offr_id          IN NUMBER,
                                  p_prfl_cd_list     IN number_array,
+                                 p_user_nm          IN VARCHAR2,
+                                 p_clstr_id         IN NUMBER,
                                  p_status          OUT VARCHAR2,
                                  p_edit_offr_table OUT obj_edit_offr_table);
 
   PROCEDURE add_prcpoints_to_offr(p_offr_id                  IN NUMBER,
                                   p_offr_prfl_prcpt_id_list  IN number_array,
+                                  p_user_nm                  IN VARCHAR2,
+                                  p_clstr_id                 IN NUMBER,
                                   p_status                  OUT VARCHAR2,
                                   p_edit_offr_table         OUT obj_edit_offr_table);
 
@@ -61,8 +67,16 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                        p_trg_offr_perd_id  IN NUMBER,
                        p_trg_veh_id        IN NUMBER,
                        p_trg_offr_typ      IN VARCHAR2 DEFAULT 'CMP',
+                       p_user_nm           IN VARCHAR2,
+                       p_clstr_id          IN NUMBER,
                        p_status           OUT VARCHAR2,
                        p_edit_offr_table  OUT obj_edit_offr_table);
+                       
+  PROCEDURE delete_offers(p_osl_records      IN obj_edit_offr_table,
+                          p_edit_offr_table OUT obj_edit_offr_table);
+                          
+  PROCEDURE delete_prcpoints(p_osl_records      IN obj_edit_offr_table,
+                             p_edit_offr_table OUT obj_edit_offr_table);
 
 END pa_maps_edit_offr;
 /

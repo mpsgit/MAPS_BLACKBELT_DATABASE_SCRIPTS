@@ -2930,6 +2930,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                       p_mrkt_veh_perd_sctn_id  IN NUMBER,
                       p_sctn_page_ofs_nr       IN NUMBER,
                       p_prfl_cd_list           IN number_array,
+                      p_user_nm                IN VARCHAR2,
+                      p_clstr_id               IN NUMBER,
                       p_status                OUT VARCHAR2,
                       p_edit_offr_table       OUT obj_edit_offr_table) IS
 
@@ -2937,6 +2939,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_location               VARCHAR2(1000);
 
     l_offr_table             obj_get_offr_table := obj_get_offr_table();
+    l_lock_user_nm           VARCHAR2(35);
     l_offr_id                NUMBER;
     l_brchr_plcmt_id         NUMBER;
     l_offr_prfl_prcpt_id     NUMBER;
@@ -3176,6 +3179,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
       END LOOP;
     END IF;
 
+    lock_offr(l_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, p_status);
+
     COMMIT;
 
     l_offr_table.extend;
@@ -3266,7 +3271,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
   EXCEPTION
     WHEN OTHERS THEN
-      p_status := PA_MAPS_ERRORS.OFFER_CREATION_ERROR;
+      p_status := 4;
       APP_PLSQL_LOG.info(l_procedure_name || ': Error adding offer at ' || l_location);
       APP_PLSQL_LOG.info(l_procedure_name || SQLERRM(SQLCODE));
 
@@ -3275,6 +3280,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
   PROCEDURE add_concepts_to_offr(p_offr_id          IN NUMBER,
                                  p_prfl_cd_list     IN number_array,
+                                 p_user_nm          IN VARCHAR2,
+                                 p_clstr_id         IN NUMBER,
                                  p_status          OUT VARCHAR2,
                                  p_edit_offr_table OUT obj_edit_offr_table) IS
   BEGIN
@@ -3283,6 +3290,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
   PROCEDURE add_prcpoints_to_offr(p_offr_id                  IN NUMBER,
                                   p_offr_prfl_prcpt_id_list  IN number_array,
+                                  p_user_nm                  IN VARCHAR2,
+                                  p_clstr_id                 IN NUMBER,
                                   p_status                  OUT VARCHAR2,
                                   p_edit_offr_table         OUT obj_edit_offr_table) IS
   BEGIN
@@ -3294,11 +3303,25 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                        p_trg_offr_perd_id  IN NUMBER,
                        p_trg_veh_id        IN NUMBER,
                        p_trg_offr_typ      IN VARCHAR2 DEFAULT 'CMP',
+                       p_user_nm           IN VARCHAR2,
+                       p_clstr_id          IN NUMBER,
                        p_status           OUT VARCHAR2,
                        p_edit_offr_table  OUT obj_edit_offr_table) IS
   BEGIN
     null;
   END copy_offer;
+
+  PROCEDURE delete_offers(p_osl_records      IN obj_edit_offr_table,
+                          p_edit_offr_table OUT obj_edit_offr_table) IS
+  BEGIN
+    null;
+  END delete_offers;
+                          
+  PROCEDURE delete_prcpoints(p_osl_records      IN obj_edit_offr_table,
+                             p_edit_offr_table OUT obj_edit_offr_table) IS
+  BEGIN
+    null;
+  END delete_prcpoints;
 
 END PA_MAPS_EDIT_OFFR;
 /
