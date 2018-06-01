@@ -2862,13 +2862,13 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
   BEGIN
     FOR mp IN (SELECT * FROM TABLE(p_mrkt_perd)) LOOP
       --market period loop
-      FOR veh IN (SELECT veh_id
+      FOR veh IN (SELECT veh_id, mps_sls_typ_id
                     FROM mrkt_veh_perd
                    WHERE mrkt_id = mp.mrkt_id
                      AND offr_perd_id = mp.offr_perd_id) LOOP
         --veh_id loop
         BEGIN
-          SELECT nvl(MAX(dms.sls_typ_id), 1)
+          SELECT nvl(MAX(dms.sls_typ_id), veh.mps_sls_typ_id)
             INTO ln_max_sls_typ_id
             FROM dstrbtd_mrkt_sls dms
            WHERE dms.mrkt_id = mp.mrkt_id
@@ -2884,6 +2884,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
         EXCEPTION
           WHEN no_data_found THEN
             ln_max_sls_typ_id := 1;
+            ln_sls_typ_grp_id := 1;
           WHEN OTHERS THEN
             app_plsql_log.info('Error in get_sls_typ_grp function: ' ||
                                SQLERRM(SQLCODE));
@@ -3027,7 +3028,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
             brchr_postn_id, unit_rptg_lvl_id, rpt_sbtl_typ_id, pg_typ_id, offr_cls_id)
         VALUES
           ( l_offr_id, p_mrkt_id, p_offr_perd_id, p_veh_id, 0, l_pg_wght_pct, l_ssnl_evnt_id,
-            p_offr_desc_txt, p_mrkt_veh_perd_sctn_id, l_offr_typ, l_brchr_plcmt_id, NVL(p_sctn_page_ofs_nr, l_sctn_page_ofs_nr),
+            p_offr_desc_txt, p_mrkt_veh_perd_sctn_id, l_offr_typ, l_brchr_plcmt_id, l_sctn_page_ofs_nr,
             0, 0, l_featrd_side_cd, l_flap_ind, l_offr_stus_cd, p_offr_perd_id, p_offr_perd_id,
             0, l_unit_rptg_lvl_id, l_rpt_sbtl_typ_id, l_pg_typ_id, l_offr_cls_id);
 
@@ -3170,8 +3171,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
             SET    sku_cnt = nvl(sku_cnt, 0) + 1
             WHERE  offr_prfl_prcpt_id = l_offr_prfl_prcpt_id;
 
-            -- re-calculate unit split percentage across all skus in the price-point
-            --set_unit_split_pct (p_mrkt_id, p_offr_perd_id, l_offr_prfl_prcpt_id);
           END LOOP;
       END LOOP;
     END IF;
