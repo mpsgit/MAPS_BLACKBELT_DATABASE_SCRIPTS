@@ -2945,6 +2945,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_brchr_plcmt_id         NUMBER;
     l_offr_prfl_prcpt_id     NUMBER;
     l_offr_sku_line_id       NUMBER;
+    l_line_sls_cls_cd        VARCHAR2(5);
     l_crncy_cd               VARCHAR2(5);
     l_tax_pct                NUMBER;
     l_comsn_pct              NUMBER;
@@ -3131,30 +3132,33 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
              AND srp.mrkt_id = p_mrkt_id
              AND srp.offr_perd_id = p_offr_perd_id
              AND s.prfl_cd = p_prfl_cd_list(i)
+             AND s.dltd_ind = '0'
         )
         LOOP
+          l_line_sls_cls_cd := pa_maps_public.get_sls_cls_cd(p_offr_perd_id, p_mrkt_id, sku_rec.sku_id);
+          IF l_line_sls_cls_cd <> '-1' THEN
 
-          l_location := 'create sales class sku';
-          INSERT INTO offr_sls_cls_sku
-            ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, sku_id, mrkt_id,
-              smplg_ind, hero_ind, micr_ncpsltn_ind, reg_prc_amt, cost_amt)
-          VALUES
-            ( l_offr_id, l_sls_cls_cd, p_prfl_cd_list(i), l_pg_ofs_nr, l_concept_featrd_side_cd, 
-              sku_rec.sku_id, p_mrkt_id, 'N', 'N', 'N', sku_rec.reg_prc_amt, l_wghtd_avg_cost_amt);
+            l_location := 'create sales class sku';
+            INSERT INTO offr_sls_cls_sku
+              ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, sku_id, mrkt_id,
+                smplg_ind, hero_ind, micr_ncpsltn_ind, reg_prc_amt, cost_amt)
+            VALUES
+              ( l_offr_id, l_line_sls_cls_cd, p_prfl_cd_list(i), l_pg_ofs_nr, l_concept_featrd_side_cd, 
+                sku_rec.sku_id, p_mrkt_id, 'N', 'N', 'N', sku_rec.reg_prc_amt, l_wghtd_avg_cost_amt);
 
-          SELECT seq.NEXTVAL INTO l_offr_sku_line_id FROM dual;
+            SELECT seq.NEXTVAL INTO l_offr_sku_line_id FROM dual;
 
-          l_location := 'create OSL';
-          INSERT INTO offr_sku_line
-            (offr_sku_line_id, offr_id, veh_id, featrd_side_cd, offr_perd_id, mrkt_id, sku_id,
-             pg_ofs_nr, prfl_cd, crncy_cd, prmry_sku_offr_ind, sls_cls_cd, offr_prfl_prcpt_id,
-             demo_avlbl_ind, dltd_ind, unit_splt_pct, sls_prc_amt, cost_typ)
-          VALUES
-            (l_offr_sku_line_id, l_offr_id, p_veh_id, l_concept_featrd_side_cd, p_offr_perd_id, p_mrkt_id,
-             sku_rec.sku_id, l_pg_ofs_nr, p_prfl_cd_list(i), l_crncy_cd, 'N', l_sls_cls_cd, 
-             l_offr_prfl_prcpt_id, 'N', 'N', 0, l_sls_prc_amt, 'P');
+            l_location := 'create OSL';
+            INSERT INTO offr_sku_line
+              (offr_sku_line_id, offr_id, veh_id, featrd_side_cd, offr_perd_id, mrkt_id, sku_id,
+               pg_ofs_nr, prfl_cd, crncy_cd, prmry_sku_offr_ind, sls_cls_cd, offr_prfl_prcpt_id,
+               demo_avlbl_ind, dltd_ind, unit_splt_pct, sls_prc_amt, cost_typ)
+            VALUES
+              (l_offr_sku_line_id, l_offr_id, p_veh_id, l_concept_featrd_side_cd, p_offr_perd_id, p_mrkt_id,
+               sku_rec.sku_id, l_pg_ofs_nr, p_prfl_cd_list(i), l_crncy_cd, 'N', l_line_sls_cls_cd, 
+               l_offr_prfl_prcpt_id, 'N', 'N', 0, l_sls_prc_amt, 'P');
 
-            -- new sku added so increment sku counters for OFFR, OPSCP and OPP
+              -- new sku added so increment sku counters for OFFR, OPSCP and OPP
             UPDATE offr
             SET    sku_cnt = nvl(sku_cnt, 0) + 1
             WHERE  offr_id = l_offr_id;
@@ -3170,10 +3174,10 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
             UPDATE offr_prfl_prc_point
             SET    sku_cnt = nvl(sku_cnt, 0) + 1
             WHERE  offr_prfl_prcpt_id = l_offr_prfl_prcpt_id;
-
-          END LOOP;
-      END LOOP;
-    END IF;
+          END IF; -- l_line_sls_cls_cd <> '-1'
+        END LOOP; -- sku_rec
+      END LOOP; -- p_prfl_cd_list
+    END IF; -- p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0
 
     lock_offr(l_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, p_status);
 
