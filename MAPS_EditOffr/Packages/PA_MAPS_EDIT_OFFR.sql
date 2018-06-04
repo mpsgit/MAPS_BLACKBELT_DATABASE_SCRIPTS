@@ -45,21 +45,21 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                       p_prfl_cd_list           IN number_array,
                       p_user_nm                IN VARCHAR2,
                       p_clstr_id               IN NUMBER,
-                      p_status                OUT VARCHAR2,
+                      p_status                OUT NUMBER,
                       p_edit_offr_table       OUT obj_edit_offr_table);
                       
   PROCEDURE add_concepts_to_offr(p_offr_id          IN NUMBER,
                                  p_prfl_cd_list     IN number_array,
                                  p_user_nm          IN VARCHAR2,
                                  p_clstr_id         IN NUMBER,
-                                 p_status          OUT VARCHAR2,
+                                 p_status          OUT NUMBER,
                                  p_edit_offr_table OUT obj_edit_offr_table);
 
   PROCEDURE add_prcpoints_to_offr(p_offr_id                  IN NUMBER,
                                   p_offr_prfl_prcpt_id_list  IN number_array,
                                   p_user_nm                  IN VARCHAR2,
                                   p_clstr_id                 IN NUMBER,
-                                  p_status                  OUT VARCHAR2,
+                                  p_status                  OUT NUMBER,
                                   p_edit_offr_table         OUT obj_edit_offr_table);
 
   PROCEDURE copy_offer(p_offr_id           IN NUMBER,
@@ -69,7 +69,7 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                        p_trg_offr_typ      IN VARCHAR2 DEFAULT 'CMP',
                        p_user_nm           IN VARCHAR2,
                        p_clstr_id          IN NUMBER,
-                       p_status           OUT VARCHAR2,
+                       p_status           OUT NUMBER,
                        p_edit_offr_table  OUT obj_edit_offr_table);
                        
   PROCEDURE delete_offers(p_osl_records      IN obj_edit_offr_table,

@@ -91,7 +91,7 @@ FOR rec IN (SELECT * FROM TABLE(p_lock_offr))
       lock_offr(rec.offr_id,rec.user_nm,rec.clstr_id,r_lock_offr(r_lock_offr.last).lock_user_nm,r_lock_offr(r_lock_offr.last).status);
     END;
     
-  END LOOP;     
+  END LOOP;
   EXCEPTION WHEN OTHERS THEN
   app_plsql_log.info('Error while bulk locking, error_msg:' || SQLERRM(SQLCODE));
     
@@ -2933,7 +2933,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                       p_prfl_cd_list           IN number_array,
                       p_user_nm                IN VARCHAR2,
                       p_clstr_id               IN NUMBER,
-                      p_status                OUT VARCHAR2,
+                      p_status                OUT NUMBER,
                       p_edit_offr_table       OUT obj_edit_offr_table) IS
 
     l_procedure_name         VARCHAR2(50) := 'ADD_OFFER';
@@ -2951,6 +2951,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_comsn_pct              NUMBER;
     l_gta_mthd_id            NUMBER;
     l_net_to_avon_fct        NUMBER;
+    l_lock_status            NUMBER;
 
     l_default_arr            t_str_array;
 
@@ -2990,7 +2991,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
   BEGIN
     app_plsql_log.info(l_procedure_name || ' start');
 
-    p_status := pa_maps_errors.SUCCESS;
+    p_status := 0;
 
     l_default_arr := parse_config_items(p_mrkt_id, co_ci_defval_offr_id);
 
@@ -3179,7 +3180,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
       END LOOP; -- p_prfl_cd_list
     END IF; -- p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0
 
-    lock_offr(l_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, p_status);
+    lock_offr(l_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
 
     COMMIT;
 
@@ -3271,7 +3272,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
   EXCEPTION
     WHEN OTHERS THEN
-      p_status := 4;
+      p_status := 1;
       APP_PLSQL_LOG.info(l_procedure_name || ': Error adding offer at ' || l_location);
       APP_PLSQL_LOG.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
 
@@ -3282,11 +3283,13 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                                  p_prfl_cd_list     IN number_array,
                                  p_user_nm          IN VARCHAR2,
                                  p_clstr_id         IN NUMBER,
-                                 p_status          OUT VARCHAR2,
+                                 p_status          OUT NUMBER,
                                  p_edit_offr_table OUT obj_edit_offr_table) IS
 
     l_offr_table             obj_get_offr_table := obj_get_offr_table();
   BEGIN
+    p_status := 0;
+
     l_offr_table.extend;
     l_offr_table(l_offr_table.last) := obj_get_offr_line(294369510, 1);
 
@@ -3377,7 +3380,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                                   p_offr_prfl_prcpt_id_list  IN number_array,
                                   p_user_nm                  IN VARCHAR2,
                                   p_clstr_id                 IN NUMBER,
-                                  p_status                  OUT VARCHAR2,
+                                  p_status                  OUT NUMBER,
                                   p_edit_offr_table         OUT obj_edit_offr_table) IS
 
     l_offr_table             obj_get_offr_table := obj_get_offr_table();
@@ -3475,7 +3478,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                        p_trg_offr_typ      IN VARCHAR2 DEFAULT 'CMP',
                        p_user_nm           IN VARCHAR2,
                        p_clstr_id          IN NUMBER,
-                       p_status           OUT VARCHAR2,
+                       p_status           OUT NUMBER,
                        p_edit_offr_table  OUT obj_edit_offr_table) IS
                        
     l_offr_table             obj_get_offr_table := obj_get_offr_table();
