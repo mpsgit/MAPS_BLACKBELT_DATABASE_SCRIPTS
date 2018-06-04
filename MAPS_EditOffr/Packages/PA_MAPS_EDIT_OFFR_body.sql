@@ -2924,9 +2924,239 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     RETURN l_str_array;
   END parse_config_items;
 
+  FUNCTION get_offr_table(p_offr_id IN NUMBER,
+                          p_sls_typ_id IN NUMBER DEFAULT 1) RETURN obj_edit_offr_table IS
+                          
+    l_offr_table             obj_get_offr_table := obj_get_offr_table();
+    l_edit_offr_table        obj_edit_offr_table;
+  BEGIN  
+    l_offr_table.extend;
+    l_offr_table(l_offr_table.last) := obj_get_offr_line(p_offr_id, p_sls_typ_id);
+
+    SELECT obj_edit_offr_line(
+                status, mrkt_id, offr_perd_id, offr_lock, offr_lock_user, offr_sku_line_id, veh_id, brchr_plcmnt_id, brchr_sctn_nm,
+                enrgy_chrt_postn_id, pg_nr, ctgry_id, brnd_id, sgmt_id, form_id, form_grp_id, prfl_cd, sku_id, fsc_cd,
+                prod_typ_id, gender_id, sls_cls_cd, offr_desc_txt, offr_notes_txt, offr_lyot_cmnts_txt, featrd_side_cd, 
+                concept_featrd_side_cd, micr_ncpsltn_ind, cnsmr_invstmt_bdgt_id, pymt_typ, promtn_id, promtn_clm_id, spndng_lvl, 
+                comsn_typ, tax_type_id, wsl_ind, offr_sku_set_id, cmpnt_qty, nr_for_qty, nta_factor, sku_cost, lv_nta, lv_sp, lv_rp, 
+                lv_discount, lv_units, lv_total_cost, lv_gross_sales, lv_dp_cash, lv_dp_percent, ver_id, sls_prc_amt, reg_prc_amt, line_nr, 
+                unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id, 
+                prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit, 
+                pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ)
+      BULK COLLECT
+      INTO l_edit_offr_table
+      FROM TABLE(pa_maps_edit_offr.get_offr(l_offr_table));
+
+      RETURN l_edit_offr_table;
+  END get_offr_table;
+
+  PROCEDURE add_concepts(p_offr_id      IN NUMBER,
+                         p_mrkt_id      IN NUMBER,
+                         p_offr_perd_id IN NUMBER,
+                         p_veh_id       IN NUMBER,
+                         p_prfl_cd_list IN number_array,
+                         p_user_nm      IN VARCHAR2) IS
+
+    l_procedure_name         VARCHAR2(50) := 'ADD_CONCEPTS';
+    l_location               VARCHAR2(1000);
+
+    l_default_arr            t_str_array;
+
+    l_offr_prfl_prcpt_id     NUMBER;
+    l_offr_sku_line_id       NUMBER;
+    l_crncy_cd               VARCHAR2(5);
+    l_tax_pct                NUMBER;
+    l_comsn_pct              NUMBER;
+    l_gta_mthd_id            NUMBER;
+    l_net_to_avon_fct        NUMBER;
+    l_line_sls_cls_cd        VARCHAR2(5);
+
+    -- offr default values
+    l_pg_typ_id              NUMBER;
+    l_ssnl_evnt_id           NUMBER;
+    l_pg_wght_pct            NUMBER;
+
+    -- offr_prfl_prc_point default values
+    l_promtn_clm_id          NUMBER;
+    l_promtn_id              NUMBER;
+    l_sls_cls_cd             VARCHAR2(5);
+    l_nr_for_qty             NUMBER; 
+    l_unit_qty               NUMBER; 
+    l_sls_prc_amt            NUMBER; 
+    l_wghtd_avg_cost_amt     NUMBER; 
+    l_sls_srce_id            NUMBER;
+    l_tax_type_id            NUMBER;
+    l_pymt_typ               VARCHAR2(5);
+    l_comsn_typ              VARCHAR2(5);
+    l_prmry_offr_ind         VARCHAR2(1);
+    l_pg_ofs_nr              NUMBER;
+    l_concept_featrd_side_cd VARCHAR2(5);
+    l_chrty_amt              NUMBER; 
+    l_awrd_sls_prc_amt       NUMBER;
+    l_prod_endrsmt_id        NUMBER;
+
+  BEGIN
+    l_default_arr := parse_config_items(p_mrkt_id, co_ci_defval_offr_id);
+
+    l_pg_wght_pct      := to_number(l_default_arr(1));
+    l_pg_typ_id        := to_number(l_default_arr(2));
+    l_ssnl_evnt_id     := to_number(l_default_arr(3));
+
+    l_default_arr.DELETE;
+    l_default_arr := parse_config_items(p_mrkt_id, co_ci_defval_prcpt_id);
+
+    l_promtn_clm_id          := to_number(l_default_arr(1));
+    l_promtn_id              := to_number(l_default_arr(2));
+    l_sls_cls_cd             := l_default_arr(3);
+    l_nr_for_qty             := to_number(l_default_arr(4));
+    l_unit_qty               := to_number(l_default_arr(5));
+    l_sls_prc_amt            := to_number(l_default_arr(6));
+    l_wghtd_avg_cost_amt     := to_number(l_default_arr(7));
+    l_sls_srce_id            := to_number(l_default_arr(8));
+    l_tax_type_id            := to_number(l_default_arr(9));
+    l_pymt_typ               := l_default_arr(10);
+    l_comsn_typ              := l_default_arr(11);
+    l_prmry_offr_ind         := l_default_arr(12);
+    l_pg_ofs_nr              := to_number(l_default_arr(13));
+    l_concept_featrd_side_cd := l_default_arr(14);
+    l_chrty_amt              := to_number(l_default_arr(15));
+    l_awrd_sls_prc_amt       := to_number(l_default_arr(16));
+    l_prod_endrsmt_id        := to_number(l_default_arr(17));
+
+    FOR i IN p_prfl_cd_list.FIRST .. p_prfl_cd_list.LAST LOOP
+      l_location := 'create sales class placement';
+      INSERT INTO offr_prfl_sls_cls_plcmt
+        ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, mrkt_id, veh_id,
+          offr_perd_id, sku_cnt, pg_wght_pct, prod_endrsmt_id, pg_typ_id)
+      VALUES
+        ( p_offr_id, l_sls_cls_cd, p_prfl_cd_list(i), l_pg_ofs_nr, l_concept_featrd_side_cd, p_mrkt_id, p_veh_id,
+          p_offr_perd_id, 0, l_pg_wght_pct, l_prod_endrsmt_id, l_pg_typ_id);
+
+      SELECT seq.NEXTVAL INTO l_offr_prfl_prcpt_id FROM dual;
+
+      -- read market-specific data for price point
+      l_location := 'get currency';
+      SELECT crncy_cd INTO l_crncy_cd
+      FROM   mrkt_perd
+      WHERE  mrkt_id = p_mrkt_id and
+             perd_id = p_offr_perd_id;
+
+      -- calculate commission, tax and GTA
+      BEGIN
+        l_tax_type_id := pa_maps_gta.get_default_tax_type_id(p_mrkt_id, p_prfl_cd_list(i), l_sls_cls_cd, p_offr_perd_id, p_veh_id);
+        l_tax_pct := get_tax_rate(p_mrkt_id, l_tax_type_id, p_offr_perd_id);
+      EXCEPTION
+        WHEN OTHERS THEN
+          l_tax_pct := 0;
+      END;
+
+      BEGIN
+        l_comsn_typ := pa_maps_gta.get_commission_type(p_mrkt_id, p_veh_id, p_offr_perd_id, p_prfl_cd_list(i), 'N',
+                         NULL, NULL, NULL, NULL, NULL);
+        l_comsn_pct := get_comsn_pct(p_mrkt_id, p_offr_perd_id, l_comsn_typ);
+      EXCEPTION
+        WHEN OTHERS THEN
+          l_comsn_pct := 0;
+      END;
+
+      BEGIN
+        SELECT nvl(gta_mthd_id, 1) INTO l_gta_mthd_id
+        FROM   mrkt_perd
+        WHERE  mrkt_id = p_mrkt_id and
+               perd_id = p_offr_perd_id;
+
+        l_net_to_avon_fct := PA_MAPS_GTA.get_gta_without_price_point(l_gta_mthd_id, l_sls_prc_amt, l_chrty_amt,
+                                                                     l_awrd_sls_prc_amt, l_comsn_pct, l_tax_pct, 0);
+      EXCEPTION
+        WHEN OTHERS THEN
+          l_net_to_avon_fct := 0;
+      END;
+
+      l_location := 'create price point';
+      INSERT INTO offr_prfl_prc_point
+        ( offr_prfl_prcpt_id, offr_id, promtn_clm_id, veh_id, promtn_id, mrkt_id,
+          sls_cls_cd, prfl_cd, ssnl_evnt_id, offr_perd_id, crncy_cd, sku_cnt, nr_for_qty,
+          est_unit_qty, est_sls_amt, est_cost_amt, sls_srce_id, sls_prc_amt,
+          tax_amt, pymt_typ, comsn_amt, comsn_typ, net_to_avon_fct, prmry_offr_ind,
+          pg_ofs_nr, featrd_side_cd, chrty_amt, awrd_sls_prc_amt, tax_type_id)
+      VALUES
+        ( l_offr_prfl_prcpt_id, p_offr_id, l_promtn_clm_id, p_veh_id, l_promtn_id, p_mrkt_id,
+          l_sls_cls_cd, p_prfl_cd_list(i), l_ssnl_evnt_id, p_offr_perd_id, l_crncy_cd, 0, l_nr_for_qty,
+          l_unit_qty, l_sls_prc_amt, l_wghtd_avg_cost_amt, l_sls_srce_id, l_sls_prc_amt,
+          l_tax_pct, l_pymt_typ, l_comsn_pct, l_comsn_typ, l_net_to_avon_fct, l_prmry_offr_ind,
+          l_pg_ofs_nr, l_concept_featrd_side_cd, l_chrty_amt, l_awrd_sls_prc_amt, l_tax_type_id);
+
+      -- new profile so increment profile counter for Offer
+      UPDATE offr
+      SET    prfl_cnt = nvl(prfl_cnt, 0) + 1
+      WHERE  offr_id  = p_offr_id;
+
+      FOR sku_rec IN (
+        SELECT s.sku_id,
+               srp.reg_prc_amt
+          FROM sku s,
+               sku_reg_prc srp
+         WHERE srp.sku_id = s.sku_id
+           AND srp.mrkt_id = p_mrkt_id
+           AND srp.offr_perd_id = p_offr_perd_id
+           AND s.prfl_cd = p_prfl_cd_list(i)
+           AND s.dltd_ind = '0'
+      )
+      LOOP
+        l_line_sls_cls_cd := pa_maps_public.get_sls_cls_cd(p_offr_perd_id, p_mrkt_id, sku_rec.sku_id);
+        IF l_line_sls_cls_cd <> '-1' THEN
+
+          l_location := 'create sales class sku';
+          INSERT INTO offr_sls_cls_sku
+            ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, sku_id, mrkt_id,
+              smplg_ind, hero_ind, micr_ncpsltn_ind, reg_prc_amt, cost_amt)
+          VALUES
+            ( p_offr_id, l_line_sls_cls_cd, p_prfl_cd_list(i), l_pg_ofs_nr, l_concept_featrd_side_cd, 
+              sku_rec.sku_id, p_mrkt_id, 'N', 'N', 'N', sku_rec.reg_prc_amt, l_wghtd_avg_cost_amt);
+
+          SELECT seq.NEXTVAL INTO l_offr_sku_line_id FROM dual;
+
+          l_location := 'create OSL';
+          INSERT INTO offr_sku_line
+            (offr_sku_line_id, offr_id, veh_id, featrd_side_cd, offr_perd_id, mrkt_id, sku_id,
+             pg_ofs_nr, prfl_cd, crncy_cd, prmry_sku_offr_ind, sls_cls_cd, offr_prfl_prcpt_id,
+             demo_avlbl_ind, dltd_ind, unit_splt_pct, sls_prc_amt, cost_typ)
+          VALUES
+            (l_offr_sku_line_id, p_offr_id, p_veh_id, l_concept_featrd_side_cd, p_offr_perd_id, p_mrkt_id,
+             sku_rec.sku_id, l_pg_ofs_nr, p_prfl_cd_list(i), l_crncy_cd, 'N', l_line_sls_cls_cd, 
+             l_offr_prfl_prcpt_id, 'N', 'N', 0, l_sls_prc_amt, 'P');
+
+            -- new sku added so increment sku counters for OFFR, OPSCP and OPP
+          UPDATE offr
+          SET    sku_cnt = nvl(sku_cnt, 0) + 1
+          WHERE  offr_id = p_offr_id;
+
+          UPDATE offr_prfl_sls_cls_plcmt
+          SET    sku_cnt = nvl(sku_cnt, 0) + 1
+          WHERE  offr_id        = p_offr_id and
+                 sls_cls_cd     = l_sls_cls_cd and
+                 prfl_cd        = p_prfl_cd_list(i) and
+                 pg_ofs_nr      = l_pg_ofs_nr and
+                 featrd_side_cd = l_concept_featrd_side_cd;
+
+          UPDATE offr_prfl_prc_point
+          SET    sku_cnt = nvl(sku_cnt, 0) + 1
+          WHERE  offr_prfl_prcpt_id = l_offr_prfl_prcpt_id;
+        END IF; -- l_line_sls_cls_cd <> '-1'
+      END LOOP; -- sku_rec
+    END LOOP; -- p_prfl_cd_list
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      APP_PLSQL_LOG.info(l_procedure_name || ': Error adding offer at ' || l_location);
+      APP_PLSQL_LOG.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+      RAISE;
+
+  END add_concepts;
+
   PROCEDURE add_offer(p_mrkt_id                IN NUMBER,
                       p_offr_perd_id           IN NUMBER,
-                      p_veh_id                 IN NUMBER,                      
+                      p_veh_id                 IN NUMBER,
                       p_offr_desc_txt          IN VARCHAR2,
                       p_mrkt_veh_perd_sctn_id  IN NUMBER,
                       p_sctn_page_ofs_nr       IN NUMBER,
@@ -2943,14 +3173,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_lock_user_nm           VARCHAR2(35);
     l_offr_id                NUMBER;
     l_brchr_plcmt_id         NUMBER;
-    l_offr_prfl_prcpt_id     NUMBER;
-    l_offr_sku_line_id       NUMBER;
-    l_line_sls_cls_cd        VARCHAR2(5);
-    l_crncy_cd               VARCHAR2(5);
-    l_tax_pct                NUMBER;
-    l_comsn_pct              NUMBER;
-    l_gta_mthd_id            NUMBER;
-    l_net_to_avon_fct        NUMBER;
     l_lock_status            NUMBER;
 
     l_default_arr            t_str_array;
@@ -2968,25 +3190,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_brchr_postn_id         NUMBER;
     l_unit_rptg_lvl_id       NUMBER;
     l_rpt_sbtl_typ_id        NUMBER;
-
-    -- offr_prfl_prc_point default values
-    l_promtn_clm_id          NUMBER;
-    l_promtn_id              NUMBER;
-    l_sls_cls_cd             VARCHAR2(5);
-    l_nr_for_qty             NUMBER; 
-    l_unit_qty               NUMBER; 
-    l_sls_prc_amt            NUMBER; 
-    l_wghtd_avg_cost_amt     NUMBER; 
-    l_sls_srce_id            NUMBER;
-    l_tax_type_id            NUMBER;
-    l_pymt_typ               VARCHAR2(5);
-    l_comsn_typ              VARCHAR2(5);
-    l_prmry_offr_ind         VARCHAR2(1); 
-    l_pg_ofs_nr              NUMBER; 
-    l_concept_featrd_side_cd VARCHAR2(5);
-    l_chrty_amt              NUMBER; 
-    l_awrd_sls_prc_amt       NUMBER;
-    l_prod_endrsmt_id        NUMBER;
 
   BEGIN
     app_plsql_log.info(l_procedure_name || ' start');
@@ -3035,238 +3238,19 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
             0, l_unit_rptg_lvl_id, l_rpt_sbtl_typ_id, l_pg_typ_id, l_offr_cls_id);
 
     IF p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0 THEN
-      l_default_arr.DELETE;
-      l_default_arr := parse_config_items(p_mrkt_id, co_ci_defval_prcpt_id);
-
-      l_promtn_clm_id          := to_number(l_default_arr(1));
-      l_promtn_id              := to_number(l_default_arr(2));
-      l_sls_cls_cd             := l_default_arr(3);
-      l_nr_for_qty             := to_number(l_default_arr(4));
-      l_unit_qty               := to_number(l_default_arr(5));
-      l_sls_prc_amt            := to_number(l_default_arr(6));
-      l_wghtd_avg_cost_amt     := to_number(l_default_arr(7));
-      l_sls_srce_id            := to_number(l_default_arr(8));
-      l_tax_type_id            := to_number(l_default_arr(9));
-      l_pymt_typ               := l_default_arr(10);
-      l_comsn_typ              := l_default_arr(11);
-      l_prmry_offr_ind         := l_default_arr(12);
-      l_pg_ofs_nr              := to_number(l_default_arr(13));
-      l_concept_featrd_side_cd := l_default_arr(14);
-      l_chrty_amt              := to_number(l_default_arr(15));
-      l_awrd_sls_prc_amt       := to_number(l_default_arr(16));
-      l_prod_endrsmt_id        := to_number(l_default_arr(17));
-
-      FOR i IN p_prfl_cd_list.FIRST .. p_prfl_cd_list.LAST LOOP
-        l_location := 'create sales class placement';
-        INSERT INTO offr_prfl_sls_cls_plcmt
-          ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, mrkt_id, veh_id,
-            offr_perd_id, sku_cnt, pg_wght_pct, prod_endrsmt_id, pg_typ_id)
-        VALUES
-          ( l_offr_id, l_sls_cls_cd, p_prfl_cd_list(i), l_pg_ofs_nr, l_concept_featrd_side_cd, p_mrkt_id, p_veh_id,
-            p_offr_perd_id, 0, l_pg_wght_pct, l_prod_endrsmt_id, l_pg_typ_id);
-
-        SELECT seq.NEXTVAL INTO l_offr_prfl_prcpt_id FROM dual;
-
-        -- read market-specific data for price point
-        l_location := 'get currency';
-        SELECT crncy_cd INTO l_crncy_cd
-        FROM   mrkt_perd
-        WHERE  mrkt_id = p_mrkt_id and
-               perd_id = p_offr_perd_id;
-
-        -- calculate commission, tax and GTA
-        BEGIN
-          l_tax_type_id := pa_maps_gta.get_default_tax_type_id(p_mrkt_id, p_prfl_cd_list(i), l_sls_cls_cd, p_offr_perd_id, p_veh_id);
-          l_tax_pct := get_tax_rate(p_mrkt_id, l_tax_type_id, p_offr_perd_id);
-        EXCEPTION
-          WHEN OTHERS THEN
-            l_tax_pct := 0;
-        END;
-
-        BEGIN
-          l_comsn_typ := pa_maps_gta.get_commission_type(p_mrkt_id, p_veh_id, p_offr_perd_id, p_prfl_cd_list(i), 'N',
-                           NULL, NULL, NULL, NULL, NULL);
-          l_comsn_pct := get_comsn_pct(p_mrkt_id, p_offr_perd_id, l_comsn_typ);
-        EXCEPTION
-          WHEN OTHERS THEN
-            l_comsn_pct := 0;
-        END;
-
-        BEGIN
-          SELECT nvl(gta_mthd_id, 1) INTO l_gta_mthd_id
-          FROM   mrkt_perd
-          WHERE  mrkt_id = p_mrkt_id and
-                 perd_id = p_offr_perd_id;
-
-          l_net_to_avon_fct := PA_MAPS_GTA.get_gta_without_price_point(l_gta_mthd_id, l_sls_prc_amt, l_chrty_amt,
-                                                                       l_awrd_sls_prc_amt, l_comsn_pct, l_tax_pct, 0);
-        EXCEPTION
-          WHEN OTHERS THEN
-            l_net_to_avon_fct := 0;
-        END;
-
-        l_location := 'create price point';
-        INSERT INTO offr_prfl_prc_point
-          ( offr_prfl_prcpt_id, offr_id, promtn_clm_id, veh_id, promtn_id, mrkt_id,
-            sls_cls_cd, prfl_cd, ssnl_evnt_id, offr_perd_id, crncy_cd, sku_cnt, nr_for_qty,
-            est_unit_qty, est_sls_amt, est_cost_amt, sls_srce_id, sls_prc_amt,
-            tax_amt, pymt_typ, comsn_amt, comsn_typ, net_to_avon_fct, prmry_offr_ind,
-            pg_ofs_nr, featrd_side_cd, chrty_amt, awrd_sls_prc_amt, tax_type_id)
-        VALUES
-          ( l_offr_prfl_prcpt_id, l_offr_id, l_promtn_clm_id, p_veh_id, l_promtn_id, p_mrkt_id,
-            l_sls_cls_cd, p_prfl_cd_list(i), l_ssnl_evnt_id, p_offr_perd_id, l_crncy_cd, 0, l_nr_for_qty,
-            l_unit_qty, l_sls_prc_amt, l_wghtd_avg_cost_amt, l_sls_srce_id, l_sls_prc_amt,
-            l_tax_pct, l_pymt_typ, l_comsn_pct, l_comsn_typ, l_net_to_avon_fct, l_prmry_offr_ind,
-            l_pg_ofs_nr, l_concept_featrd_side_cd, l_chrty_amt, l_awrd_sls_prc_amt, l_tax_type_id);
-
-        -- new profile so increment profile counter for Offer
-        UPDATE offr
-        SET    prfl_cnt = nvl(prfl_cnt, 0) + 1
-        WHERE  offr_id  = l_offr_id;
-
-        FOR sku_rec IN (
-          SELECT s.sku_id,
-                 srp.reg_prc_amt
-            FROM sku s,
-                 sku_reg_prc srp
-           WHERE srp.sku_id = s.sku_id
-             AND srp.mrkt_id = p_mrkt_id
-             AND srp.offr_perd_id = p_offr_perd_id
-             AND s.prfl_cd = p_prfl_cd_list(i)
-             AND s.dltd_ind = '0'
-        )
-        LOOP
-          l_line_sls_cls_cd := pa_maps_public.get_sls_cls_cd(p_offr_perd_id, p_mrkt_id, sku_rec.sku_id);
-          IF l_line_sls_cls_cd <> '-1' THEN
-
-            l_location := 'create sales class sku';
-            INSERT INTO offr_sls_cls_sku
-              ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, sku_id, mrkt_id,
-                smplg_ind, hero_ind, micr_ncpsltn_ind, reg_prc_amt, cost_amt)
-            VALUES
-              ( l_offr_id, l_line_sls_cls_cd, p_prfl_cd_list(i), l_pg_ofs_nr, l_concept_featrd_side_cd, 
-                sku_rec.sku_id, p_mrkt_id, 'N', 'N', 'N', sku_rec.reg_prc_amt, l_wghtd_avg_cost_amt);
-
-            SELECT seq.NEXTVAL INTO l_offr_sku_line_id FROM dual;
-
-            l_location := 'create OSL';
-            INSERT INTO offr_sku_line
-              (offr_sku_line_id, offr_id, veh_id, featrd_side_cd, offr_perd_id, mrkt_id, sku_id,
-               pg_ofs_nr, prfl_cd, crncy_cd, prmry_sku_offr_ind, sls_cls_cd, offr_prfl_prcpt_id,
-               demo_avlbl_ind, dltd_ind, unit_splt_pct, sls_prc_amt, cost_typ)
-            VALUES
-              (l_offr_sku_line_id, l_offr_id, p_veh_id, l_concept_featrd_side_cd, p_offr_perd_id, p_mrkt_id,
-               sku_rec.sku_id, l_pg_ofs_nr, p_prfl_cd_list(i), l_crncy_cd, 'N', l_line_sls_cls_cd, 
-               l_offr_prfl_prcpt_id, 'N', 'N', 0, l_sls_prc_amt, 'P');
-
-              -- new sku added so increment sku counters for OFFR, OPSCP and OPP
-            UPDATE offr
-            SET    sku_cnt = nvl(sku_cnt, 0) + 1
-            WHERE  offr_id = l_offr_id;
-
-            UPDATE offr_prfl_sls_cls_plcmt
-            SET    sku_cnt = nvl(sku_cnt, 0) + 1
-            WHERE  offr_id        = l_offr_id and
-                   sls_cls_cd     = l_sls_cls_cd and
-                   prfl_cd        = p_prfl_cd_list(i) and
-                   pg_ofs_nr      = l_pg_ofs_nr and
-                   featrd_side_cd = l_concept_featrd_side_cd;
-
-            UPDATE offr_prfl_prc_point
-            SET    sku_cnt = nvl(sku_cnt, 0) + 1
-            WHERE  offr_prfl_prcpt_id = l_offr_prfl_prcpt_id;
-          END IF; -- l_line_sls_cls_cd <> '-1'
-        END LOOP; -- sku_rec
-      END LOOP; -- p_prfl_cd_list
+      add_concepts(l_offr_id,
+                   p_mrkt_id,
+                   p_offr_perd_id,
+                   p_veh_id,
+                   p_prfl_cd_list,
+                   p_user_nm);
     END IF; -- p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0
 
     lock_offr(l_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
 
     COMMIT;
 
-    l_offr_table.extend;
-    l_offr_table(l_offr_table.last) := obj_get_offr_line(l_offr_id, 1);
-
-    SELECT obj_edit_offr_line(status,
-                              mrkt_id,
-                              offr_perd_id,
-                              offr_lock,
-                              offr_lock_user,
-                              offr_sku_line_id,
-                              veh_id,
-                              brchr_plcmnt_id,
-                              brchr_sctn_nm,
-                              enrgy_chrt_postn_id,
-                              pg_nr,
-                              ctgry_id,
-                              brnd_id,
-                              sgmt_id,
-                              form_id,
-                              form_grp_id,
-                              prfl_cd,
-                              sku_id,
-                              fsc_cd,
-                              prod_typ_id,
-                              gender_id,
-                              sls_cls_cd,
-                              offr_desc_txt,
-                              offr_notes_txt,
-                              offr_lyot_cmnts_txt,
-                              featrd_side_cd,
-                              concept_featrd_side_cd,
-                              micr_ncpsltn_ind,
-                              cnsmr_invstmt_bdgt_id,
-                              pymt_typ,
-                              promtn_id,
-                              promtn_clm_id,
-                              spndng_lvl,
-                              comsn_typ,
-                              tax_type_id,
-                              wsl_ind,
-                              offr_sku_set_id,
-                              cmpnt_qty,
-                              nr_for_qty,
-                              nta_factor,
-                              sku_cost,
-                              lv_nta,
-                              lv_sp,
-                              lv_rp,
-                              lv_discount,
-                              lv_units,
-                              lv_total_cost,
-                              lv_gross_sales,
-                              lv_dp_cash,
-                              lv_dp_percent,
-                              ver_id,
-                              sls_prc_amt,
-                              reg_prc_amt,
-                              line_nr,
-                              unit_qty,
-                              dltd_ind,
-                              created_ts,
-                              created_user_id,
-                              last_updt_ts,
-                              last_updt_user_id,
-                              intrnl_offr_id,
-                              mrkt_veh_perd_sctn_id,
-                              prfl_nm,
-                              sku_nm,
-                              comsn_typ_desc_txt,
-                              tax_typ_desc_txt,
-                              offr_sku_set_nm,
-                              sls_typ,
-                              pc_sp_py,
-                              pc_rp,
-                              pc_sp,
-                              pc_vsp,
-                              pc_hit,
-                              pg_wght,
-                              sprd_nr,
-                              offr_prfl_prcpt_id,
-                              has_unit_qty,
-                              offr_typ)
-    BULK COLLECT INTO p_edit_offr_table
-    FROM TABLE(pa_maps_edit_offr.get_offr(l_offr_table));
+    p_edit_offr_table := get_offr_table(l_offr_id);
 
     app_plsql_log.info(l_procedure_name || ' end');
 
@@ -3286,94 +3270,50 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                                  p_status          OUT NUMBER,
                                  p_edit_offr_table OUT obj_edit_offr_table) IS
 
+    l_procedure_name         VARCHAR2(50) := 'ADD_CONCEPTS_TO_OFFR';
+    l_location               VARCHAR2(1000);
+
     l_offr_table             obj_get_offr_table := obj_get_offr_table();
+    
+    l_mrkt_id                NUMBER;
+    l_offr_perd_id           NUMBER;
+    l_veh_id                 NUMBER;
   BEGIN
+    app_plsql_log.info(l_procedure_name || ' start');
+
     p_status := 0;
 
-    l_offr_table.extend;
-    l_offr_table(l_offr_table.last) := obj_get_offr_line(294369510, 1);
+    l_location := 'Querying the existing offer';
+    SELECT o.mrkt_id,
+           o.offr_perd_id,
+           o.veh_id
+      INTO l_mrkt_id,
+           l_offr_perd_id,
+           l_veh_id
+      FROM offr o
+     WHERE o.offr_id = p_offr_id;
 
-    SELECT obj_edit_offr_line(status,
-                              mrkt_id,
-                              offr_perd_id,
-                              offr_lock,
-                              offr_lock_user,
-                              offr_sku_line_id,
-                              veh_id,
-                              brchr_plcmnt_id,
-                              brchr_sctn_nm,
-                              enrgy_chrt_postn_id,
-                              pg_nr,
-                              ctgry_id,
-                              brnd_id,
-                              sgmt_id,
-                              form_id,
-                              form_grp_id,
-                              prfl_cd,
-                              sku_id,
-                              fsc_cd,
-                              prod_typ_id,
-                              gender_id,
-                              sls_cls_cd,
-                              offr_desc_txt,
-                              offr_notes_txt,
-                              offr_lyot_cmnts_txt,
-                              featrd_side_cd,
-                              concept_featrd_side_cd,
-                              micr_ncpsltn_ind,
-                              cnsmr_invstmt_bdgt_id,
-                              pymt_typ,
-                              promtn_id,
-                              promtn_clm_id,
-                              spndng_lvl,
-                              comsn_typ,
-                              tax_type_id,
-                              wsl_ind,
-                              offr_sku_set_id,
-                              cmpnt_qty,
-                              nr_for_qty,
-                              nta_factor,
-                              sku_cost,
-                              lv_nta,
-                              lv_sp,
-                              lv_rp,
-                              lv_discount,
-                              lv_units,
-                              lv_total_cost,
-                              lv_gross_sales,
-                              lv_dp_cash,
-                              lv_dp_percent,
-                              ver_id,
-                              sls_prc_amt,
-                              reg_prc_amt,
-                              line_nr,
-                              unit_qty,
-                              dltd_ind,
-                              created_ts,
-                              created_user_id,
-                              last_updt_ts,
-                              last_updt_user_id,
-                              intrnl_offr_id,
-                              mrkt_veh_perd_sctn_id,
-                              prfl_nm,
-                              sku_nm,
-                              comsn_typ_desc_txt,
-                              tax_typ_desc_txt,
-                              offr_sku_set_nm,
-                              sls_typ,
-                              pc_sp_py,
-                              pc_rp,
-                              pc_sp,
-                              pc_vsp,
-                              pc_hit,
-                              pg_wght,
-                              sprd_nr,
-                              offr_prfl_prcpt_id,
-                              has_unit_qty,
-                              offr_typ)
-    BULK COLLECT INTO p_edit_offr_table
-    FROM TABLE(pa_maps_edit_offr.get_offr(l_offr_table));
+    l_location := 'Adding concepts';
+    add_concepts(p_offr_id,
+                 l_mrkt_id,
+                 l_offr_perd_id,
+                 l_veh_id,
+                 p_prfl_cd_list,
+                 p_user_nm);
 
+    COMMIT;
+
+    p_edit_offr_table := get_offr_table(p_offr_id);
+
+    app_plsql_log.info(l_procedure_name || ' stop');
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      p_status := 1;
+      APP_PLSQL_LOG.info(l_procedure_name || ': Error adding concepts to offer at ' || l_location);
+      APP_PLSQL_LOG.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+
+      ROLLBACK;
   END add_concepts_to_offr;
 
   PROCEDURE add_prcpoints_to_offr(p_offr_id                  IN NUMBER,
