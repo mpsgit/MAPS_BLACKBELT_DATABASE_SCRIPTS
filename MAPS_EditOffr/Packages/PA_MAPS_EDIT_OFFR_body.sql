@@ -3299,8 +3299,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
   EXCEPTION
     WHEN OTHERS THEN
       p_status := c_exec_status_failed;
-      APP_PLSQL_LOG.info(l_procedure_name || ': Error adding offer at ' || l_location);
-      APP_PLSQL_LOG.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+      app_plsql_log.info(l_procedure_name || ': Error adding offer at ' || l_location);
+      app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
 
       ROLLBACK;
   END add_offer;
@@ -3321,18 +3321,18 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_mrkt_id                NUMBER;
     l_offr_perd_id           NUMBER;
     l_veh_id                 NUMBER;
-    
+
     e_lock_failed            EXCEPTION;
   BEGIN
     app_plsql_log.info(l_procedure_name || ' start');
 
     p_status := c_exec_status_success;
-    
+
     lock_offr(p_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
     IF l_lock_status <> 1 THEN
       RAISE e_lock_failed;
     END IF;
-      
+
     l_location := 'Querying the existing offer';
     SELECT o.mrkt_id,
            o.offr_perd_id,
@@ -3380,7 +3380,16 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                                   p_edit_offr_table         OUT obj_edit_offr_table) IS
 
     l_offr_table             obj_get_offr_table := obj_get_offr_table();
+    
+    l_procedure_name         VARCHAR2(50) := 'ADD_PRCPOINTS_TO_OFFR';
+    l_location               VARCHAR2(1000);
+
   BEGIN
+    app_plsql_log.info(l_procedure_name || ' start');
+
+    p_status := c_exec_status_success;
+  
+  
     l_offr_table.extend;
     l_offr_table(l_offr_table.last) := obj_get_offr_line(294369510, 1);
 
@@ -3464,6 +3473,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                               offr_typ)
     BULK COLLECT INTO p_edit_offr_table
     FROM TABLE(pa_maps_edit_offr.get_offr(l_offr_table));
+
+    app_plsql_log.info(l_procedure_name || ' stop');
 
   END add_prcpoints_to_offr;
 
