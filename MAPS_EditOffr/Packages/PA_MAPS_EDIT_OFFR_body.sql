@@ -2548,7 +2548,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                                       AND sls_perd_id = l_offr_perd_id
                                       AND veh_id = offr_sku_line.veh_id
                                       AND ver_id = l_ver_id) max_sales_type
-                                 ,(SELECT SUM(unit_qty) AS sum_unit_qty
+                                 ,(SELECT NVL(SUM(unit_qty), 0) AS sum_unit_qty
                                      FROM dstrbtd_mrkt_sls
                                     WHERE sls_typ_id = l_sls_typ
                                       AND mrkt_id = l_mrkt_id
@@ -3235,7 +3235,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
   BEGIN
     app_plsql_log.info(l_procedure_name || ' start');
 
-    p_status := 0;
+    p_status := c_exec_status_success;
 
     l_default_arr := parse_config_items(p_mrkt_id, co_ci_defval_offr_id);
 
@@ -3298,7 +3298,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
   EXCEPTION
     WHEN OTHERS THEN
-      p_status := 1;
+      p_status := c_exec_status_failed;
       APP_PLSQL_LOG.info(l_procedure_name || ': Error adding offer at ' || l_location);
       APP_PLSQL_LOG.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
 
@@ -3315,14 +3315,24 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_procedure_name         VARCHAR2(50) := 'ADD_CONCEPTS_TO_OFFR';
     l_location               VARCHAR2(1000);
 
+    l_lock_user_nm           VARCHAR2(35);
+    l_lock_status            NUMBER;
+
     l_mrkt_id                NUMBER;
     l_offr_perd_id           NUMBER;
     l_veh_id                 NUMBER;
+    
+    e_lock_failed            EXCEPTION;
   BEGIN
     app_plsql_log.info(l_procedure_name || ' start');
 
-    p_status := 0;
-
+    p_status := c_exec_status_success;
+    
+    lock_offr(p_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
+    IF l_lock_status <> 1 THEN
+      RAISE e_lock_failed;
+    END IF;
+      
     l_location := 'Querying the existing offer';
     SELECT o.mrkt_id,
            o.offr_perd_id,
@@ -3348,10 +3358,16 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     app_plsql_log.info(l_procedure_name || ' stop');
 
   EXCEPTION
+    WHEN e_lock_failed THEN
+      p_status := c_exec_status_failed;
+      app_plsql_log.info(l_procedure_name || ': Lock failed, user: ' || p_user_nm);
+
+      ROLLBACK;
+
     WHEN OTHERS THEN
-      p_status := 1;
-      APP_PLSQL_LOG.info(l_procedure_name || ': Error adding concepts to offer at ' || l_location);
-      APP_PLSQL_LOG.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+      p_status := c_exec_status_failed;
+      app_plsql_log.info(l_procedure_name || ': Error adding concepts to offer at ' || l_location);
+      app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
 
       ROLLBACK;
   END add_concepts_to_offr;
