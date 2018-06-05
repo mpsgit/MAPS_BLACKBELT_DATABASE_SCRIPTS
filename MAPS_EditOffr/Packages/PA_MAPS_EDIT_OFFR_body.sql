@@ -2277,7 +2277,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                    ELSE
                      NULL END AS reg_prc_amt --sku reg prcb?l
                   ,osl_current.line_nr AS line_nr
-                  ,osl_current.sum_unit_qty AS unit_qty
+                  ,CASE WHEN osl_current.offr_sku_line_id is NOT NULL THEN nvl(osl_current.sum_unit_qty, 0) ELSE NULL END unit_qty
                   ,osl_current.dltd_ind AS dltd_ind
                   ,o.creat_ts AS created_ts
                   ,o.creat_user_id AS created_user_id
