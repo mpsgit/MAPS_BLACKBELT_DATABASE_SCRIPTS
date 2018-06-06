@@ -2,11 +2,13 @@ create or replace package body PA_MAPS_EDIT_OFFR
 AS
   TYPE t_str_array IS TABLE OF VARCHAR2(32767);
   
-  co_config_item_id     CONSTANT config_item.config_item_id%TYPE := 3250;
-  co_ci_defval_offr_id  CONSTANT config_item.config_item_id%TYPE := 9200;
-  co_ci_defval_prcpt_id CONSTANT config_item.config_item_id%TYPE := 9210;
+  co_config_item_id      CONSTANT config_item.config_item_id%TYPE := 3250;
+  co_ci_defval_offr_id   CONSTANT config_item.config_item_id%TYPE := 9200;
+  co_ci_defval_prcpt_id  CONSTANT config_item.config_item_id%TYPE := 9210;
+  co_sls_typ_estimate    CONSTANT sls_typ.sls_typ_id%TYPE := 1;
+  co_sls_typ_op_estimate CONSTANT sls_typ.sls_typ_id%TYPE := 2;
 
-  e_oscs_dup_val        EXCEPTION;
+  e_oscs_dup_val         EXCEPTION;
 
 FUNCTION  lock_offr_chk(p_offr_id IN NUMBER, p_user_nm IN VARCHAR2) RETURN NUMBER
   AS
@@ -2277,7 +2279,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                    ELSE
                      NULL END AS reg_prc_amt --sku reg prcb?l
                   ,osl_current.line_nr AS line_nr
-                  ,CASE WHEN osl_current.offr_sku_line_id is NOT NULL THEN nvl(osl_current.sum_unit_qty, 0) ELSE NULL END unit_qty
+                  ,osl_current.sum_unit_qty AS unit_qty
                   ,osl_current.dltd_ind AS dltd_ind
                   ,o.creat_ts AS created_ts
                   ,o.creat_user_id AS created_user_id
@@ -2979,7 +2981,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     -- offr_prfl_prc_point default values
     l_promtn_clm_id          NUMBER;
     l_promtn_id              NUMBER;
-    l_sls_cls_cd             VARCHAR2(5);
     l_nr_for_qty             NUMBER; 
     l_unit_qty               NUMBER; 
     l_sls_prc_amt            NUMBER; 
@@ -2994,6 +2995,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_chrty_amt              NUMBER; 
     l_awrd_sls_prc_amt       NUMBER;
     l_prod_endrsmt_id        NUMBER;
+    l_sls_typ_id             NUMBER := 1;
 
   BEGIN
     l_default_arr := parse_config_items(p_mrkt_id, co_ci_defval_offr_id);
@@ -3007,21 +3009,20 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
     l_promtn_clm_id          := to_number(l_default_arr(1));
     l_promtn_id              := to_number(l_default_arr(2));
-    l_sls_cls_cd             := l_default_arr(3);
-    l_nr_for_qty             := to_number(l_default_arr(4));
-    l_unit_qty               := to_number(l_default_arr(5));
-    l_sls_prc_amt            := to_number(l_default_arr(6));
-    l_wghtd_avg_cost_amt     := to_number(l_default_arr(7));
-    l_sls_srce_id            := to_number(l_default_arr(8));
-    l_tax_type_id            := to_number(l_default_arr(9));
-    l_pymt_typ               := l_default_arr(10);
-    l_comsn_typ              := l_default_arr(11);
-    l_prmry_offr_ind         := l_default_arr(12);
-    l_pg_ofs_nr              := to_number(l_default_arr(13));
-    l_concept_featrd_side_cd := l_default_arr(14);
-    l_chrty_amt              := to_number(l_default_arr(15));
-    l_awrd_sls_prc_amt       := to_number(l_default_arr(16));
-    l_prod_endrsmt_id        := to_number(l_default_arr(17));
+    l_nr_for_qty             := to_number(l_default_arr(3));
+    l_unit_qty               := to_number(l_default_arr(4));
+    l_sls_prc_amt            := to_number(l_default_arr(5));
+    l_wghtd_avg_cost_amt     := to_number(l_default_arr(6));
+    l_sls_srce_id            := to_number(l_default_arr(7));
+    l_tax_type_id            := to_number(l_default_arr(8));
+    l_pymt_typ               := l_default_arr(9);
+    l_comsn_typ              := l_default_arr(10);
+    l_prmry_offr_ind         := l_default_arr(11);
+    l_pg_ofs_nr              := to_number(l_default_arr(12));
+    l_concept_featrd_side_cd := l_default_arr(13);
+    l_chrty_amt              := to_number(l_default_arr(14));
+    l_awrd_sls_prc_amt       := to_number(l_default_arr(15));
+    l_prod_endrsmt_id        := to_number(l_default_arr(16));
 
     FOR i IN p_prfl_cd_list.FIRST .. p_prfl_cd_list.LAST LOOP
 
@@ -3107,7 +3108,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
               WHERE  mrkt_id = p_mrkt_id and
                      perd_id = p_offr_perd_id;
 
-              l_net_to_avon_fct := PA_MAPS_GTA.get_gta_without_price_point(l_gta_mthd_id, l_sls_prc_amt, l_chrty_amt,
+              l_net_to_avon_fct := pa_maps_gta.get_gta_without_price_point(l_gta_mthd_id, l_sls_prc_amt, l_chrty_amt,
                                                                            l_awrd_sls_prc_amt, l_comsn_pct, l_tax_pct, 0);
             EXCEPTION
               WHEN OTHERS THEN
@@ -3167,6 +3168,33 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
               (l_offr_sku_line_id, p_offr_id, p_veh_id, l_concept_featrd_side_cd, p_offr_perd_id, p_mrkt_id,
                sku_rec.sku_id, l_pg_ofs_nr, p_prfl_cd_list(i), l_crncy_cd, 'N', sku_rec.sls_cls_cd,
                l_offr_prfl_prcpt_id, 'N', 'N', 0, l_sls_prc_amt, 'P');
+
+            -- also need to create DMS record(s) based on MVPV Sales Type derived during campaign validation
+            IF l_sls_typ_id in (co_sls_typ_estimate, co_sls_typ_op_estimate) THEN
+
+              -- create estimate DMS record
+              l_location := 'create DMS for estimate';
+              INSERT INTO dstrbtd_mrkt_sls
+                (mrkt_id, sls_perd_id, offr_sku_line_id, sls_typ_id, sls_srce_id, offr_perd_id,
+                 veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt)
+              VALUES
+                (p_mrkt_id, p_offr_perd_id, l_offr_sku_line_id, co_sls_typ_estimate, l_sls_srce_id, p_offr_perd_id,
+                 p_veh_id, l_unit_qty, 0, 0, l_net_to_avon_fct, l_wghtd_avg_cost_amt);
+
+            END IF;
+
+            IF l_sls_typ_id in (co_sls_typ_op_estimate) THEN
+
+              -- create operational estimate DMS record
+              l_location := 'create DMS for operational estimate';
+              INSERT INTO dstrbtd_mrkt_sls
+                (mrkt_id, sls_perd_id, offr_sku_line_id, sls_typ_id, sls_srce_id, offr_perd_id,
+                 veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt)
+              VALUES
+                (p_mrkt_id, p_offr_perd_id, l_offr_sku_line_id, co_sls_typ_op_estimate, l_sls_srce_id, p_offr_perd_id,
+                 p_veh_id, l_unit_qty, 0, 0, l_net_to_avon_fct, L_wghtd_avg_cost_amt);
+
+            END IF;
 
             -- new sku added so increment sku counters for OFFR, OPSCP and OPP
             UPDATE offr
@@ -3235,7 +3263,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
   BEGIN
     app_plsql_log.info(l_procedure_name || ' start');
 
-    p_status := c_exec_status_success;
+    p_status := co_exec_status_success;
 
     l_default_arr := parse_config_items(p_mrkt_id, co_ci_defval_offr_id);
 
@@ -3253,6 +3281,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_rpt_sbtl_typ_id  := to_number(l_default_arr(12));
 
     l_location := 'Query mrkt_veh_perd_sctn';
+    -- Get page offset number
     SELECT mvps.brchr_plcmt_id,
            p_sctn_page_ofs_nr - mvps.strtg_page_nr - mvps.strtg_page_side_nr
       INTO l_brchr_plcmt_id,
@@ -3276,7 +3305,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
           ( l_offr_id, p_mrkt_id, p_offr_perd_id, p_veh_id, 0, l_pg_wght_pct, l_ssnl_evnt_id,
             p_offr_desc_txt, p_mrkt_veh_perd_sctn_id, l_offr_typ, l_brchr_plcmt_id, l_sctn_page_ofs_nr,
             0, 0, l_featrd_side_cd, l_flap_ind, l_offr_stus_cd, p_offr_perd_id, p_offr_perd_id,
-            0, l_unit_rptg_lvl_id, l_rpt_sbtl_typ_id, l_pg_typ_id, l_offr_cls_id);
+            l_brchr_postn_id, l_unit_rptg_lvl_id, l_rpt_sbtl_typ_id, l_pg_typ_id, l_offr_cls_id);
 
     IF p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0 THEN
       l_location := 'Calling add_concept';
@@ -3298,7 +3327,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
   EXCEPTION
     WHEN OTHERS THEN
-      p_status := c_exec_status_failed;
+      p_status := co_exec_status_failed;
       app_plsql_log.info(l_procedure_name || ': Error adding offer at ' || l_location);
       app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
 
@@ -3326,7 +3355,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
   BEGIN
     app_plsql_log.info(l_procedure_name || ' start');
 
-    p_status := c_exec_status_success;
+    p_status := co_exec_status_success;
 
     lock_offr(p_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
     IF l_lock_status <> 1 THEN
@@ -3359,13 +3388,13 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
   EXCEPTION
     WHEN e_lock_failed THEN
-      p_status := c_exec_status_failed;
+      p_status := co_exec_status_failed;
       app_plsql_log.info(l_procedure_name || ': Lock failed, user: ' || p_user_nm);
 
       ROLLBACK;
 
     WHEN OTHERS THEN
-      p_status := c_exec_status_failed;
+      p_status := co_exec_status_failed;
       app_plsql_log.info(l_procedure_name || ': Error adding concepts to offer at ' || l_location);
       app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
 
@@ -3387,9 +3416,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
   BEGIN
     app_plsql_log.info(l_procedure_name || ' start');
 
-    p_status := c_exec_status_success;
-  
-  
+    p_status := co_exec_status_success;
+
     l_offr_table.extend;
     l_offr_table(l_offr_table.last) := obj_get_offr_line(294369510, 1);
 

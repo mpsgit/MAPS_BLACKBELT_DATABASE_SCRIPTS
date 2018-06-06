@@ -1,8 +1,8 @@
 CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
   g_package_name         CONSTANT VARCHAR2(30) := 'PA_MAPS_EDIT_OFFR';
 
-  c_exec_status_success  CONSTANT NUMBER := 1;
-  c_exec_status_failed   CONSTANT NUMBER := 0;
+  co_exec_status_success CONSTANT NUMBER := 1;
+  co_exec_status_failed  CONSTANT NUMBER := 0;
 
   cfg_pricing_market     CONSTANT NUMBER := 6000;
   cfg_pricing_start_perd CONSTANT NUMBER := 6006;
