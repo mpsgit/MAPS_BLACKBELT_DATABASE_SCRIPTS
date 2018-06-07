@@ -3358,7 +3358,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     p_status := co_exec_status_success;
 
     lock_offr(p_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
-    IF l_lock_status <> 1 THEN
+    IF l_lock_status NOT IN (1, 2) THEN
       RAISE e_lock_failed;
     END IF;
 
@@ -3389,7 +3389,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
   EXCEPTION
     WHEN e_lock_failed THEN
       p_status := co_exec_status_failed;
-      app_plsql_log.info(l_procedure_name || ': Lock failed, user: ' || p_user_nm);
+      app_plsql_log.info(l_procedure_name || ': Lock failed, user: ' || p_user_nm || ', Status: ' || l_lock_status);
 
       ROLLBACK;
 
@@ -3427,7 +3427,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     p_status := co_exec_status_success;
 
     lock_offr(p_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
-    IF l_lock_status <> 1 THEN
+    IF l_lock_status NOT IN (1, 2) THEN
       RAISE e_lock_failed;
     END IF;
 
@@ -3464,7 +3464,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
   EXCEPTION
     WHEN e_lock_failed THEN
       p_status := co_exec_status_failed;
-      app_plsql_log.info(l_procedure_name || ': Lock failed, user: ' || p_user_nm);
+      app_plsql_log.info(l_procedure_name || ': Lock failed, user: ' || p_user_nm || ', Status: ' || l_lock_status);
 
       ROLLBACK;
 
@@ -3476,7 +3476,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
       ROLLBACK;
   END add_prcpoints_to_offr;
 
-  PROCEDURE copy_offer(p_offr_id           IN NUMBER,
+  PROCEDURE copy_offer(p_offr_id           IN number_array,
                        p_trg_mrkt_id       IN NUMBER,
                        p_trg_offr_perd_id  IN NUMBER,
                        p_trg_veh_id        IN NUMBER,
@@ -3485,7 +3485,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                        p_clstr_id          IN NUMBER,
                        p_status           OUT NUMBER,
                        p_edit_offr_table  OUT obj_edit_offr_table) IS
-                       
+
     l_offr_table             obj_get_offr_table := obj_get_offr_table();
   BEGIN
     l_offr_table.extend;

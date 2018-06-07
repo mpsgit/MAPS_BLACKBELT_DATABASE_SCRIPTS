@@ -66,7 +66,7 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                                   p_status                  OUT NUMBER,
                                   p_edit_offr_table         OUT obj_edit_offr_table);
 
-  PROCEDURE copy_offer(p_offr_id           IN NUMBER,
+  PROCEDURE copy_offer(p_offr_id           IN number_array,
                        p_trg_mrkt_id       IN NUMBER,
                        p_trg_offr_perd_id  IN NUMBER,
                        p_trg_veh_id        IN NUMBER,
