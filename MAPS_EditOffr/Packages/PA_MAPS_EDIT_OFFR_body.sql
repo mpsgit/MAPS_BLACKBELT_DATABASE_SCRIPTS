@@ -3491,7 +3491,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
     l_offr_table             obj_get_offr_table := obj_get_offr_table();
 
-    l_new_offr_id                offr.offr_id%TYPE;
+    l_new_offr_id            offr.offr_id%TYPE;
     l_old_offr_id            offr.offr_id%TYPE;
     l_offr_desc_txt          offr.offr_desc_txt%TYPE;
     l_whatif                 BOOLEAN;
@@ -3506,6 +3506,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
       l_old_offr_id := p_offr_id(i);
 
+      l_location := 'Querying original offer';
       SELECT SUBSTR(o.offr_desc_txt || ' (copy)', 1, 254)
         INTO l_offr_desc_txt
         FROM offr o
@@ -3516,6 +3517,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
         l_whatif := TRUE;
       END IF;
 
+      l_location := 'Calling pa_maps_copy.copy_offer';
       l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => l_old_offr_id,
                                                par_newmarketid    => p_trg_mrkt_id,
                                                par_newofferperiod => p_trg_offr_perd_id,
@@ -3533,7 +3535,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
       l_offr_table(l_offr_table.LAST) := obj_get_offr_line(l_new_offr_id, 1);
 
     END LOOP;
-    
+
+    l_location := 'Get edit offer table';
     SELECT obj_edit_offr_line(
                 status, mrkt_id, offr_perd_id, offr_lock, offr_lock_user, offr_sku_line_id, veh_id, brchr_plcmnt_id, brchr_sctn_nm,
                 enrgy_chrt_postn_id, pg_nr, ctgry_id, brnd_id, sgmt_id, form_id, form_grp_id, prfl_cd, sku_id, fsc_cd,
