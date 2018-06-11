@@ -1,15 +1,17 @@
 CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
-  g_package_name         CONSTANT VARCHAR2(30) := 'PA_MAPS_EDIT_OFFR';
+  g_package_name           CONSTANT VARCHAR2(30) := 'PA_MAPS_EDIT_OFFR';
 
-  co_exec_status_success CONSTANT NUMBER := 1;
-  co_exec_status_failed  CONSTANT NUMBER := 0;
+  co_exec_status_success   CONSTANT NUMBER := 1;
+  co_exec_status_failed    CONSTANT NUMBER := 0;
+  co_exec_status_prcpnt_ex CONSTANT NUMBER := 2;
 
-  cfg_pricing_market     CONSTANT NUMBER := 6000;
-  cfg_pricing_start_perd CONSTANT NUMBER := 6006;
-  cfg_target_strategy    CONSTANT NUMBER := 6009;
-  row_limit              CONSTANT NUMBER := 10000;
+  cfg_pricing_market       CONSTANT NUMBER := 6000;
+  cfg_pricing_start_perd   CONSTANT NUMBER := 6006;
+  cfg_target_strategy      CONSTANT NUMBER := 6009;
+  row_limit                CONSTANT NUMBER := 10000;
 
   SUBTYPE single_char IS CHAR(1);
+
   FUNCTION get_edit_offr_table(p_filters IN obj_edit_offr_filter_table)
     RETURN obj_edit_offr_table
     PIPELINED;
