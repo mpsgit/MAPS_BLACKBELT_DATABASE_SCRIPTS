@@ -1,3 +1,5 @@
+spool install_int.log
+
 connect anint/anint_la3q@lamaps3
 
 @install.sql
@@ -33,3 +35,5 @@ connect ceint/ceint@emmapsi
 connect weint/weint@emmapsi
 
 @install.sql
+
+spool off
