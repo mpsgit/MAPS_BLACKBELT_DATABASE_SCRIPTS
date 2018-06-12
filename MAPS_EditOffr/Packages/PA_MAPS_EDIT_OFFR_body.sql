@@ -41,6 +41,9 @@ AS
   g_prod_endrsmt_id        NUMBER;
   g_sls_typ_id             NUMBER := 1;
 
+  g_run_id                 NUMBER := 0;
+  g_user_id                mps_plsql_log.user_id%TYPE;
+
   e_oscs_dup_val           EXCEPTION;
   e_prcpnt_already_exists  EXCEPTION;
 
@@ -3026,14 +3029,15 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
       RETURN l_edit_offr_table;
   END get_offr_table;
 
-  PROCEDURE add_concepts(p_offr_id      IN NUMBER,
-                         p_mrkt_id      IN NUMBER,
-                         p_offr_perd_id IN NUMBER,
-                         p_veh_id       IN NUMBER,
-                         p_prfl_cd      IN NUMBER,
-                         p_user_nm      IN VARCHAR2) IS
+  PROCEDURE add_concept(p_offr_id      IN NUMBER,
+                        p_mrkt_id      IN NUMBER,
+                        p_offr_perd_id IN NUMBER,
+                        p_veh_id       IN NUMBER,
+                        p_prfl_cd      IN NUMBER,
+                        p_user_nm      IN VARCHAR2,
+                        p_status      OUT NUMBER) IS
 
-    l_procedure_name         VARCHAR2(50) := 'ADD_CONCEPTS';
+    l_procedure_name         VARCHAR2(50) := 'ADD_CONCEPT';
     l_location               VARCHAR2(1000);
 
     l_found                  NUMBER := 0;
@@ -3257,16 +3261,19 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
     END LOOP; -- sku_rec
 
+    p_status := co_exec_status_success;
+
   EXCEPTION
     WHEN e_prcpnt_already_exists THEN
-      RAISE;
+      p_status := co_exec_status_prcpnt_ex;
     
     WHEN OTHERS THEN
-      APP_PLSQL_LOG.info(l_procedure_name || ': Error adding offer at ' || l_location);
-      APP_PLSQL_LOG.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+      app_plsql_log.info(l_procedure_name || ': Error adding offer at ' || l_location);
+      app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+      p_status := co_exec_status_failed;
       RAISE;
 
-  END add_concepts;
+  END add_concept;
 
   PROCEDURE add_offer(p_mrkt_id                IN NUMBER,
                       p_offr_perd_id           IN NUMBER,
@@ -3290,6 +3297,11 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_lock_status            NUMBER;
 
   BEGIN
+    g_run_id  := app_plsql_output.generate_new_run_id;
+    g_user_id := RTRIM(sys_context('USERENV', 'OS_USER'), 35);
+
+    app_plsql_output.set_run_id(g_run_id);
+    app_plsql_log.set_context(g_user_id, g_package_name, g_run_id);
     app_plsql_log.info(l_procedure_name || ' start');
 
     p_status := co_exec_status_success;
@@ -3327,12 +3339,13 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     IF p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0 THEN
       l_location := 'Calling add_concept';
       FOR i IN p_prfl_cd_list.FIRST .. p_prfl_cd_list.LAST LOOP
-        add_concepts(l_offr_id,
-                     p_mrkt_id,
-                     p_offr_perd_id,
-                     p_veh_id,
-                     p_prfl_cd_list(i),
-                     p_user_nm);
+        add_concept(l_offr_id,
+                    p_mrkt_id,
+                    p_offr_perd_id,
+                    p_veh_id,
+                    p_prfl_cd_list(i),
+                    p_user_nm,
+                    p_status);
       END LOOP;
     END IF; -- p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0
 
@@ -3373,6 +3386,11 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
     e_lock_failed            EXCEPTION;
   BEGIN
+    g_run_id  := app_plsql_output.generate_new_run_id;
+    g_user_id := RTRIM(sys_context('USERENV', 'OS_USER'), 35);
+
+    app_plsql_output.set_run_id(g_run_id);
+    app_plsql_log.set_context(g_user_id, g_package_name, g_run_id);
     app_plsql_log.info(l_procedure_name || ' start');
 
     p_status := co_exec_status_success;
@@ -3397,31 +3415,16 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
     l_location := 'Adding concepts';
     FOR i IN p_prfl_cd_list.FIRST .. p_prfl_cd_list.LAST LOOP
-      BEGIN
-        add_concepts(p_offr_id,
-                     l_mrkt_id,
-                     l_offr_perd_id,
-                     l_veh_id,
-                     p_prfl_cd_list(i),
-                     p_user_nm);
-
-        COMMIT;
-
-      EXCEPTION
-        WHEN e_prcpnt_already_exists THEN
-          p_status := co_exec_status_prcpnt_ex;
-
-          ROLLBACK;
-
-        WHEN OTHERS THEN
-          p_status := co_exec_status_failed;
-          app_plsql_log.info(l_procedure_name || ': Error adding pricepoints to offer at ' || l_location);
-          app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
-
-          ROLLBACK;
-      END;
-
+      add_concept(p_offr_id,
+                  l_mrkt_id,
+                  l_offr_perd_id,
+                  l_veh_id,
+                  p_prfl_cd_list(i),
+                  p_user_nm,
+                  p_status);
     END LOOP;
+
+    COMMIT;
 
     l_location := 'getting offer table';
     p_edit_offr_table := get_offr_table(p_offr_id);
@@ -3462,6 +3465,11 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
     e_lock_failed            EXCEPTION;
   BEGIN
+    g_run_id  := app_plsql_output.generate_new_run_id;
+    g_user_id := RTRIM(sys_context('USERENV', 'OS_USER'), 35);
+
+    app_plsql_output.set_run_id(g_run_id);
+    app_plsql_log.set_context(g_user_id, g_package_name, g_run_id);
     app_plsql_log.info(l_procedure_name || ' start');
 
     p_status := co_exec_status_success;
@@ -3485,36 +3493,26 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     init_default_values(l_mrkt_id);
 
     l_location := 'Adding concepts';
---    l_location := 'Gathering concepts from existing pricepoints';
     FOR prfl_rec IN (
-      SELECT p.prfl_cd
+      SELECT p.offr_prfl_prcpt_id,
+             p.prfl_cd
         FROM offr_prfl_prc_point p
        WHERE p.offr_prfl_prcpt_id IN (SELECT column_value FROM TABLE(p_offr_prfl_prcpt_id_list))
     )
     LOOP
-      BEGIN
-        add_concepts(p_offr_id,
-                     l_mrkt_id,
-                     l_offr_perd_id,
-                     l_veh_id,
-                     prfl_rec.prfl_cd,
-                     p_user_nm);
-
-        COMMIT;
-      EXCEPTION
-        WHEN e_prcpnt_already_exists THEN
-          p_status := co_exec_status_prcpnt_ex;
-
-          ROLLBACK;
-
-        WHEN OTHERS THEN
-          p_status := co_exec_status_failed;
-          app_plsql_log.info(l_procedure_name || ': Error adding pricepoints to offer at ' || l_location);
-          app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
-
-          ROLLBACK;
-      END;
+      add_concept(p_offr_id,
+                  l_mrkt_id,
+                  l_offr_perd_id,
+                  l_veh_id,
+                  prfl_rec.prfl_cd,
+                  p_user_nm,
+                  p_status);
+      IF p_status = co_exec_status_prcpnt_ex THEN
+        app_plsql_log.info(l_procedure_name || ': Pricepoint with default values already exists. offr_prfl_prcpt_id: ' || prfl_rec.offr_prfl_prcpt_id);
+      END IF;
     END LOOP;
+
+    COMMIT;
 
     l_location := 'getting offer table';
     p_edit_offr_table := get_offr_table(p_offr_id);
@@ -3536,19 +3534,15 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
       ROLLBACK;
   END add_prcpoints_to_offr;
 
-  PROCEDURE copy_offer(p_offr_id           IN number_array,
-                       p_trg_mrkt_id       IN NUMBER,
-                       p_trg_offr_perd_id  IN NUMBER,
-                       p_trg_veh_id        IN NUMBER,
-                       p_trg_offr_typ      IN VARCHAR2 DEFAULT 'CMP',
+  PROCEDURE copy_offer(p_copy_offr_table   IN obj_copy_offr_table,
                        p_user_nm           IN VARCHAR2,
-                       p_clstr_id          IN NUMBER,
                        p_status           OUT NUMBER,
                        p_edit_offr_table  OUT obj_edit_offr_table) IS
 
     l_procedure_name         VARCHAR2(50) := 'COPY_OFFER';
     l_location               VARCHAR2(1000);
 
+    l_obj_copy_offr          obj_copy_offr_line;
     l_offr_table             obj_get_offr_table := obj_get_offr_table();
 
     l_new_offr_id            offr.offr_id%TYPE;
@@ -3558,42 +3552,52 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
     e_copy_offer_failed      EXCEPTION;
   BEGIN
+    g_run_id  := app_plsql_output.generate_new_run_id;
+    g_user_id := RTRIM(sys_context('USERENV', 'OS_USER'), 35);
+
+    app_plsql_output.set_run_id(g_run_id);
+    app_plsql_log.set_context(g_user_id, g_package_name, g_run_id);
     app_plsql_log.info(l_procedure_name || ' start');
 
     p_status := co_exec_status_success;
 
-    FOR i IN p_offr_id.FIRST .. p_offr_id.LAST LOOP
+    FOR i IN p_copy_offr_table.FIRST .. p_copy_offr_table.LAST LOOP
 
-      l_old_offr_id := p_offr_id(i);
+      l_obj_copy_offr := p_copy_offr_table(i);
 
-      l_location := 'Querying original offer';
-      SELECT SUBSTR(o.offr_desc_txt || ' (copy)', 1, 254)
-        INTO l_offr_desc_txt
-        FROM offr o
-       WHERE o.offr_id = l_old_offr_id;
+      FOR j IN l_obj_copy_offr.offr_id.FIRST .. l_obj_copy_offr.offr_id.LAST LOOP
 
-      l_whatif := FALSE;
-      IF p_trg_offr_typ = 'WIF' THEN
-        l_whatif := TRUE;
-      END IF;
+        l_old_offr_id := l_obj_copy_offr.offr_id(j);
 
-      l_location := 'Calling pa_maps_copy.copy_offer';
-      l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => l_old_offr_id,
-                                               par_newmarketid    => p_trg_mrkt_id,
-                                               par_newofferperiod => p_trg_offr_perd_id,
-                                               par_newvehid       => p_trg_veh_id,
-                                               par_newoffrdesc    => l_offr_desc_txt,
-                                               par_zerounits      => FALSE,
-                                               par_whatif         => l_whatif,
-                                               par_paginationcopy => TRUE,
-                                               par_user           => p_user_nm);
-      IF l_new_offr_id = -1 THEN
-        RAISE e_copy_offer_failed;
-      END IF;
+        l_location := 'Querying original offer';
+        SELECT SUBSTR(o.offr_desc_txt || ' (copy)', 1, 254)
+          INTO l_offr_desc_txt
+          FROM offr o
+         WHERE o.offr_id = l_old_offr_id;
 
-      l_offr_table.EXTEND;
-      l_offr_table(l_offr_table.LAST) := obj_get_offr_line(l_new_offr_id, 1);
+        l_whatif := FALSE;
+        IF l_obj_copy_offr.trg_offr_typ = 'WIF' THEN
+          l_whatif := TRUE;
+        END IF;
 
+        l_location := 'Calling pa_maps_copy.copy_offer';
+        l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => l_old_offr_id,
+                                                 par_newmarketid    => l_obj_copy_offr.trg_mrkt_id,
+                                                 par_newofferperiod => l_obj_copy_offr.trg_offr_perd_id,
+                                                 par_newvehid       => l_obj_copy_offr.trg_veh_id,
+                                                 par_newoffrdesc    => l_offr_desc_txt,
+                                                 par_zerounits      => FALSE,
+                                                 par_whatif         => l_whatif,
+                                                 par_paginationcopy => TRUE,
+                                                 par_user           => p_user_nm);
+        IF l_new_offr_id = -1 THEN
+          RAISE e_copy_offer_failed;
+        END IF;
+
+        l_offr_table.EXTEND;
+        l_offr_table(l_offr_table.LAST) := obj_get_offr_line(l_new_offr_id, 1);
+
+      END LOOP;
     END LOOP;
 
     l_location := 'Get edit offer table';
