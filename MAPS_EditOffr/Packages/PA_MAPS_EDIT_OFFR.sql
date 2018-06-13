@@ -74,6 +74,7 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                        p_edit_offr_table  OUT obj_edit_offr_table);
                        
   PROCEDURE delete_offers(p_osl_records      IN obj_edit_offr_table,
+--                          p_user_nm          IN VARCHAR2,
                           p_edit_offr_table OUT obj_edit_offr_table);
                           
   PROCEDURE delete_prcpoints(p_osl_records      IN obj_edit_offr_table,
