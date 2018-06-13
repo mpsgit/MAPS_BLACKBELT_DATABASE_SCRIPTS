@@ -4,6 +4,11 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
   co_exec_status_success   CONSTANT NUMBER := 1;
   co_exec_status_failed    CONSTANT NUMBER := 0;
   co_exec_status_prcpnt_ex CONSTANT NUMBER := 2;
+  
+  co_eo_stat_success       CONSTANT NUMBER := 1;
+  co_eo_stat_error         CONSTANT NUMBER := 0;
+  co_eo_stat_part_lines    CONSTANT NUMBER := 2;
+  co_eo_stat_lock_failure  CONSTANT NUMBER := 3;
 
   cfg_pricing_market       CONSTANT NUMBER := 6000;
   cfg_pricing_start_perd   CONSTANT NUMBER := 6006;

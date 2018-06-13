@@ -3674,8 +3674,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     app_plsql_log.set_context(g_user_id, g_package_name, g_run_id);
     app_plsql_log.info(l_procedure_name || ' start');
 
-    l_status := 1;
-
     p_edit_offr_table := obj_edit_offr_table();
 
     FOR offr_rec IN (
@@ -3685,30 +3683,33 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     )
     LOOP
       BEGIN
-        IF NOT chk_sku_lines(offr_rec.offr_id) THEN
+        l_status := co_eo_stat_success;
+        l_offr_id := offr_rec.offr_id;
+
+        IF NOT chk_sku_lines(l_offr_id) THEN
           RAISE e_not_all_sku_lines;
         END IF;
 
-        IF offr_rec.offr_lock_user IS NOT NULL AND lock_offr_chk(offr_rec.offr_id, offr_rec.offr_lock_user) = 0 THEN
+        IF offr_rec.offr_lock_user IS NOT NULL AND lock_offr_chk(l_offr_id, offr_rec.offr_lock_user) = 0 THEN
           RAISE e_lock_failed;
-        END IF;          
+        END IF;
 
         l_location := 'delete offer';
-        del_offer(offr_rec.offr_id);
+        del_offer(l_offr_id);
 
       EXCEPTION
         WHEN e_not_all_sku_lines THEN
-          l_status := 2;
+          l_status := co_eo_stat_part_lines;
         WHEN e_lock_failed THEN
-          l_status := 3;
+          l_status := co_eo_stat_lock_failure;
         WHEN OTHERS THEN
-          l_status := 0;
+          l_status := co_eo_stat_error;
           app_plsql_log.info(l_procedure_name || ': Error deleting offers at ' || l_location || ', offr_id: ' || l_offr_id);
           app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
       END;
 
       l_location := 'adding data to edit_offr_table';
-      add_to_edit_offr_table(offr_rec.offr_id, l_status, p_osl_records, p_edit_offr_table);
+      add_to_edit_offr_table(l_offr_id, l_status, p_osl_records, p_edit_offr_table);
 
     END LOOP;
 
