@@ -3656,13 +3656,10 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
   END add_to_edit_offr_table;
 
   PROCEDURE delete_offers(p_osl_records      IN obj_edit_offr_table,
---                          p_user_nm          IN VARCHAR2,
                           p_edit_offr_table OUT obj_edit_offr_table) IS
 
     l_procedure_name         VARCHAR2(50) := 'DELETE_OFFERS';
     l_location               VARCHAR2(1000);
-
---    l_offr_table             obj_get_offr_table := obj_get_offr_table();
 
     l_offr_id                offr.offr_id%TYPE;
     l_status                 NUMBER;
@@ -3692,7 +3689,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
           RAISE e_not_all_sku_lines;
         END IF;
 
-        IF lock_offr_chk(offr_rec.offr_id, offr_rec.offr_lock_user) = 0 THEN
+        IF offr_rec.offr_lock_user IS NOT NULL AND lock_offr_chk(offr_rec.offr_id, offr_rec.offr_lock_user) = 0 THEN
           RAISE e_lock_failed;
         END IF;          
 
@@ -3701,9 +3698,9 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
       EXCEPTION
         WHEN e_not_all_sku_lines THEN
-          l_status := 0;
+          l_status := 2;
         WHEN e_lock_failed THEN
-          l_status := 0;
+          l_status := 3;
         WHEN OTHERS THEN
           l_status := 0;
           app_plsql_log.info(l_procedure_name || ': Error deleting offers at ' || l_location || ', offr_id: ' || l_offr_id);
@@ -3716,23 +3713,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     END LOOP;
 
     COMMIT;
-/*
-    l_offr_table.extend;
-    l_offr_table(l_offr_table.last) := obj_get_offr_line(p_osl_records(1).intrnl_offr_id, 1);
-
-    SELECT obj_edit_offr_line(status, mrkt_id, offr_perd_id, offr_lock, offr_lock_user, offr_sku_line_id, veh_id, brchr_plcmnt_id, brchr_sctn_nm,
-                enrgy_chrt_postn_id, pg_nr, ctgry_id, brnd_id, sgmt_id, form_id, form_grp_id, prfl_cd, sku_id, fsc_cd,
-                prod_typ_id, gender_id, sls_cls_cd, offr_desc_txt, offr_notes_txt, offr_lyot_cmnts_txt, featrd_side_cd,
-                concept_featrd_side_cd, micr_ncpsltn_ind, cnsmr_invstmt_bdgt_id, pymt_typ, promtn_id, promtn_clm_id, spndng_lvl,
-                comsn_typ, tax_type_id, wsl_ind, offr_sku_set_id, cmpnt_qty, nr_for_qty, nta_factor, sku_cost, lv_nta, lv_sp, lv_rp,
-                lv_discount, lv_units, lv_total_cost, lv_gross_sales, lv_dp_cash, lv_dp_percent, ver_id, sls_prc_amt, reg_prc_amt, line_nr,
-                unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
-                prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
-                pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ)
-    BULK COLLECT INTO p_edit_offr_table
-    FROM TABLE(pa_maps_edit_offr.get_offr(l_offr_table));
-*/
-
 
     app_plsql_log.info(l_procedure_name || ' stop');
 
