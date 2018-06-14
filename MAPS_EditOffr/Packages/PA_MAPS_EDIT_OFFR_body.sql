@@ -3656,7 +3656,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
   PROCEDURE del_offer_with_deps(p_offr_id IN offr.offr_id%TYPE) IS
 
-    l_procedure_name         VARCHAR2(50) := 'DEL_OFFER';
+    l_procedure_name         VARCHAR2(50) := 'DEL_OFFER_WITH_DEPS';
     l_location               VARCHAR2(1000);
 
     l_cnt                    INTEGER;
@@ -3872,9 +3872,28 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
   END delete_offers;
 
-  PROCEDURE del_prcpt_with_deps(p_prpct_id IN offr_prfl_prc_point.offr_prfl_prcpt_id%TYPE) IS
+  PROCEDURE del_prcpt_with_deps(p_prcpt_id IN offr_prfl_prc_point.offr_prfl_prcpt_id%TYPE) IS
+
+    l_procedure_name         VARCHAR2(50) := 'DEL_PRCPT_WITH_DEPS';
+    l_location               VARCHAR2(1000);
+
   BEGIN
-    null;
+    l_location := 'deleting dstrbtd_mrkt_sls';
+    DELETE FROM dstrbtd_mrkt_sls dms
+     WHERE dms.offr_sku_line_id IN (
+       SELECT offr_sku_line_id
+         FROM offr_sku_line
+        WHERE offr_prfl_prcpt_id = p_prcpt_id
+       );
+
+    l_location := 'deleting offr_sku_line';
+    DELETE FROM offr_sku_line osl
+     WHERE osl.offr_prfl_prcpt_id = p_prcpt_id;
+
+    l_location := 'deleting offr_prfl_prc_point';
+    DELETE FROM offr_prfl_prc_point p
+     WHERE p.offr_prfl_prcpt_id = p_prcpt_id;
+
   END del_prcpt_with_deps;
 
   PROCEDURE delete_prcpoints(p_osl_records      IN obj_edit_offr_table,
