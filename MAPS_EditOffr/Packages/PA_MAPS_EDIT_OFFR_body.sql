@@ -21,6 +21,7 @@ AS
   g_brchr_postn_id         NUMBER;
   g_unit_rptg_lvl_id       NUMBER;
   g_rpt_sbtl_typ_id        NUMBER;
+  g_brchr_plcmt_id         NUMBER;
 
   -- offr_prfl_prc_point default values
   g_promtn_clm_id          NUMBER;
@@ -1723,7 +1724,7 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                ,dstrbtd_mrkt_sls
          WHERE --offr_sku_line join
                    o.offr_id = osl.offr_id(+)
-               AND o.offr_typ = 'CMP'
+--               AND o.offr_typ = 'CMP'
                AND o.mrkt_id = p_filter.p_mrkt_id
                AND o.offr_perd_id = p_filter.p_offr_perd_id
                AND o.ver_id = p_filter.p_ver_id
@@ -2738,7 +2739,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
                   --offr outer join on selected version
                AND o.offr_id = osl_current.offr_id(+)
-               AND o.offr_typ = 'CMP'
+--               AND o.offr_typ = 'CMP'
                AND o.mrkt_id = l_mrkt_id
                AND o.offr_perd_id = l_offr_perd_id
                AND o.ver_id = l_ver_id
@@ -3029,13 +3030,39 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
       RETURN l_edit_offr_table;
   END get_offr_table;
 
-  PROCEDURE add_concept(p_offr_id      IN NUMBER,
-                        p_mrkt_id      IN NUMBER,
-                        p_offr_perd_id IN NUMBER,
-                        p_veh_id       IN NUMBER,
-                        p_prfl_cd      IN NUMBER,
-                        p_user_nm      IN VARCHAR2,
-                        p_status      OUT NUMBER) IS
+  FUNCTION get_offr_table(p_get_offr_table IN obj_get_offr_table)
+    RETURN obj_edit_offr_table IS
+
+    l_edit_offr_table        obj_edit_offr_table;
+  BEGIN
+
+    SELECT obj_edit_offr_line(
+                status, mrkt_id, offr_perd_id, offr_lock, offr_lock_user, offr_sku_line_id, veh_id, brchr_plcmnt_id, brchr_sctn_nm,
+                enrgy_chrt_postn_id, pg_nr, ctgry_id, brnd_id, sgmt_id, form_id, form_grp_id, prfl_cd, sku_id, fsc_cd,
+                prod_typ_id, gender_id, sls_cls_cd, offr_desc_txt, offr_notes_txt, offr_lyot_cmnts_txt, featrd_side_cd,
+                concept_featrd_side_cd, micr_ncpsltn_ind, cnsmr_invstmt_bdgt_id, pymt_typ, promtn_id, promtn_clm_id, spndng_lvl,
+                comsn_typ, tax_type_id, wsl_ind, offr_sku_set_id, cmpnt_qty, nr_for_qty, nta_factor, sku_cost, lv_nta, lv_sp, lv_rp,
+                lv_discount, lv_units, lv_total_cost, lv_gross_sales, lv_dp_cash, lv_dp_percent, ver_id, sls_prc_amt, reg_prc_amt, line_nr,
+                unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
+                prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
+                pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ)
+      BULK COLLECT
+      INTO l_edit_offr_table
+      FROM TABLE(get_offr(p_get_offr_table));
+
+      RETURN l_edit_offr_table;
+  END get_offr_table;
+
+  PROCEDURE add_concept(p_offr_id               IN NUMBER,
+                        p_mrkt_id               IN NUMBER,
+                        p_offr_perd_id          IN NUMBER,
+                        p_veh_id                IN NUMBER,
+--                        p_mrkt_veh_perd_sctn_id IN NUMBER,
+--                        p_insert_eo_table       IN BOOLEAN,
+                        p_prfl_cd               IN NUMBER,
+                        p_user_nm               IN VARCHAR2,
+                        p_status               OUT NUMBER/*,
+                        p_edit_offr_table      OUT obj_edit_offr_table*/) IS
 
     l_procedure_name         VARCHAR2(50) := 'ADD_CONCEPT';
     l_location               VARCHAR2(1000);
@@ -3081,10 +3108,10 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
         l_location := 'create sales class placement';
         INSERT INTO offr_prfl_sls_cls_plcmt
           ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, mrkt_id, veh_id,
-            offr_perd_id, sku_cnt, pg_wght_pct, prod_endrsmt_id, pg_typ_id)
+            offr_perd_id, sku_cnt, pg_wght_pct, prod_endrsmt_id, pg_typ_id, creat_user_id)
         VALUES
           ( p_offr_id, sku_rec.sls_cls_cd, p_prfl_cd, g_pg_ofs_nr, g_concept_featrd_side_cd, p_mrkt_id, p_veh_id,
-            p_offr_perd_id, 0, g_pg_wght_pct, g_prod_endrsmt_id, g_pg_typ_id);
+            p_offr_perd_id, 0, g_pg_wght_pct, g_prod_endrsmt_id, g_pg_typ_id, p_user_nm);
 
       END;
 
@@ -3163,17 +3190,18 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
               sls_cls_cd, prfl_cd, ssnl_evnt_id, offr_perd_id, crncy_cd, sku_cnt, nr_for_qty,
               est_unit_qty, est_sls_amt, est_cost_amt, sls_srce_id, sls_prc_amt,
               tax_amt, pymt_typ, comsn_amt, comsn_typ, net_to_avon_fct, prmry_offr_ind,
-              pg_ofs_nr, featrd_side_cd, chrty_amt, awrd_sls_prc_amt, tax_type_id)
+              pg_ofs_nr, featrd_side_cd, chrty_amt, awrd_sls_prc_amt, tax_type_id, creat_user_id)
           VALUES
             ( l_offr_prfl_prcpt_id, p_offr_id, g_promtn_clm_id, p_veh_id, g_promtn_id, p_mrkt_id,
               sku_rec.sls_cls_cd, p_prfl_cd, g_ssnl_evnt_id, p_offr_perd_id, l_crncy_cd, 0, g_nr_for_qty,
               g_unit_qty, g_sls_prc_amt, g_wghtd_avg_cost_amt, g_sls_srce_id, g_sls_prc_amt,
               l_tax_pct, g_pymt_typ, l_comsn_pct, g_comsn_typ, l_net_to_avon_fct, g_prmry_offr_ind,
-              g_pg_ofs_nr, g_concept_featrd_side_cd, g_chrty_amt, g_awrd_sls_prc_amt, g_tax_type_id);
+              g_pg_ofs_nr, g_concept_featrd_side_cd, g_chrty_amt, g_awrd_sls_prc_amt, g_tax_type_id, p_user_nm);
 
           -- new profile so increment profile counter for Offer
           UPDATE offr
-          SET    prfl_cnt = nvl(prfl_cnt, 0) + 1
+          SET    prfl_cnt = nvl(prfl_cnt, 0) + 1,
+                 last_updt_user_id = p_user_nm
           WHERE  offr_id  = p_offr_id;
 
         WHEN e_prcpnt_already_exists THEN
@@ -3196,10 +3224,10 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
           l_location := 'create sales class sku';
           INSERT INTO offr_sls_cls_sku
             ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, sku_id, mrkt_id,
-              smplg_ind, hero_ind, micr_ncpsltn_ind, reg_prc_amt, cost_amt)
+              smplg_ind, hero_ind, micr_ncpsltn_ind, reg_prc_amt, cost_amt, creat_user_id)
           VALUES
             ( p_offr_id, sku_rec.sls_cls_cd, p_prfl_cd, g_pg_ofs_nr, g_concept_featrd_side_cd,
-              sku_rec.sku_id, p_mrkt_id, 'N', 'N', 'N', sku_rec.reg_prc_amt, g_wghtd_avg_cost_amt);
+              sku_rec.sku_id, p_mrkt_id, 'N', 'N', 'N', sku_rec.reg_prc_amt, g_wghtd_avg_cost_amt, p_user_nm);
 
       END;
 
@@ -3209,11 +3237,11 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
       INSERT INTO offr_sku_line
         (offr_sku_line_id, offr_id, veh_id, featrd_side_cd, offr_perd_id, mrkt_id, sku_id,
          pg_ofs_nr, prfl_cd, crncy_cd, prmry_sku_offr_ind, sls_cls_cd, offr_prfl_prcpt_id,
-         demo_avlbl_ind, dltd_ind, unit_splt_pct, sls_prc_amt, cost_typ)
+         demo_avlbl_ind, dltd_ind, unit_splt_pct, sls_prc_amt, cost_typ, creat_user_id)
       VALUES
         (l_offr_sku_line_id, p_offr_id, p_veh_id, g_concept_featrd_side_cd, p_offr_perd_id, p_mrkt_id,
          sku_rec.sku_id, g_pg_ofs_nr, p_prfl_cd, l_crncy_cd, 'N', sku_rec.sls_cls_cd,
-         l_offr_prfl_prcpt_id, 'N', 'N', 0, g_sls_prc_amt, 'P');
+         l_offr_prfl_prcpt_id, 'N', 'N', 0, g_sls_prc_amt, 'P', p_user_nm);
 
       -- also need to create DMS record(s) based on MVPV Sales Type derived during campaign validation
       IF g_sls_typ_id in (co_sls_typ_estimate, co_sls_typ_op_estimate) THEN
@@ -3222,10 +3250,10 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
         l_location := 'create DMS for estimate';
         INSERT INTO dstrbtd_mrkt_sls
           (mrkt_id, sls_perd_id, offr_sku_line_id, sls_typ_id, sls_srce_id, offr_perd_id,
-           veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt)
+           veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt, creat_user_id)
         VALUES
           (p_mrkt_id, p_offr_perd_id, l_offr_sku_line_id, co_sls_typ_estimate, g_sls_srce_id, p_offr_perd_id,
-           p_veh_id, g_unit_qty, 0, 0, l_net_to_avon_fct, g_wghtd_avg_cost_amt);
+           p_veh_id, g_unit_qty, 0, 0, l_net_to_avon_fct, g_wghtd_avg_cost_amt, p_user_nm);
 
       END IF;
 
@@ -3235,20 +3263,22 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
         l_location := 'create DMS for operational estimate';
         INSERT INTO dstrbtd_mrkt_sls
           (mrkt_id, sls_perd_id, offr_sku_line_id, sls_typ_id, sls_srce_id, offr_perd_id,
-           veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt)
+           veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt, creat_user_id)
         VALUES
           (p_mrkt_id, p_offr_perd_id, l_offr_sku_line_id, co_sls_typ_op_estimate, g_sls_srce_id, p_offr_perd_id,
-           p_veh_id, g_unit_qty, 0, 0, l_net_to_avon_fct, g_wghtd_avg_cost_amt);
+           p_veh_id, g_unit_qty, 0, 0, l_net_to_avon_fct, g_wghtd_avg_cost_amt, p_user_nm);
 
       END IF;
 
       -- new sku added so increment sku counters for OFFR, OPSCP and OPP
       UPDATE offr
-      SET    sku_cnt = nvl(sku_cnt, 0) + 1
+      SET    sku_cnt = nvl(sku_cnt, 0) + 1,
+             last_updt_user_id = p_user_nm
       WHERE  offr_id = p_offr_id;
 
       UPDATE offr_prfl_sls_cls_plcmt
-      SET    sku_cnt = nvl(sku_cnt, 0) + 1
+      SET    sku_cnt = nvl(sku_cnt, 0) + 1,
+             last_updt_user_id = p_user_nm
       WHERE  offr_id        = p_offr_id and
              sls_cls_cd     = sku_rec.sls_cls_cd and
              prfl_cd        = p_prfl_cd and
@@ -3256,9 +3286,33 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
              featrd_side_cd = g_concept_featrd_side_cd;
 
       UPDATE offr_prfl_prc_point
-      SET    sku_cnt = nvl(sku_cnt, 0) + 1
+      SET    sku_cnt = nvl(sku_cnt, 0) + 1,
+             last_updt_user_id = p_user_nm
       WHERE  offr_prfl_prcpt_id = l_offr_prfl_prcpt_id;
 
+/*
+      IF p_insert_eo_table THEN
+
+        SELECT sctn_nm
+          INTO l_sctn_nm
+          FROM mrkt_veh_perd_sctn s
+         WHERE s.mrkt_veh_perd_sctn_id = p_mrkt_veh_perd_sctn_id;
+
+        SELECT p.catgry_id, p.brnd_id, p.sgmt_id, p.form_id, f.form_grp_id
+          INTO l_catgry_id, l_brnd_id, l_sgmt_id, l_form_id, l_form_grp_id
+          FROM prfl p,
+               form f
+         WHERE f.form_id(+) = p.form_id
+           AND p.prfl_cd = p_prfl_cd;
+
+        p_edit_offr_table.EXTEND;
+        p_edit_offr_table(p_edit_offr_table.LAST)
+          := obj_edit_offr_line(0, p_mrkt_id, p_offr_perd_id, 0, NULL, l_offr_sku_line_id, p_veh_id, g_brchr_plcmt_id, l_sctn_nm,
+                                NULL, g_sctn_page_ofs_nr ??? , l_catgry_id, l_brnd_id, l_sgmt_id, l_form_id, l_form_grp_id,
+                                p_prfl_cd, sku_rec.sku_id, 
+           );
+      END IF;
+*/
     END LOOP; -- sku_rec
 
     p_status := co_exec_status_success;
@@ -3291,9 +3345,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_location               VARCHAR2(1000);
 
     l_lock_user_nm           VARCHAR2(35);
-    l_offr_id                NUMBER;
-    l_brchr_plcmt_id         NUMBER;
-    l_sctn_page_ofs_nr       NUMBER;
+    l_offr_id                NUMBER;    
     l_lock_status            NUMBER;
 
   BEGIN
@@ -3313,8 +3365,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     -- Get page offset number
     SELECT mvps.brchr_plcmt_id,
            p_sctn_page_ofs_nr - mvps.strtg_page_nr - mvps.strtg_page_side_nr
-      INTO l_brchr_plcmt_id,
-           l_sctn_page_ofs_nr
+      INTO g_brchr_plcmt_id,
+           g_sctn_page_ofs_nr
       FROM mrkt_veh_perd_sctn mvps
      WHERE mvps.mrkt_veh_perd_sctn_id = p_mrkt_veh_perd_sctn_id
        AND mrkt_id                    = p_mrkt_id
@@ -3329,12 +3381,12 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
           ( offr_id, mrkt_id, offr_perd_id, veh_id, ver_id, pg_wght_pct, ssnl_evnt_id,
             offr_desc_txt, mrkt_veh_perd_sctn_id, offr_typ, brchr_plcmt_id, sctn_page_ofs_nr,
             prfl_cnt, sku_cnt, featrd_side_cd, flap_ind, offr_stus_cd, bilng_perd_id, shpng_perd_id,
-            brchr_postn_id, unit_rptg_lvl_id, rpt_sbtl_typ_id, pg_typ_id, offr_cls_id)
+            brchr_postn_id, unit_rptg_lvl_id, rpt_sbtl_typ_id, pg_typ_id, offr_cls_id, creat_user_id)
         VALUES
           ( l_offr_id, p_mrkt_id, p_offr_perd_id, p_veh_id, 0, g_pg_wght_pct, g_ssnl_evnt_id,
-            p_offr_desc_txt, p_mrkt_veh_perd_sctn_id, g_offr_typ, l_brchr_plcmt_id, g_sctn_page_ofs_nr,
+            p_offr_desc_txt, p_mrkt_veh_perd_sctn_id, g_offr_typ, g_brchr_plcmt_id, g_sctn_page_ofs_nr,
             0, 0, g_featrd_side_cd, g_flap_ind, g_offr_stus_cd, p_offr_perd_id, p_offr_perd_id,
-            g_brchr_postn_id, g_unit_rptg_lvl_id, g_rpt_sbtl_typ_id, g_pg_typ_id, g_offr_cls_id);
+            g_brchr_postn_id, g_unit_rptg_lvl_id, g_rpt_sbtl_typ_id, g_pg_typ_id, g_offr_cls_id, p_user_nm);
 
     IF p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0 THEN
       l_location := 'Calling add_concept';
@@ -3343,9 +3395,11 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                     p_mrkt_id,
                     p_offr_perd_id,
                     p_veh_id,
+--                    p_mrkt_veh_perd_sctn_id,
                     p_prfl_cd_list(i),
                     p_user_nm,
-                    p_status);
+                    p_status/*,
+                    p_edit_offr_table*/);
       END LOOP;
     END IF; -- p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0
 
@@ -3876,6 +3930,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
     l_procedure_name         VARCHAR2(50) := 'DEL_PRCPT_WITH_DEPS';
     l_location               VARCHAR2(1000);
+    
+    l_cnt                    INTEGER;
 
   BEGIN
     l_location := 'deleting dstrbtd_mrkt_sls';
@@ -3894,6 +3950,81 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     DELETE FROM offr_prfl_prc_point p
      WHERE p.offr_prfl_prcpt_id = p_prcpt_id;
 
+    l_location := 'delete offr_sls_cls_sku and offr_prfl_sls_cls_plcmt';
+    FOR rec IN (
+      SELECT *
+        FROM offr_sku_line osl
+       WHERE osl.offr_prfl_prcpt_id = p_prcpt_id
+    )
+    LOOP
+      SELECT COUNT(*)
+        INTO l_cnt
+        FROM offr_sls_cls_sku s
+       WHERE NOT EXISTS (SELECT *
+                           FROM offr_sku_line osl
+                          WHERE osl.offr_id        = s.offr_id
+                            AND osl.sls_cls_cd     = s.sls_cls_cd
+                            AND osl.prfl_cd        = s.prfl_cd
+                            AND osl.pg_ofs_nr      = s.pg_ofs_nr
+                            AND osl.featrd_side_cd = s.featrd_side_cd
+                            AND osl.sku_id         = s.sku_id)
+         AND s.offr_id        = rec.offr_id
+         AND s.sls_cls_cd     = rec.sls_cls_cd
+         AND s.prfl_cd        = rec.prfl_cd
+         AND s.pg_ofs_nr      = rec.pg_ofs_nr
+         AND s.featrd_side_cd = rec.featrd_side_cd
+         AND s.sku_id         = rec.sku_id;
+
+      IF l_cnt > 0 THEN
+        DELETE FROM offr_sls_cls_sku s
+         WHERE s.offr_id        = rec.offr_id
+           AND s.sls_cls_cd     = rec.sls_cls_cd
+           AND s.prfl_cd        = rec.prfl_cd
+           AND s.pg_ofs_nr      = rec.pg_ofs_nr
+           AND s.featrd_side_cd = rec.featrd_side_cd
+           AND s.sku_id         = rec.sku_id;
+      END IF;
+
+      SELECT COUNT(*)
+        INTO l_cnt
+        FROM offr_prfl_sls_cls_plcmt p
+       WHERE NOT EXISTS (SELECT *
+                           FROM offr_prfl_prc_point s
+                          WHERE s.offr_id        = p.offr_id
+                            AND s.sls_cls_cd     = p.sls_cls_cd
+                            AND s.prfl_cd        = p.prfl_cd
+                            AND s.pg_ofs_nr      = p.pg_ofs_nr
+                            AND s.featrd_side_cd = p.featrd_side_cd)
+         AND NOT EXISTS (SELECT *
+                           FROM offr_sls_cls_sku s
+                          WHERE s.offr_id        = p.offr_id
+                            AND s.sls_cls_cd     = p.sls_cls_cd
+                            AND s.prfl_cd        = p.prfl_cd
+                            AND s.pg_ofs_nr      = p.pg_ofs_nr
+                            AND s.featrd_side_cd = p.featrd_side_cd)
+         AND p.offr_id        = rec.offr_id
+         AND p.sls_cls_cd     = rec.sls_cls_cd
+         AND p.prfl_cd        = rec.prfl_cd
+         AND p.pg_ofs_nr      = rec.pg_ofs_nr
+         AND p.featrd_side_cd = rec.featrd_side_cd;
+
+      IF l_cnt > 0 THEN
+        DELETE FROM offr_prfl_sls_cls_plcmt p
+         WHERE p.offr_id        = rec.offr_id
+           AND p.sls_cls_cd     = rec.sls_cls_cd
+           AND p.prfl_cd        = rec.prfl_cd
+           AND p.pg_ofs_nr      = rec.pg_ofs_nr
+           AND p.featrd_side_cd = rec.featrd_side_cd;
+      END IF;
+    END LOOP;
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      app_plsql_log.info(l_procedure_name || ': Error deleting pricepoints at ' || l_location || ', offr_prfl_prcpt_id: ' || p_prcpt_id);
+      app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+
+      RAISE;
+
   END del_prcpt_with_deps;
 
   PROCEDURE delete_prcpoints(p_osl_records      IN obj_edit_offr_table,
@@ -3902,6 +4033,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_procedure_name         VARCHAR2(50) := 'DELETE_PRCPOINTS';
     l_location               VARCHAR2(1000);
 
+    l_get_offr_table         obj_get_offr_table := obj_get_offr_table();
     l_prcpt_id               offr_prfl_prc_point.offr_prfl_prcpt_id%TYPE;
     l_status                 NUMBER;
 
@@ -3917,37 +4049,73 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
     p_edit_offr_table := obj_edit_offr_table();
 
-    l_location := 'prcpt_rec loop';
-    FOR prcpt_rec IN (
+    l_location := 'offr_rec loop';
+    FOR offr_rec IN (
       SELECT DISTINCT intrnl_offr_id offr_id,
-                      offr_prfl_prcpt_id,
                       offr_lock_user
         FROM TABLE(p_osl_records)
     )
     LOOP
       BEGIN
-        l_status := co_eo_stat_success;
-        l_prcpt_id := prcpt_rec.offr_prfl_prcpt_id;
-
-        IF prcpt_rec.offr_lock_user IS NOT NULL AND lock_offr_chk(prcpt_rec.offr_id, prcpt_rec.offr_lock_user) = 0 THEN
+        IF offr_rec.offr_lock_user IS NOT NULL AND lock_offr_chk(offr_rec.offr_id, offr_rec.offr_lock_user) = 0 THEN
           RAISE e_lock_failed;
         END IF;
 
-        l_location := 'calling del_prcpt_with_deps';
-        del_prcpt_with_deps(l_prcpt_id);
+        l_location := 'prcpt_rec loop';
+        FOR prcpt_rec IN (
+          SELECT offr_prfl_prcpt_id
+            FROM TABLE(p_osl_records)
+        )
+        LOOP
+          BEGIN
+            l_status := co_eo_stat_success;
+            l_prcpt_id := prcpt_rec.offr_prfl_prcpt_id;
+
+            l_location := 'calling del_prcpt_with_deps';
+            del_prcpt_with_deps(l_prcpt_id);
+
+          EXCEPTION
+            WHEN OTHERS THEN
+              l_status := co_eo_stat_error;
+--              app_plsql_log.info(l_procedure_name || ': Error deleting pricepoints at ' || l_location || ', offr_prfl_prcpt_id: ' || l_prcpt_id);
+--              app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+
+              RAISE;
+          END;
+        END LOOP; -- prcpt_rec loop
+
+        UPDATE offr o
+           SET o.sku_cnt = (SELECT COUNT(1)
+                              FROM offr_sku_line osl,
+                                   offr_prfl_prc_point oppp
+                             WHERE osl.offr_prfl_prcpt_id = oppp.offr_prfl_prcpt_id
+                               AND oppp.offr_id = offr_rec.offr_id),
+               o.prfl_cnt = (SELECT COUNT(1)
+                               FROM offr_prfl_prc_point oppp
+                              WHERE oppp.offr_id = offr_rec.offr_id),
+               o.last_updt_user_id = offr_rec.offr_lock_user
+         WHERE o.offr_id = offr_rec.offr_id;
 
       EXCEPTION
         WHEN e_lock_failed THEN
           l_status := co_eo_stat_lock_failure;
         WHEN OTHERS THEN
           l_status := co_eo_stat_error;
-          app_plsql_log.info(l_procedure_name || ': Error deleting pricepoints at ' || l_location || ', offr_prfl_prcpt_id: ' || l_prcpt_id);
-          app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+--          app_plsql_log.info(l_procedure_name || ': Error deleting pricepoints at ' || l_location || ', offr_prfl_prcpt_id: ' || l_prcpt_id);
+--          app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
           
+          RAISE;
       END;
-    END LOOP;
+
+      l_get_offr_table.EXTEND;
+      l_get_offr_table(l_get_offr_table.LAST) := obj_get_offr_line(offr_rec.offr_id, 1);
+
+    END LOOP; -- offr_rec loop
 
     COMMIT;
+
+    l_location := 'getting offer table';
+    p_edit_offr_table := get_offr_table(l_get_offr_table);
 
     app_plsql_log.info(l_procedure_name || ' stop');
 
