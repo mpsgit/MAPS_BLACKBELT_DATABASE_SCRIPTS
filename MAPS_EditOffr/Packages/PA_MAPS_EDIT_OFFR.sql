@@ -53,6 +53,7 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                       p_offr_desc_txt          IN VARCHAR2,
                       p_mrkt_veh_perd_sctn_id  IN NUMBER,
                       p_sctn_page_ofs_nr       IN NUMBER,
+                      p_offr_typ               IN VARCHAR2,
                       p_prfl_cd_list           IN number_array,
                       p_user_nm                IN VARCHAR2,
                       p_clstr_id               IN NUMBER,

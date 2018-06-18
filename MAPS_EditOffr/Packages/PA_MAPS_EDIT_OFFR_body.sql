@@ -3335,6 +3335,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                       p_offr_desc_txt          IN VARCHAR2,
                       p_mrkt_veh_perd_sctn_id  IN NUMBER,
                       p_sctn_page_ofs_nr       IN NUMBER,
+                      p_offr_typ               IN VARCHAR2,
                       p_prfl_cd_list           IN number_array,
                       p_user_nm                IN VARCHAR2,
                       p_clstr_id               IN NUMBER,
@@ -3384,7 +3385,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
             brchr_postn_id, unit_rptg_lvl_id, rpt_sbtl_typ_id, pg_typ_id, offr_cls_id, creat_user_id)
         VALUES
           ( l_offr_id, p_mrkt_id, p_offr_perd_id, p_veh_id, 0, g_pg_wght_pct, g_ssnl_evnt_id,
-            p_offr_desc_txt, p_mrkt_veh_perd_sctn_id, g_offr_typ, g_brchr_plcmt_id, g_sctn_page_ofs_nr,
+            p_offr_desc_txt, p_mrkt_veh_perd_sctn_id, NVL(p_offr_typ, g_offr_typ), g_brchr_plcmt_id, g_sctn_page_ofs_nr,
             0, 0, g_featrd_side_cd, g_flap_ind, g_offr_stus_cd, p_offr_perd_id, p_offr_perd_id,
             g_brchr_postn_id, g_unit_rptg_lvl_id, g_rpt_sbtl_typ_id, g_pg_typ_id, g_offr_cls_id, p_user_nm);
 
@@ -3714,7 +3715,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_location               VARCHAR2(1000);
 
     l_cnt                    INTEGER;
-
+    
   BEGIN
     l_location := 'deleting dstrbtd_mrkt_sls';
     DELETE FROM dstrbtd_mrkt_sls dms
@@ -3740,10 +3741,19 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     DELETE FROM offr_prfl_prc_point p
      WHERE p.offr_id = p_offr_id;
 
+    l_location := 'deleting offr_sls_cls_sku';
+    DELETE FROM offr_sls_cls_sku s
+     WHERE s.offr_id        = p_offr_id;
+
+    l_location := 'deleting offr_prfl_sls_cls_plcmt';
+    DELETE FROM offr_prfl_sls_cls_plcmt p
+     WHERE p.offr_id        = p_offr_id;
+
     l_location := 'deleting offr';
     DELETE FROM offr o
      WHERE o.offr_id = p_offr_id;
 
+/*
     l_location := 'delete offr_sls_cls_sku and offr_prfl_sls_cls_plcmt';
     FOR rec IN (
       SELECT *            
@@ -3811,6 +3821,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
            AND p.featrd_side_cd = rec.featrd_side_cd;
       END IF;
     END LOOP;
+*/
 
   EXCEPTION
     WHEN OTHERS THEN
@@ -4103,7 +4114,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
           l_status := co_eo_stat_error;
 --          app_plsql_log.info(l_procedure_name || ': Error deleting pricepoints at ' || l_location || ', offr_prfl_prcpt_id: ' || l_prcpt_id);
 --          app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
-          
+
           RAISE;
       END;
 
