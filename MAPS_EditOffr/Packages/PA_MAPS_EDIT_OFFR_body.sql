@@ -3715,6 +3715,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_location               VARCHAR2(1000);
 
   BEGIN
+    SAVEPOINT del_offr;
+  
     l_location := 'deleting dstrbtd_mrkt_sls';
     DELETE FROM dstrbtd_mrkt_sls dms
      WHERE dms.offr_sku_line_id IN (
@@ -3755,6 +3757,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     WHEN OTHERS THEN
       app_plsql_log.info(l_procedure_name || ': Error deleting offers at ' || l_location || ', offr_id: ' || p_offr_id);
       app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+
+      ROLLBACK TO del_offr;
 
       RAISE;
 
@@ -3873,6 +3877,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_cnt                    INTEGER;
 
   BEGIN
+    SAVEPOINT del_prcpt;
+
     l_location := 'deleting dstrbtd_mrkt_sls';
     DELETE FROM dstrbtd_mrkt_sls dms
      WHERE dms.offr_sku_line_id IN (
@@ -3962,6 +3968,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
       app_plsql_log.info(l_procedure_name || ': Error deleting pricepoints at ' || l_location || ', offr_prfl_prcpt_id: ' || p_prcpt_id);
       app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
 
+      ROLLBACK TO del_prcpt;
+
       RAISE;
 
   END del_prcpt_with_deps;
@@ -3973,8 +3981,10 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_location               VARCHAR2(1000);
 
     l_get_offr_table         obj_get_offr_table := obj_get_offr_table();
+    l_failed_prcpnts         number_array := number_array();
+    l_lock_failed_prcpnts    number_array := number_array();
     l_prcpt_id               offr_prfl_prc_point.offr_prfl_prcpt_id%TYPE;
-    l_status                 NUMBER;
+    l_cnt                    INTEGER;
 
     e_lock_failed            EXCEPTION;
 
@@ -4002,12 +4012,11 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
         l_location := 'prcpt_rec loop';
         FOR prcpt_rec IN (
-          SELECT offr_prfl_prcpt_id
+          SELECT DISTINCT offr_prfl_prcpt_id
             FROM TABLE(p_osl_records)
         )
         LOOP
           BEGIN
-            l_status := co_eo_stat_success;
             l_prcpt_id := prcpt_rec.offr_prfl_prcpt_id;
 
             l_location := 'calling del_prcpt_with_deps';
@@ -4015,8 +4024,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
           EXCEPTION
             WHEN OTHERS THEN
-              l_status := co_eo_stat_error;
-
               RAISE;
           END;
         END LOOP; -- prcpt_rec loop
@@ -4035,11 +4042,19 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
       EXCEPTION
         WHEN e_lock_failed THEN
-          l_status := co_eo_stat_lock_failure;
-        WHEN OTHERS THEN
-          l_status := co_eo_stat_error;
+          app_plsql_log.info(l_procedure_name || ': Error deleting pricepoints (lock failure) at ' || l_location || ', offr_prfl_prcpt_id: ' || l_prcpt_id);
+          app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
 
-          RAISE;
+          l_lock_failed_prcpnts.EXTEND;
+          l_lock_failed_prcpnts(l_lock_failed_prcpnts.LAST) := l_prcpt_id;
+
+        WHEN OTHERS THEN
+          app_plsql_log.info(l_procedure_name || ': Error deleting pricepoints at ' || l_location || ', offr_prfl_prcpt_id: ' || l_prcpt_id);
+          app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+
+          l_failed_prcpnts.EXTEND;
+          l_failed_prcpnts(l_failed_prcpnts.LAST) := l_prcpt_id;
+
       END;
 
       l_get_offr_table.EXTEND;
@@ -4052,12 +4067,37 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_location := 'getting offer table';
     p_edit_offr_table := get_offr_table(l_get_offr_table);
 
+    l_location := 'update status column in result';
+    FOR i IN p_edit_offr_table.FIRST .. p_edit_offr_table.LAST LOOP
+      SELECT COUNT(1)
+        INTO l_cnt
+        FROM dual
+       WHERE p_edit_offr_table(i).offr_prfl_prcpt_id IN (SELECT column_value FROM TABLE(l_lock_failed_prcpnts));
+
+      IF l_cnt > 0 THEN
+        p_edit_offr_table(i).status := co_eo_stat_lock_failure;
+      ELSE
+        SELECT COUNT(1)
+          INTO l_cnt
+          FROM dual
+         WHERE p_edit_offr_table(i).offr_prfl_prcpt_id IN (SELECT column_value FROM TABLE(l_failed_prcpnts));
+         
+        IF l_cnt > 0 THEN
+          p_edit_offr_table(i).status := co_eo_stat_error;
+        ELSE
+          p_edit_offr_table(i).status := co_eo_stat_success;
+        END IF;
+      END IF;
+    END LOOP;
+
     app_plsql_log.info(l_procedure_name || ' stop');
 
   EXCEPTION
     WHEN OTHERS THEN
       app_plsql_log.info(l_procedure_name || ': Error deleting pricepoints at ' || l_location || ', offr_prfl_prcpt_id: ' || l_prcpt_id);
       app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+
+      p_edit_offr_table := NULL;
 
       ROLLBACK;
 
