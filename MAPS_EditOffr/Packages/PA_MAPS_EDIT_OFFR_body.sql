@@ -3057,12 +3057,9 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                         p_mrkt_id               IN NUMBER,
                         p_offr_perd_id          IN NUMBER,
                         p_veh_id                IN NUMBER,
---                        p_mrkt_veh_perd_sctn_id IN NUMBER,
---                        p_insert_eo_table       IN BOOLEAN,
                         p_prfl_cd               IN NUMBER,
                         p_user_nm               IN VARCHAR2,
-                        p_status               OUT NUMBER/*,
-                        p_edit_offr_table      OUT obj_edit_offr_table*/) IS
+                        p_status               OUT NUMBER) IS
 
     l_procedure_name         VARCHAR2(50) := 'ADD_CONCEPT';
     l_location               VARCHAR2(1000);
@@ -3290,29 +3287,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
              last_updt_user_id = p_user_nm
       WHERE  offr_prfl_prcpt_id = l_offr_prfl_prcpt_id;
 
-/*
-      IF p_insert_eo_table THEN
-
-        SELECT sctn_nm
-          INTO l_sctn_nm
-          FROM mrkt_veh_perd_sctn s
-         WHERE s.mrkt_veh_perd_sctn_id = p_mrkt_veh_perd_sctn_id;
-
-        SELECT p.catgry_id, p.brnd_id, p.sgmt_id, p.form_id, f.form_grp_id
-          INTO l_catgry_id, l_brnd_id, l_sgmt_id, l_form_id, l_form_grp_id
-          FROM prfl p,
-               form f
-         WHERE f.form_id(+) = p.form_id
-           AND p.prfl_cd = p_prfl_cd;
-
-        p_edit_offr_table.EXTEND;
-        p_edit_offr_table(p_edit_offr_table.LAST)
-          := obj_edit_offr_line(0, p_mrkt_id, p_offr_perd_id, 0, NULL, l_offr_sku_line_id, p_veh_id, g_brchr_plcmt_id, l_sctn_nm,
-                                NULL, g_sctn_page_ofs_nr ??? , l_catgry_id, l_brnd_id, l_sgmt_id, l_form_id, l_form_grp_id,
-                                p_prfl_cd, sku_rec.sku_id, 
-           );
-      END IF;
-*/
     END LOOP; -- sku_rec
 
     p_status := co_exec_status_success;
@@ -4081,7 +4055,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
           INTO l_cnt
           FROM dual
          WHERE p_edit_offr_table(i).offr_prfl_prcpt_id IN (SELECT column_value FROM TABLE(l_failed_prcpnts));
-         
+
         IF l_cnt > 0 THEN
           p_edit_offr_table(i).status := co_eo_stat_error;
         ELSE
