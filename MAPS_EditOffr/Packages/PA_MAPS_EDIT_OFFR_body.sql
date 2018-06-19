@@ -3714,8 +3714,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_procedure_name         VARCHAR2(50) := 'DEL_OFFER_WITH_DEPS';
     l_location               VARCHAR2(1000);
 
-    l_cnt                    INTEGER;
-    
   BEGIN
     l_location := 'deleting dstrbtd_mrkt_sls';
     DELETE FROM dstrbtd_mrkt_sls dms
@@ -3752,76 +3750,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_location := 'deleting offr';
     DELETE FROM offr o
      WHERE o.offr_id = p_offr_id;
-
-/*
-    l_location := 'delete offr_sls_cls_sku and offr_prfl_sls_cls_plcmt';
-    FOR rec IN (
-      SELECT *            
-        FROM offr_sku_line osl
-       WHERE osl.offr_id = p_offr_id
-    )
-    LOOP
-      SELECT COUNT(*)
-        INTO l_cnt
-        FROM offr_sls_cls_sku s
-       WHERE NOT EXISTS (SELECT *
-                           FROM offr_sku_line osl
-                          WHERE osl.offr_id        = s.offr_id
-                            AND osl.sls_cls_cd     = s.sls_cls_cd
-                            AND osl.prfl_cd        = s.prfl_cd
-                            AND osl.pg_ofs_nr      = s.pg_ofs_nr
-                            AND osl.featrd_side_cd = s.featrd_side_cd
-                            AND osl.sku_id         = s.sku_id)
-         AND s.offr_id        = rec.offr_id
-         AND s.sls_cls_cd     = rec.sls_cls_cd
-         AND s.prfl_cd        = rec.prfl_cd
-         AND s.pg_ofs_nr      = rec.pg_ofs_nr
-         AND s.featrd_side_cd = rec.featrd_side_cd
-         AND s.sku_id         = rec.sku_id;
-
-      IF l_cnt > 0 THEN
-        DELETE FROM offr_sls_cls_sku s
-         WHERE s.offr_id        = rec.offr_id
-           AND s.sls_cls_cd     = rec.sls_cls_cd
-           AND s.prfl_cd        = rec.prfl_cd
-           AND s.pg_ofs_nr      = rec.pg_ofs_nr
-           AND s.featrd_side_cd = rec.featrd_side_cd
-           AND s.sku_id         = rec.sku_id;
-      END IF;
-
-      SELECT COUNT(*)
-        INTO l_cnt
-        FROM offr_prfl_sls_cls_plcmt p
-       WHERE NOT EXISTS (SELECT *
-                           FROM offr_prfl_prc_point s
-                          WHERE s.offr_id        = p.offr_id
-                            AND s.sls_cls_cd     = p.sls_cls_cd
-                            AND s.prfl_cd        = p.prfl_cd
-                            AND s.pg_ofs_nr      = p.pg_ofs_nr
-                            AND s.featrd_side_cd = p.featrd_side_cd)
-         AND NOT EXISTS (SELECT *
-                           FROM offr_sls_cls_sku s
-                          WHERE s.offr_id        = p.offr_id
-                            AND s.sls_cls_cd     = p.sls_cls_cd
-                            AND s.prfl_cd        = p.prfl_cd
-                            AND s.pg_ofs_nr      = p.pg_ofs_nr
-                            AND s.featrd_side_cd = p.featrd_side_cd)
-         AND p.offr_id        = rec.offr_id
-         AND p.sls_cls_cd     = rec.sls_cls_cd
-         AND p.prfl_cd        = rec.prfl_cd
-         AND p.pg_ofs_nr      = rec.pg_ofs_nr
-         AND p.featrd_side_cd = rec.featrd_side_cd;
-
-      IF l_cnt > 0 THEN
-        DELETE FROM offr_prfl_sls_cls_plcmt p
-         WHERE p.offr_id        = rec.offr_id
-           AND p.sls_cls_cd     = rec.sls_cls_cd
-           AND p.prfl_cd        = rec.prfl_cd
-           AND p.pg_ofs_nr      = rec.pg_ofs_nr
-           AND p.featrd_side_cd = rec.featrd_side_cd;
-      END IF;
-    END LOOP;
-*/
 
   EXCEPTION
     WHEN OTHERS THEN
@@ -4088,8 +4016,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
           EXCEPTION
             WHEN OTHERS THEN
               l_status := co_eo_stat_error;
---              app_plsql_log.info(l_procedure_name || ': Error deleting pricepoints at ' || l_location || ', offr_prfl_prcpt_id: ' || l_prcpt_id);
---              app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
 
               RAISE;
           END;
@@ -4112,8 +4038,6 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
           l_status := co_eo_stat_lock_failure;
         WHEN OTHERS THEN
           l_status := co_eo_stat_error;
---          app_plsql_log.info(l_procedure_name || ': Error deleting pricepoints at ' || l_location || ', offr_prfl_prcpt_id: ' || l_prcpt_id);
---          app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
 
           RAISE;
       END;
