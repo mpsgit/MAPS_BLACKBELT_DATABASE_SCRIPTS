@@ -779,33 +779,6 @@ BEGIN
   END LOOP;
   app_plsql_log.info(l_log || ' finished');
 
-  l_log := 'mrkt_veh_perd_sctn';
-  MERGE INTO mrkt_veh_perd_sctn s
-  USING (SELECT DISTINCT l.brchr_sctn_nm
-                        ,l.brchr_plcmnt_id
-                        ,l.mrkt_veh_perd_sctn_id
-                        ,l.mrkt_id
-                        ,l.offr_perd_id
-                        ,l.ver_id
-                        ,l.veh_id
-                        ,l.offr_lock_user
-         FROM TABLE(p_data_line) l
-         WHERE l.intrnl_offr_id = p_offr_id
-           AND l.sls_typ        = p_sls_typ) dl
-  ON (s.mrkt_veh_perd_sctn_id = dl.mrkt_veh_perd_sctn_id
-  AND s.mrkt_id               = dl.mrkt_id
-  AND s.offr_perd_id          = dl.offr_perd_id
-  AND s.brchr_plcmt_id        = dl.brchr_plcmnt_id
-  AND s.ver_id                = dl.ver_id
-  AND s.veh_id                = dl.veh_id
-  )
-  WHEN MATCHED THEN UPDATE
-  SET s.sctn_nm           = dl.brchr_sctn_nm
-     ,s.last_updt_user_id = dl.offr_lock_user;
-
-  l_rowcount := SQL%ROWCOUNT;
-  app_plsql_log.info(l_log || ' finished, merge rowcount: ' || l_rowcount);
-
   l_log := 'offr_sku_set';
   MERGE INTO offr_sku_set s
   USING (SELECT CASE
