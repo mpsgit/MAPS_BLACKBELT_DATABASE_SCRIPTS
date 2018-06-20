@@ -1030,6 +1030,10 @@ BEGIN
   l_log := 'offr';
   MERGE INTO offr o
   USING (SELECT DISTINCT intrnl_offr_id
+                        ,mrkt_id
+                        ,offr_perd_id
+                        ,veh_id
+                        ,ver_id
                         ,enrgy_chrt_postn_id
                         ,offr_desc_txt
                         ,offr_notes_txt
@@ -1047,6 +1051,8 @@ BEGIN
                              AND oscs.offr_id        = intrnl_offr_id) AS micr_ncpsltn_ind
                         ,pg_wght
                         ,offr_typ
+                        ,mrkt_veh_perd_sctn_id
+                        ,pg_nr
                         ,offr_lock_user
            FROM TABLE(p_data_line)
           WHERE intrnl_offr_id = p_offr_id
@@ -1069,6 +1075,15 @@ BEGIN
      ,o.micr_ncpsltn_ind      = dl.micr_ncpsltn_ind
      ,o.pg_wght_pct           = dl.pg_wght
      ,o.offr_typ              = dl.offr_typ
+     ,o.mrkt_veh_perd_sctn_id = dl.mrkt_veh_perd_sctn_id
+     ,o.sctn_page_ofs_nr      = (SELECT dl.pg_nr - mvps.strtg_page_nr - mvps.strtg_page_side_nr
+                                   FROM mrkt_veh_perd_sctn mvps
+                                  WHERE mvps.mrkt_veh_perd_sctn_id = dl.mrkt_veh_perd_sctn_id
+                                    AND mrkt_id                    = dl.mrkt_id
+                                    AND offr_perd_id               = dl.offr_perd_id
+                                    AND veh_id                     = dl.veh_id
+                                    AND ver_id                     = dl.ver_id
+                                )
      ,o.last_updt_user_id     = dl.offr_lock_user;
 
   l_rowcount := SQL%ROWCOUNT;
@@ -3370,11 +3385,9 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                     p_mrkt_id,
                     p_offr_perd_id,
                     p_veh_id,
---                    p_mrkt_veh_perd_sctn_id,
                     p_prfl_cd_list(i),
                     p_user_nm,
-                    p_status/*,
-                    p_edit_offr_table*/);
+                    p_status);
       END LOOP;
     END IF; -- p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0
 
