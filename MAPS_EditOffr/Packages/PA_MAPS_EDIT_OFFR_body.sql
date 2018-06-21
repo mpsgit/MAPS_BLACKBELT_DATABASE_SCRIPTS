@@ -2117,7 +2117,8 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
     FOR rec IN (
 
-                  WITH latest_version_and_sls_typ AS
+          
+WITH latest_version_and_sls_typ AS
                    (SELECT asl.ver_id
                           ,asl.sls_typ_id
                           ,asl.offr_perd_id
@@ -2170,629 +2171,610 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
                                AND seq_nr <> 100
                              GROUP BY ver_id, offr_perd_id, veh_id) asl),
 
-                  mrkt_tmp_fsc_master AS
-                   (SELECT mrkt_id, sku_id, fsc_cd
-                      FROM (SELECT mrkt_id
-                                  ,sku_id
-                                  ,mstr_fsc_cd fsc_cd
-                                  ,strt_perd_id from_strt_perd_id
-                                  ,nvl(lead(strt_perd_id, 1)
-                                       over(PARTITION BY mrkt_id,
-                                            sku_id ORDER BY strt_perd_id),
-                                       99999999) to_strt_perd_id
-                              FROM mstr_fsc_asgnmt
-                             WHERE l_mrkt_id = mrkt_id
-                               AND l_offr_perd_id >= strt_perd_id)
-                     WHERE l_offr_perd_id >= from_strt_perd_id
-                       AND l_offr_perd_id < to_strt_perd_id),
-                  mrkt_tmp_fsc AS
-                   (SELECT mrkt_id, sku_id, MAX(fsc_cd) fsc_cd
-                      FROM (SELECT mrkt_id
-                                  ,sku_id
-                                  ,fsc_cd fsc_cd
-                                  ,strt_perd_id from_strt_perd_id
-                                  ,nvl(lead(strt_perd_id, 1)
-                                       over(PARTITION BY mrkt_id,
-                                            fsc_cd ORDER BY strt_perd_id),
-                                       99999999) to_strt_perd_id
-                              FROM mrkt_fsc
-                             WHERE l_mrkt_id = mrkt_id
-                               AND l_offr_perd_id >= strt_perd_id
-                               AND 'N' = dltd_ind)
-                     WHERE l_offr_perd_id >= from_strt_perd_id
-                       AND l_offr_perd_id < to_strt_perd_id
-                     GROUP BY mrkt_id, sku_id)
+latest_osl_stuff AS
+ (SELECT osl.sku_id
+        ,osl.offr_prfl_prcpt_id
+        ,o.mrkt_id
+        ,o.offr_perd_id
+        ,osl.offr_sku_line_link_id
+        ,SUM(dms.unit_qty) AS unit_qty
+        ,dms.sls_typ_id
+        ,SUM(dms.net_to_avon_fct * dms.unit_qty) / SUM(dms.unit_qty) AS net_to_avon_fct
+    FROM offr o
+    JOIN offr_sku_line osl
+      ON osl.offr_id = o.offr_id
+    JOIN dstrbtd_mrkt_sls dms
+      ON dms.offr_sku_line_id = osl.offr_sku_line_id
+    JOIN latest_version_and_sls_typ
+      ON o.offr_perd_id = latest_version_and_sls_typ.offr_perd_id
+     AND o.veh_id = latest_version_and_sls_typ.veh_id
+     AND o.ver_id = latest_version_and_sls_typ.ver_id
+     AND o.offr_perd_id = latest_version_and_sls_typ.offr_perd_id
+     AND dms.sls_typ_id = latest_version_and_sls_typ.sls_typ_id
+     AND dms.unit_qty <> 0
+   GROUP BY osl.offr_sku_line_id
+           ,osl.offr_sku_line_link_id
+           ,osl.sku_id
+           ,osl.offr_prfl_prcpt_id
+           ,o.ver_id
+           ,dms.sls_typ_id
+           ,o.mrkt_id
+           ,o.offr_perd_id),
+mrkt_tmp_fsc_master AS
+ (SELECT mrkt_id, sku_id, fsc_cd
+    FROM (SELECT mrkt_id
+                ,sku_id
+                ,mstr_fsc_cd fsc_cd
+                ,strt_perd_id from_strt_perd_id
+                ,nvl(lead(strt_perd_id, 1)
+                     over(PARTITION BY mrkt_id, sku_id ORDER BY strt_perd_id),
+                     99999999) to_strt_perd_id
+            FROM mstr_fsc_asgnmt
+           WHERE l_mrkt_id = mrkt_id
+             AND l_offr_perd_id >= strt_perd_id)
+   WHERE l_offr_perd_id >= from_strt_perd_id
+     AND l_offr_perd_id < to_strt_perd_id),
+mrkt_tmp_fsc AS
+ (SELECT mrkt_id, sku_id, MAX(fsc_cd) fsc_cd
+    FROM (SELECT mrkt_id
+                ,sku_id
+                ,fsc_cd fsc_cd
+                ,strt_perd_id from_strt_perd_id
+                ,nvl(lead(strt_perd_id, 1)
+                     over(PARTITION BY mrkt_id, fsc_cd ORDER BY strt_perd_id),
+                     99999999) to_strt_perd_id
+            FROM mrkt_fsc
+           WHERE l_mrkt_id = mrkt_id
+             AND l_offr_perd_id >= strt_perd_id
+             AND 'N' = dltd_ind)
+   WHERE l_offr_perd_id >= from_strt_perd_id
+     AND l_offr_perd_id < to_strt_perd_id
+   GROUP BY mrkt_id, sku_id)
 
-                  SELECT
-                   o.offr_id AS intrnl_offr_id
-                  ,l_sls_typ AS sls_typ
-                   --latest version calculations
-                  ,osl_latest.net_to_avon_fct AS lv_nta
-                  ,osl_latest.offr_prfl_sls_prc_amt AS lv_sp
-                  ,osl_latest.reg_prc_amt AS lv_rp
-                  ,CASE
-                     WHEN osl_latest.reg_prc_amt = 0 THEN
-                      0
-                     WHEN osl_latest.offr_prfl_sls_prc_amt = 0 THEN
-                      100
-                     ELSE
-                      round(100 -
-                            (osl_latest.offr_prfl_sls_prc_amt /
-                            osl_latest.nr_for_qty / osl_latest.reg_prc_amt) * 100)
-                   END lv_discount
+SELECT o.offr_id  AS intrnl_offr_id
+      ,l_sls_typ AS sls_typ
+       --latest version calculations
+      ,osl_latest.net_to_avon_fct AS lv_nta
+      ,osl_latest.offr_prfl_sls_prc_amt AS lv_sp
+      ,osl_latest.reg_prc_amt AS lv_rp
+      ,CASE
+         WHEN osl_latest.reg_prc_amt = 0 THEN
+          0
+         WHEN osl_latest.offr_prfl_sls_prc_amt = 0 THEN
+          100
+         ELSE
+          round(100 - (osl_latest.offr_prfl_sls_prc_amt /
+                osl_latest.nr_for_qty / osl_latest.reg_prc_amt) * 100)
+       END lv_discount
+       
+      ,osl_latest.unit_qty AS lv_units
+      ,osl_latest.unit_qty * osl_latest.sku_cost_amt AS lv_total_cost
+      ,CASE
+         WHEN osl_latest.nr_for_qty = 0 THEN
+          0
+         ELSE
+          round(osl_latest.offr_prfl_sls_prc_amt / osl_latest.nr_for_qty *
+                osl_latest.unit_qty * osl_latest.net_to_avon_fct,
+                4)
+       END lv_gross_sales
+      ,CASE
+         WHEN osl_latest.nr_for_qty = 0 THEN
+          0
+         ELSE
+          round(osl_latest.offr_prfl_sls_prc_amt / osl_latest.nr_for_qty *
+                osl_latest.unit_qty * osl_latest.net_to_avon_fct -
+                osl_latest.sku_cost_amt * osl_latest.unit_qty,
+                4)
+       END lv_dp_cash
+      ,CASE
+         WHEN osl_latest.nr_for_qty = 0
+              OR osl_latest.net_to_avon_fct = 0
+              OR osl_latest.unit_qty = 0
+              OR osl_latest.offr_prfl_sls_prc_amt = 0 THEN
+          0
+         ELSE
+          round((osl_latest.offr_prfl_sls_prc_amt / osl_latest.nr_for_qty *
+                osl_latest.unit_qty * osl_latest.net_to_avon_fct -
+                osl_latest.sku_cost_amt * osl_latest.unit_qty) /
+                (osl_latest.offr_prfl_sls_prc_amt / osl_latest.nr_for_qty *
+                osl_latest.unit_qty * osl_latest.net_to_avon_fct),
+                4) * 100
+       END lv_dp_percent
+       --/latest version calculations
+      ,0 AS status
+      ,o.mrkt_id AS mrkt_id
+      ,o.offr_perd_id AS offr_perd_id
+      ,nvl2(offr_lock.sys_id, 1, 0) AS offr_lock
+      ,offr_lock.user_nm AS offr_lock_user
+      ,osl_current.offr_sku_line_id AS offr_sku_line_id
+      ,o.veh_id AS veh_id
+      ,o.brchr_plcmt_id AS brchr_plcmnt_id
+      ,mrkt_veh_perd_sctn.sctn_nm AS brchr_sctn_nm
+      ,o.enrgy_chrt_postn_id AS enrgy_chrt_postn_id
+      ,MIN(decode(o.mrkt_veh_perd_sctn_id,
+                  NULL,
+                  o.mrkt_veh_perd_sctn_id,
+                  mvps.strtg_page_nr + o.sctn_page_ofs_nr +
+                  offr_prfl_prc_point.pg_ofs_nr +
+                  decode(offr_prfl_prc_point.featrd_side_cd,
+                         1,
+                         1,
+                         0,
+                         0,
+                         2,
+                         0,
+                         0))) over(PARTITION BY o.offr_id) AS pg_nr
+      ,prfl.catgry_id AS ctgry_id
+      ,brnd_grp.brnd_fmly_id AS brnd_id
+      ,prfl.sgmt_id AS sgmt_id
+      ,prfl.form_id AS form_id
+      ,form.form_grp_id AS form_grp_id
+      ,offr_prfl_prc_point.prfl_cd AS prfl_cd
+      ,osl_current.sku_id AS sku_id
+      ,nvl(mrkt_tmp_fsc_master.fsc_cd, mrkt_tmp_fsc.fsc_cd) AS fsc_cd
+      ,prfl.prod_typ_id AS prod_typ_id
+      ,prfl.gendr_id AS gender_id
+      ,osl_current.sls_cls_cd AS sls_cls_cd
+      ,o.offr_desc_txt AS offr_desc_txt
+      ,o.offr_ntes_txt AS offr_notes_txt
+      ,substr(TRIM(o.offr_lyot_cmnts_txt), 0, 3000) AS offr_lyot_cmnts_txt
+      ,o.featrd_side_cd AS featrd_side_cd
+      ,offr_prfl_prc_point.featrd_side_cd AS concept_featrd_side_cd
+      ,offr_sls_cls_sku.micr_ncpsltn_ind AS micr_ncpsltn_ind
+      ,offr_prfl_prc_point.cnsmr_invstmt_bdgt_id AS cnsmr_invstmt_bdgt_id
+      ,offr_prfl_prc_point.pymt_typ AS pymt_typ
+      ,offr_prfl_prc_point.promtn_id AS promtn_id
+      ,offr_prfl_prc_point.promtn_clm_id AS promtn_clm_id
+       --,1 AS cmbntn_offr_typ
+      ,'NEW_FEATURE' AS spndng_lvl
+      ,offr_prfl_prc_point.tax_type_id AS tax_type_id
+      ,offr_sls_cls_sku.wsl_ind AS wsl_ind
+      ,offr_prfl_prc_point.comsn_typ AS comsn_typ
+      ,offr_sku_set.offr_sku_set_id AS offr_sku_set_id
+      ,osl_current.set_cmpnt_qty AS cmpnt_qty
+      ,offr_prfl_prc_point.nr_for_qty AS nr_for_qty
+      ,offr_prfl_prc_point.net_to_avon_fct AS nta_factor
+      ,osl_current.sku_cost_amt AS sku_cost
+      ,o.ver_id AS ver_id
+      ,offr_prfl_prc_point.sls_prc_amt AS sls_prc_amt
+      ,CASE
+         WHEN osl_current.offr_sku_line_id IS NOT NULL THEN
+          nvl(osl_current.reg_prc_amt, 0)
+         ELSE
+          NULL
+       END AS reg_prc_amt --sku reg prcb?l
+      ,osl_current.line_nr AS line_nr
+      ,osl_current.sum_unit_qty AS unit_qty
+      ,osl_current.dltd_ind AS dltd_ind
+      ,o.creat_ts AS created_ts
+      ,o.creat_user_id AS created_user_id
+      ,o.last_updt_user_id AS last_updt_user_id
+      ,o.last_updt_ts AS last_updt_ts
+      ,mrkt_veh_perd_sctn.mrkt_veh_perd_sctn_id AS mrkt_veh_perd_sctn_id
+      ,prfl.prfl_nm AS prfl_nm
+      ,osl_current.sku_nm AS sku_nm
+      ,comsn_typ.comsn_typ_desc_txt AS comsn_typ_desc_txt
+      ,mrkt_tax_typ.tax_typ_desc_txt AS tax_typ_desc_txt
+      ,offr_sku_set.offr_sku_set_nm AS offr_sku_set_nm
+       --pricing corridors
+      ,coalesce((SELECT MAX(spa) keep(dense_rank LAST ORDER BY skuid, sumu, vehid)
+                  FROM (SELECT osl_sp.sku_id AS skuid
+                              ,SUM(dms_sp.unit_qty) sumu
+                              ,osl_sp.veh_id vehid
+                              ,MAX(oppp.sls_prc_amt) keep(dense_rank LAST ORDER BY osl_sp.sku_id, osl_sp.veh_id) spa
+                          FROM offr_prfl_prc_point oppp
+                              ,offr_sku_line       osl_sp
+                              ,dstrbtd_mrkt_sls    dms_sp
+                              ,offr                o_sp
+                         WHERE oppp.offr_prfl_prcpt_id =
+                               osl_sp.offr_prfl_prcpt_id
+                           AND osl_sp.mrkt_id = l_mrkt_id
+                           AND osl_sp.offr_perd_id =
+                               (SELECT MAX(tpymp.prev_yr_perd_id) keep(dense_rank LAST ORDER BY tpymp.last_updt_ts) AS prev_yr_perd_id
+                                  FROM trnsfrm_prev_yr_mrkt_perd tpymp
+                                 WHERE tpymp.mrkt_id = l_mrkt_id
+                                   AND tpymp.perd_id = l_offr_perd_id)
+                           AND dms_sp.offr_sku_line_id =
+                               osl_sp.offr_sku_line_id
+                           AND dms_sp.sls_typ_id IN (6, 7)
+                           AND o_sp.ver_id = 0
+                           AND o_sp.offr_id = osl_sp.offr_id
+                         GROUP BY osl_sp.sku_id
+                                 ,osl_sp.veh_id
+                                 ,oppp.offr_prfl_prcpt_id)
+                 WHERE vehid = o.veh_id
+                   AND skuid = osl_current.sku_id),
+                (SELECT MAX(spa) keep(dense_rank LAST ORDER BY skuid, sumu, vehid)
+                   FROM (SELECT osl_sp.sku_id AS skuid
+                               ,SUM(dms_sp.unit_qty) sumu
+                               ,osl_sp.veh_id vehid
+                               ,MAX(oppp.sls_prc_amt) keep(dense_rank LAST ORDER BY osl_sp.sku_id, osl_sp.veh_id) spa
+                           FROM offr_prfl_prc_point oppp
+                               ,offr_sku_line       osl_sp
+                               ,dstrbtd_mrkt_sls    dms_sp
+                               ,offr                o_sp
+                          WHERE oppp.offr_prfl_prcpt_id =
+                                osl_sp.offr_prfl_prcpt_id
+                            AND osl_sp.mrkt_id = l_mrkt_id
+                            AND osl_sp.offr_perd_id =
+                                (SELECT MAX(tpymp.prev_yr_perd_id) keep(dense_rank LAST ORDER BY tpymp.last_updt_ts) AS prev_yr_perd_id
+                                   FROM trnsfrm_prev_yr_mrkt_perd tpymp
+                                  WHERE tpymp.mrkt_id = l_mrkt_id
+                                    AND tpymp.perd_id = l_offr_perd_id)
+                            AND dms_sp.offr_sku_line_id =
+                                osl_sp.offr_sku_line_id
+                            AND dms_sp.sls_typ_id IN (6, 7)
+                            AND o_sp.ver_id = 0
+                            AND o_sp.offr_id = osl_sp.offr_id
+                          GROUP BY osl_sp.sku_id
+                                  ,osl_sp.veh_id
+                                  ,oppp.offr_prfl_prcpt_id)
+                  WHERE vehid <> o.veh_id
+                    AND skuid = osl_current.sku_id)) AS pc_sp_py
+      ,(SELECT srp.reg_prc_amt
+          FROM sku_reg_prc srp, sku s, mrkt_sku ms
+         WHERE s.prfl_cd = offr_prfl_prc_point.prfl_cd
+           AND ms.mrkt_id = l_mrkt_id
+           AND ms.sku_id = osl_current.sku_id
+           AND nvl(ms.dltd_ind, 'N') != 'Y'
+           AND srp.sku_id = s.sku_id
+           AND srp.mrkt_id = l_mrkt_id
+           AND srp.offr_perd_id = l_offr_perd_id
+           AND srp.reg_prc_amt = osl_current.reg_prc_amt
+           AND rownum < 2) AS pc_rp
+      ,CASE
+         WHEN pricing_used = 'Y' THEN
+          (SELECT MAX(mpsp.sku_prc_amt) opt_prc_amt
+             FROM mrkt_perd_sku_prc mpsp, prc_lvl_typ plt, mrkt_prc_lvl mpl
+            WHERE mpsp.mrkt_id = l_mrkt_id
+              AND mpsp.offr_perd_id = l_offr_perd_id
+              AND mpsp.sku_id IN
+                  (SELECT s.sku_id
+                     FROM sku s, sku_reg_prc srp, mrkt_sku ms
+                    WHERE s.prfl_cd = offr_prfl_prc_point.prfl_cd
+                      AND ms.mrkt_id = l_mrkt_id
+                      AND ms.sku_id = s.sku_id
+                      AND nvl(ms.dltd_ind, 'N') != 'Y'
+                      AND srp.mrkt_id = mpsp.mrkt_id
+                      AND srp.offr_perd_id = mpsp.offr_perd_id
+                      AND srp.sku_id = s.sku_id
+                      AND srp.reg_prc_amt = osl_current.reg_prc_amt)
+              AND plt.prc_lvl_typ_cd = mpsp.prc_lvl_typ_cd
+              AND plt.prc_lvl_typ_cd = 'SP'
+              AND nvl(plt.dltd_ind, 'N') != 'Y'
+              AND mpl.mrkt_id = mpsp.mrkt_id
+              AND mpl.prc_lvl_typ_cd = mpsp.prc_lvl_typ_cd
+              AND (mpl.strt_perd_id IS NULL OR
+                  mpl.strt_perd_id <= l_offr_perd_id)
+              AND (mpl.end_perd_id IS NULL OR
+                  mpl.end_perd_id >= l_offr_perd_id)
+            GROUP BY plt.seq_nr
+                    ,plt.prc_lvl_typ_id
+                    ,plt.prc_lvl_typ_cd
+                    ,plt.prc_lvl_typ_sdesc_txt
+                    ,mpl.prc_lvl_rng_pct
+                    ,nvl(mpsp.cmpnt_discnt_pct, mpl.dfalt_cmpnt_discnt_pct))
+         ELSE
+          NULL
+       END pc_sp
+      ,CASE
+         WHEN pricing_used = 'Y' THEN
+          (SELECT MAX(mpsp.sku_prc_amt) opt_prc_amt
+             FROM mrkt_perd_sku_prc mpsp, prc_lvl_typ plt, mrkt_prc_lvl mpl
+            WHERE mpsp.mrkt_id = l_mrkt_id
+              AND mpsp.offr_perd_id = l_offr_perd_id
+              AND mpsp.sku_id IN
+                  (SELECT s.sku_id
+                     FROM sku s, sku_reg_prc srp, mrkt_sku ms
+                    WHERE s.prfl_cd = offr_prfl_prc_point.prfl_cd
+                      AND ms.mrkt_id = l_mrkt_id
+                      AND ms.sku_id = s.sku_id
+                      AND nvl(ms.dltd_ind, 'N') != 'Y'
+                      AND srp.mrkt_id = mpsp.mrkt_id
+                      AND srp.offr_perd_id = mpsp.offr_perd_id
+                      AND srp.sku_id = s.sku_id
+                      AND srp.reg_prc_amt = osl_current.reg_prc_amt)
+              AND plt.prc_lvl_typ_cd = mpsp.prc_lvl_typ_cd
+              AND plt.prc_lvl_typ_cd = 'VSP'
+              AND nvl(plt.dltd_ind, 'N') != 'Y'
+              AND mpl.mrkt_id = mpsp.mrkt_id
+              AND mpl.prc_lvl_typ_cd = mpsp.prc_lvl_typ_cd
+              AND (mpl.strt_perd_id IS NULL OR
+                  mpl.strt_perd_id <= l_offr_perd_id)
+              AND (mpl.end_perd_id IS NULL OR
+                  mpl.end_perd_id >= l_offr_perd_id)
+            GROUP BY plt.seq_nr
+                    ,plt.prc_lvl_typ_id
+                    ,plt.prc_lvl_typ_cd
+                    ,plt.prc_lvl_typ_sdesc_txt
+                    ,mpl.prc_lvl_rng_pct
+                    ,nvl(mpsp.cmpnt_discnt_pct, mpl.dfalt_cmpnt_discnt_pct))
+         ELSE
+          NULL
+       END pc_vsp
+      ,CASE
+         WHEN pricing_used = 'Y' THEN
+          (SELECT MAX(mpsp.sku_prc_amt) opt_prc_amt
+             FROM mrkt_perd_sku_prc mpsp, prc_lvl_typ plt, mrkt_prc_lvl mpl
+            WHERE mpsp.mrkt_id = l_mrkt_id
+              AND mpsp.offr_perd_id = l_offr_perd_id
+              AND mpsp.sku_id IN
+                  (SELECT s.sku_id
+                     FROM sku s, sku_reg_prc srp, mrkt_sku ms
+                    WHERE s.prfl_cd = offr_prfl_prc_point.prfl_cd
+                      AND ms.mrkt_id = l_mrkt_id
+                      AND ms.sku_id = s.sku_id
+                      AND nvl(ms.dltd_ind, 'N') != 'Y'
+                      AND srp.mrkt_id = mpsp.mrkt_id
+                      AND srp.offr_perd_id = mpsp.offr_perd_id
+                      AND srp.sku_id = s.sku_id
+                      AND srp.reg_prc_amt = osl_current.reg_prc_amt)
+              AND plt.prc_lvl_typ_cd = mpsp.prc_lvl_typ_cd
+              AND plt.prc_lvl_typ_cd = 'HIT'
+              AND nvl(plt.dltd_ind, 'N') != 'Y'
+              AND mpl.mrkt_id = mpsp.mrkt_id
+              AND mpl.prc_lvl_typ_cd = mpsp.prc_lvl_typ_cd
+              AND (mpl.strt_perd_id IS NULL OR
+                  mpl.strt_perd_id <= l_offr_perd_id)
+              AND (mpl.end_perd_id IS NULL OR
+                  mpl.end_perd_id >= l_offr_perd_id)
+            GROUP BY plt.seq_nr
+                    ,plt.prc_lvl_typ_id
+                    ,plt.prc_lvl_typ_cd
+                    ,plt.prc_lvl_typ_sdesc_txt
+                    ,mpl.prc_lvl_rng_pct
+                    ,nvl(mpsp.cmpnt_discnt_pct, mpl.dfalt_cmpnt_discnt_pct))
+         ELSE
+          NULL
+       END pc_hit
+      ,o.pg_wght_pct AS pg_wght
+      ,CASE
+         WHEN offr_prfl_prc_point.featrd_side_cd = 1 THEN
+          (SELECT MAX(decode(o.mrkt_veh_perd_sctn_id,
+                             NULL,
+                             o.mrkt_veh_perd_sctn_id,
+                             mvps.strtg_page_nr + o.sctn_page_ofs_nr +
+                             offr_prfl_prc_point.pg_ofs_nr +
+                             decode(offr_prfl_prc_point.featrd_side_cd,
+                                    1,
+                                    1,
+                                    0,
+                                    0,
+                                    2,
+                                    1,
+                                    0))) over(PARTITION BY o.offr_id)
+             FROM dual) - 1
+         ELSE
+          (SELECT MIN(decode(o.mrkt_veh_perd_sctn_id,
+                             NULL,
+                             o.mrkt_veh_perd_sctn_id,
+                             mvps.strtg_page_nr + o.sctn_page_ofs_nr +
+                             offr_prfl_prc_point.pg_ofs_nr +
+                             decode(offr_prfl_prc_point.featrd_side_cd,
+                                    1,
+                                    1,
+                                    0,
+                                    0,
+                                    2,
+                                    0,
+                                    0))) over(PARTITION BY o.offr_id)
+             FROM dual)
+       END AS sprd_nr
+      ,offr_prfl_prc_point.offr_prfl_prcpt_id AS offr_prfl_prcpt_id
+      ,(nvl((SELECT MAX(1)
+              FROM offr_sku_line osl, dstrbtd_mrkt_sls dms, sls_typ st
+             WHERE dms.offr_sku_line_id = osl.offr_sku_line_id
+               AND osl.offr_prfl_prcpt_id =
+                   offr_prfl_prc_point.offr_prfl_prcpt_id
+               AND st.sls_typ_id = dms.sls_typ_id
+               AND osl.mrkt_id = l_mrkt_id
+               AND osl.offr_perd_id = l_offr_perd_id
+               AND st.sls_typ_grp_nm = 'Actual'
+               AND dms.ver_id = 0
+               AND dms.unit_qty > 0),
+            0)) AS has_unit_qty
+      ,o.offr_typ 
+  FROM (SELECT *
+           FROM offr
+          WHERE offr_id IN (SELECT p_offr_id FROM table(p_get_offr)) AND
+          offr.mrkt_id = l_mrkt_id
+       AND offr.offr_perd_id = l_offr_perd_id
+       AND offr.ver_id = l_ver_id) o
+      , (SELECT offr_sku_line.offr_sku_line_id
+               ,offr_sku_line.sku_id
+               ,offr_sku_line.featrd_side_cd
+               ,offr_sku_line.pg_ofs_nr
+               ,offr_sku_line.prfl_cd
+               ,offr_sku_line.sls_cls_cd
+               ,offr_sku_line.offr_id
+               ,offr_sku_line.offr_sku_set_id
+               ,offr_sku_line.offr_prfl_prcpt_id
+               ,offr_sku_line.dltd_ind
+               ,offr_sku_line.line_nr
+               ,offr_sku_line.set_cmpnt_qty
+               ,offr_sku_line.mrkt_id
+               ,CASE
+                  WHEN actual_sku.wghtd_avg_cost_amt IS NOT NULL THEN
+                   actual_sku.wghtd_avg_cost_amt
+                  ELSE
+                   planned_sku.wghtd_avg_cost_amt
+                END sku_cost_amt
+               ,l_ver_id AS ver_id
+               ,sku_reg_prc.reg_prc_amt
+               ,sku.sku_nm
+               ,l_sls_typ AS sales_type
+               ,(SELECT MAX(sls_typ_id)
+                   FROM dstrbtd_mrkt_sls
+                  WHERE mrkt_id = l_mrkt_id
+                    AND offr_perd_id = l_offr_perd_id
+                    AND sls_perd_id = l_offr_perd_id
+                    AND veh_id = offr_sku_line.veh_id
+                    AND ver_id = l_ver_id) max_sales_type
+               ,(SELECT nvl(SUM(unit_qty), 0) AS sum_unit_qty
+                   FROM dstrbtd_mrkt_sls
+                  WHERE sls_typ_id = l_sls_typ
+                    AND mrkt_id = l_mrkt_id
+                    AND offr_perd_id = l_offr_perd_id
+                    AND sls_perd_id = l_offr_perd_id
+                    AND offr_sku_line_id = offr_sku_line.offr_sku_line_id
+                  GROUP BY offr_sku_line_id, sls_typ_id) sum_unit_qty
+           FROM offr_sku_line
+               ,sku_cost    actual_sku
+               ,sku_cost    planned_sku
+               ,sku_reg_prc
+               ,sku
+               ,offr        o
+          WHERE 
+          o.offr_id = offr_sku_line.offr_id
+         
+       AND o.mrkt_id = l_mrkt_id
+       AND o.offr_perd_id = l_offr_perd_id
+       AND o.ver_id = l_ver_id
+       AND o.offr_id IN (SELECT p_offr_id FROM table(p_get_offr))
+         
+       AND offr_sku_line.sku_id = actual_sku.sku_id(+)
+       AND actual_sku.cost_typ(+) = 'A'
+       AND actual_sku.mrkt_id(+) = l_mrkt_id
+       AND actual_sku.offr_perd_id(+) = l_offr_perd_id
+       AND offr_sku_line.sku_id = planned_sku.sku_id(+)
+       AND planned_sku.mrkt_id(+) = l_mrkt_id
+       AND planned_sku.offr_perd_id(+) = l_offr_perd_id
+       AND planned_sku.cost_typ(+) = 'P'
+       AND sku_reg_prc.mrkt_id(+) = l_mrkt_id
+       AND sku_reg_prc.offr_perd_id(+) = l_offr_perd_id
+       AND sku_reg_prc.sku_id(+) = offr_sku_line.sku_id
+       AND sku.sku_id(+) = offr_sku_line.sku_id) osl_current
+      ,(SELECT osl_ltst.*
+              ,CASE
+                 WHEN actual_sku.wghtd_avg_cost_amt IS NOT NULL THEN
+                  actual_sku.wghtd_avg_cost_amt
+                 ELSE
+                  planned_sku.wghtd_avg_cost_amt
+               END sku_cost_amt
+              ,sku_reg_prc.reg_prc_amt
+              ,offr_prfl_prc_point.nr_for_qty
+              ,offr_prfl_prc_point.sls_prc_amt AS offr_prfl_sls_prc_amt
 
-                  ,osl_latest.unit_qty AS lv_units
-                  ,osl_latest.unit_qty * osl_latest.sku_cost_amt AS lv_total_cost
-                  ,CASE
-                     WHEN osl_latest.nr_for_qty = 0 THEN
-                      0
-                     ELSE
-                      round(osl_latest.offr_prfl_sls_prc_amt / osl_latest.nr_for_qty * osl_latest.unit_qty * osl_latest.net_to_avon_fct,4)
-                   END lv_gross_sales
-                  ,CASE
-                     WHEN osl_latest.nr_for_qty = 0 THEN
-                      0
-                     ELSE
-                     round(osl_latest.offr_prfl_sls_prc_amt / osl_latest.nr_for_qty * osl_latest.unit_qty * osl_latest.net_to_avon_fct - osl_latest.sku_cost_amt * osl_latest.unit_qty,4)
-                   END lv_dp_cash
-                  ,CASE
-                     WHEN osl_latest.nr_for_qty = 0
-                          OR osl_latest.net_to_avon_fct = 0
-                          OR osl_latest.unit_qty = 0
-                          OR osl_latest.offr_prfl_sls_prc_amt = 0 THEN
-                      0
-                     ELSE
-                     round((osl_latest.offr_prfl_sls_prc_amt / osl_latest.nr_for_qty * osl_latest.unit_qty * osl_latest.net_to_avon_fct - osl_latest.sku_cost_amt * osl_latest.unit_qty) /
-                          (osl_latest.offr_prfl_sls_prc_amt / osl_latest.nr_for_qty * osl_latest.unit_qty * osl_latest.net_to_avon_fct),4) * 100
-                   END lv_dp_percent
-                   --/latest version calculations
-                  ,0 AS status
-                  ,o.mrkt_id AS mrkt_id
-                  ,o.offr_perd_id AS offr_perd_id
-                  ,nvl2(offr_lock.sys_id, 1, 0) AS offr_lock
-                  ,offr_lock.user_nm AS offr_lock_user
-                  ,osl_current.offr_sku_line_id AS offr_sku_line_id
-                  ,o.veh_id AS veh_id
-                  ,o.brchr_plcmt_id AS brchr_plcmnt_id
-                  ,mrkt_veh_perd_sctn.sctn_nm AS brchr_sctn_nm
-                  ,o.enrgy_chrt_postn_id AS enrgy_chrt_postn_id
-                  ,MIN(decode(o.mrkt_veh_perd_sctn_id,
-                              NULL,
-                              o.mrkt_veh_perd_sctn_id,
-                              mvps.strtg_page_nr + o.sctn_page_ofs_nr +
-                              offr_prfl_prc_point.pg_ofs_nr +
-                              decode(offr_prfl_prc_point.featrd_side_cd,
-                                     1,
-                                     1,
-                                     0,
-                                     0,
-                                     2,
-                                     0,
-                                     0))) over(PARTITION BY o.offr_id) AS pg_nr
-                  ,prfl.catgry_id AS ctgry_id
-                  ,brnd_grp.brnd_fmly_id AS brnd_id
-                  ,prfl.sgmt_id AS sgmt_id
-                  ,prfl.form_id AS form_id
-                  ,form.form_grp_id AS form_grp_id
-                  ,offr_prfl_prc_point.prfl_cd AS prfl_cd
-                  ,osl_current.sku_id AS sku_id
-                  ,nvl(mrkt_tmp_fsc_master.fsc_cd, mrkt_tmp_fsc.fsc_cd) AS fsc_cd
-                  ,prfl.prod_typ_id AS prod_typ_id
-                  ,prfl.gendr_id AS gender_id
-                  ,osl_current.sls_cls_cd AS sls_cls_cd
-                  ,o.offr_desc_txt AS offr_desc_txt
-                  ,o.offr_ntes_txt AS offr_notes_txt
-                  ,substr(TRIM(o.offr_lyot_cmnts_txt), 0, 3000) AS offr_lyot_cmnts_txt
-                  ,o.featrd_side_cd AS featrd_side_cd
-                  ,offr_prfl_prc_point.featrd_side_cd AS concept_featrd_side_cd
-                  ,offr_sls_cls_sku.micr_ncpsltn_ind AS micr_ncpsltn_ind
-                  ,offr_prfl_prc_point.cnsmr_invstmt_bdgt_id AS cnsmr_invstmt_bdgt_id
-                  ,offr_prfl_prc_point.pymt_typ AS pymt_typ
-                  ,offr_prfl_prc_point.promtn_id AS promtn_id
-                  ,offr_prfl_prc_point.promtn_clm_id AS promtn_clm_id
-                   --,1 AS cmbntn_offr_typ
-                  ,'NEW_FEATURE' AS spndng_lvl
-                  ,offr_prfl_prc_point.tax_type_id AS tax_type_id
-                  ,offr_sls_cls_sku.wsl_ind AS wsl_ind
-                  ,offr_prfl_prc_point.comsn_typ AS comsn_typ
-                  ,offr_sku_set.offr_sku_set_id AS offr_sku_set_id
-                  ,osl_current.set_cmpnt_qty AS cmpnt_qty
-                  ,offr_prfl_prc_point.nr_for_qty AS nr_for_qty
-                  ,offr_prfl_prc_point.net_to_avon_fct AS nta_factor
-                  ,osl_current.sku_cost_amt AS sku_cost
-                  ,o.ver_id AS ver_id
-                  ,offr_prfl_prc_point.sls_prc_amt AS sls_prc_amt
-                  ,CASE WHEN osl_current.offr_sku_line_id IS NOT NULL THEN
-                     NVL(osl_current.reg_prc_amt, 0)
-                   ELSE
-                     NULL END AS reg_prc_amt --sku reg prcb?l
-                  ,osl_current.line_nr AS line_nr
-                  ,osl_current.sum_unit_qty AS unit_qty
-                  ,osl_current.dltd_ind AS dltd_ind
-                  ,o.creat_ts AS created_ts
-                  ,o.creat_user_id AS created_user_id
-                  ,o.last_updt_user_id AS last_updt_user_id
-                  ,o.last_updt_ts AS last_updt_ts
-                  ,mrkt_veh_perd_sctn.mrkt_veh_perd_sctn_id AS mrkt_veh_perd_sctn_id
-                  ,prfl.prfl_nm AS prfl_nm
-                  ,osl_current.sku_nm AS sku_nm
-                  ,comsn_typ.comsn_typ_desc_txt AS comsn_typ_desc_txt
-                  ,mrkt_tax_typ.tax_typ_desc_txt AS tax_typ_desc_txt
-                  ,offr_sku_set.offr_sku_set_nm AS offr_sku_set_nm
-                   --pricing corridors
-                  ,COALESCE(
-                   (SELECT MAX(spa) KEEP (dense_rank LAST ORDER BY skuid,sumu,vehid)
-                    FROM
-                    (SELECT
-                    osl_sp.sku_id AS skuid, SUM(dms_sp.unit_Qty) sumu, osl_sp.veh_id vehid,max(oppp.sls_prc_amt) KEEP(dense_rank LAST ORDER BY osl_sp.sku_id,osl_sp.veh_id) spa
-                     FROM offr_prfl_prc_point oppp, offr_sku_line osl_sp, dstrbtd_mrkt_sls dms_sp, offr o_sp WHERE
-                                          oppp.offr_prfl_prcpt_id = osl_sp.offr_prfl_prcpt_id
-                                      AND osl_sp.mrkt_id = l_mrkt_id
-                                      AND osl_sp.offr_perd_id = (SELECT MAX(tpymp.prev_yr_perd_id) keep(dense_rank LAST ORDER BY tpymp.last_updt_ts) AS prev_yr_perd_id
-                                                                  FROM trnsfrm_prev_yr_mrkt_perd tpymp
-                                                                 WHERE tpymp.mrkt_id = l_mrkt_id
-                                                                   AND tpymp.perd_id = l_offr_perd_id)
-                                      AND dms_sp.offr_sku_line_id = osl_sp.offr_sku_line_id
-                                      AND dms_sp.sls_typ_id IN (6,7)
-                                      AND o_sp.ver_id = 0
-                                      AND o_sp.offr_id = osl_sp.offr_id
-                                      GROUP BY osl_sp.sku_id,osl_sp.veh_id,oppp.offr_prfl_prcpt_id)
-                                      WHERE vehid = o.veh_id
-                                      AND skuid = osl_current.sku_id),
-                   (SELECT MAX(spa) KEEP (dense_rank LAST ORDER BY skuid,sumu,vehid)
-                    FROM
-                    (SELECT
-                    osl_sp.sku_id AS skuid, SUM(dms_sp.unit_Qty) sumu, osl_sp.veh_id vehid,max(oppp.sls_prc_amt) KEEP(dense_rank LAST ORDER BY osl_sp.sku_id,osl_sp.veh_id) spa
-                     FROM offr_prfl_prc_point oppp, offr_sku_line osl_sp, dstrbtd_mrkt_sls dms_sp, offr o_sp WHERE
-                                          oppp.offr_prfl_prcpt_id = osl_sp.offr_prfl_prcpt_id
-                                      AND osl_sp.mrkt_id = l_mrkt_id
-                                      AND osl_sp.offr_perd_id = (SELECT MAX(tpymp.prev_yr_perd_id) keep(dense_rank LAST ORDER BY tpymp.last_updt_ts) AS prev_yr_perd_id
-                                                                  FROM trnsfrm_prev_yr_mrkt_perd tpymp
-                                                                 WHERE tpymp.mrkt_id = l_mrkt_id
-                                                                   AND tpymp.perd_id = l_offr_perd_id)
-                                      AND dms_sp.offr_sku_line_id = osl_sp.offr_sku_line_id
-                                      AND dms_sp.sls_typ_id IN (6,7)
-                                      AND o_sp.ver_id = 0
-                                      AND o_sp.offr_id = osl_sp.offr_id
-                                      GROUP BY osl_sp.sku_id,osl_sp.veh_id,oppp.offr_prfl_prcpt_id)
-                                      WHERE vehid <> o.veh_id
-                                      AND skuid = osl_current.sku_id)
-                   ) AS pc_sp_py
-                  ,(SELECT srp.reg_prc_amt
-                      FROM sku_reg_prc srp
-                          ,sku         s
-                          ,mrkt_sku    ms
-                     WHERE s.prfl_cd =
-                           offr_prfl_prc_point.prfl_cd
-                       AND ms.mrkt_id =
-                           l_mrkt_id
-                       AND ms.sku_id =
-                           osl_current.sku_id
-                       AND nvl(ms.dltd_ind,
-                               'N') != 'Y'
-                       AND srp.sku_id =
-                           s.sku_id
-                       AND srp.mrkt_id =
-                           l_mrkt_id
-                       AND srp.offr_perd_id =
-                           l_offr_perd_id
-                       AND srp.reg_prc_amt =
-                           osl_current.reg_prc_amt
-                       AND rownum < 2) AS pc_rp
-                  ,CASE
-                     WHEN pricing_used = 'Y' THEN
-                      (SELECT MAX(mpsp.sku_prc_amt) opt_prc_amt
-                         FROM mrkt_perd_sku_prc mpsp
-                             ,prc_lvl_typ       plt
-                             ,mrkt_prc_lvl      mpl
-                        WHERE mpsp.mrkt_id = l_mrkt_id
-                          AND mpsp.offr_perd_id = l_offr_perd_id
-                          AND mpsp.sku_id IN
-                              (SELECT s.sku_id
-                                 FROM sku s, sku_reg_prc srp, mrkt_sku ms
-                                WHERE s.prfl_cd = offr_prfl_prc_point.prfl_cd
-                                  AND ms.mrkt_id = l_mrkt_id
-                                  AND ms.sku_id = s.sku_id
-                                  AND nvl(ms.dltd_ind, 'N') != 'Y'
-                                  AND srp.mrkt_id = mpsp.mrkt_id
-                                  AND srp.offr_perd_id = mpsp.offr_perd_id
-                                  AND srp.sku_id = s.sku_id
-                                  AND srp.reg_prc_amt = osl_current.reg_prc_amt)
-                          AND plt.prc_lvl_typ_cd = mpsp.prc_lvl_typ_cd
-                          AND plt.prc_lvl_typ_cd = 'SP'
-                          AND nvl(plt.dltd_ind, 'N') != 'Y'
-                          AND mpl.mrkt_id = mpsp.mrkt_id
-                          AND mpl.prc_lvl_typ_cd = mpsp.prc_lvl_typ_cd
-                          AND (mpl.strt_perd_id IS NULL OR
-                              mpl.strt_perd_id <= l_offr_perd_id)
-                          AND (mpl.end_perd_id IS NULL OR
-                              mpl.end_perd_id >= l_offr_perd_id)
-                        GROUP BY plt.seq_nr
-                                ,plt.prc_lvl_typ_id
-                                ,plt.prc_lvl_typ_cd
-                                ,plt.prc_lvl_typ_sdesc_txt
-                                ,mpl.prc_lvl_rng_pct
-                                ,nvl(mpsp.cmpnt_discnt_pct,
-                                     mpl.dfalt_cmpnt_discnt_pct))
-                     ELSE
-                      NULL
-                   END pc_sp
-                  ,CASE
-                     WHEN pricing_used = 'Y' THEN
-                      (SELECT MAX(mpsp.sku_prc_amt) opt_prc_amt
-                         FROM mrkt_perd_sku_prc mpsp
-                             ,prc_lvl_typ       plt
-                             ,mrkt_prc_lvl      mpl
-                        WHERE mpsp.mrkt_id = l_mrkt_id
-                          AND mpsp.offr_perd_id = l_offr_perd_id
-                          AND mpsp.sku_id IN
-                              (SELECT s.sku_id
-                                 FROM sku s, sku_reg_prc srp, mrkt_sku ms
-                                WHERE s.prfl_cd = offr_prfl_prc_point.prfl_cd
-                                  AND ms.mrkt_id = l_mrkt_id
-                                  AND ms.sku_id = s.sku_id
-                                  AND nvl(ms.dltd_ind, 'N') != 'Y'
-                                  AND srp.mrkt_id = mpsp.mrkt_id
-                                  AND srp.offr_perd_id = mpsp.offr_perd_id
-                                  AND srp.sku_id = s.sku_id
-                                  AND srp.reg_prc_amt = osl_current.reg_prc_amt)
-                          AND plt.prc_lvl_typ_cd = mpsp.prc_lvl_typ_cd
-                          AND plt.prc_lvl_typ_cd = 'VSP'
-                          AND nvl(plt.dltd_ind, 'N') != 'Y'
-                          AND mpl.mrkt_id = mpsp.mrkt_id
-                          AND mpl.prc_lvl_typ_cd = mpsp.prc_lvl_typ_cd
-                          AND (mpl.strt_perd_id IS NULL OR
-                              mpl.strt_perd_id <= l_offr_perd_id)
-                          AND (mpl.end_perd_id IS NULL OR
-                              mpl.end_perd_id >= l_offr_perd_id)
-                        GROUP BY plt.seq_nr
-                                ,plt.prc_lvl_typ_id
-                                ,plt.prc_lvl_typ_cd
-                                ,plt.prc_lvl_typ_sdesc_txt
-                                ,mpl.prc_lvl_rng_pct
-                                ,nvl(mpsp.cmpnt_discnt_pct,
-                                     mpl.dfalt_cmpnt_discnt_pct))
-                     ELSE
-                      NULL
-                   END pc_vsp
-                  ,CASE
-                     WHEN pricing_used = 'Y' THEN
-                      (SELECT MAX(mpsp.sku_prc_amt) opt_prc_amt
-                         FROM mrkt_perd_sku_prc mpsp
-                             ,prc_lvl_typ       plt
-                             ,mrkt_prc_lvl      mpl
-                        WHERE mpsp.mrkt_id = l_mrkt_id
-                          AND mpsp.offr_perd_id = l_offr_perd_id
-                          AND mpsp.sku_id IN
-                              (SELECT s.sku_id
-                                 FROM sku s, sku_reg_prc srp, mrkt_sku ms
-                                WHERE s.prfl_cd = offr_prfl_prc_point.prfl_cd
-                                  AND ms.mrkt_id = l_mrkt_id
-                                  AND ms.sku_id = s.sku_id
-                                  AND nvl(ms.dltd_ind, 'N') != 'Y'
-                                  AND srp.mrkt_id = mpsp.mrkt_id
-                                  AND srp.offr_perd_id = mpsp.offr_perd_id
-                                  AND srp.sku_id = s.sku_id
-                                  AND srp.reg_prc_amt = osl_current.reg_prc_amt)
-                          AND plt.prc_lvl_typ_cd = mpsp.prc_lvl_typ_cd
-                          AND plt.prc_lvl_typ_cd = 'HIT'
-                          AND nvl(plt.dltd_ind, 'N') != 'Y'
-                          AND mpl.mrkt_id = mpsp.mrkt_id
-                          AND mpl.prc_lvl_typ_cd = mpsp.prc_lvl_typ_cd
-                          AND (mpl.strt_perd_id IS NULL OR
-                              mpl.strt_perd_id <= l_offr_perd_id)
-                          AND (mpl.end_perd_id IS NULL OR
-                              mpl.end_perd_id >= l_offr_perd_id)
-                        GROUP BY plt.seq_nr
-                                ,plt.prc_lvl_typ_id
-                                ,plt.prc_lvl_typ_cd
-                                ,plt.prc_lvl_typ_sdesc_txt
-                                ,mpl.prc_lvl_rng_pct
-                                ,nvl(mpsp.cmpnt_discnt_pct,
-                                     mpl.dfalt_cmpnt_discnt_pct))
-                     ELSE
-                      NULL
-                   END pc_hit
-                  ,o.pg_wght_pct AS pg_wght
-                  ,CASE
-                     WHEN offr_prfl_prc_point.featrd_side_cd = 1 THEN
-                      (SELECT MAX(decode(o.mrkt_veh_perd_sctn_id,
-                                         NULL,
-                                         o.mrkt_veh_perd_sctn_id,
-                                         mvps.strtg_page_nr + o.sctn_page_ofs_nr +
-                                         offr_prfl_prc_point.pg_ofs_nr +
-                                         decode(offr_prfl_prc_point.featrd_side_cd,
-                                                1,
-                                                1,
-                                                0,
-                                                0,
-                                                2,
-                                                1,
-                                                0))) over(PARTITION BY o.offr_id)
-                         FROM dual) - 1
-                     ELSE
-                      (SELECT MIN(decode(o.mrkt_veh_perd_sctn_id,
-                                         NULL,
-                                         o.mrkt_veh_perd_sctn_id,
-                                         mvps.strtg_page_nr + o.sctn_page_ofs_nr +
-                                         offr_prfl_prc_point.pg_ofs_nr +
-                                         decode(offr_prfl_prc_point.featrd_side_cd,
-                                                1,
-                                                1,
-                                                0,
-                                                0,
-                                                2,
-                                                0,
-                                                0))) over(PARTITION BY o.offr_id)
-                         FROM dual)
-                   END AS sprd_nr
-                  ,offr_prfl_prc_point.offr_prfl_prcpt_id AS offr_prfl_prcpt_id
-                  ,(NVL((SELECT MAX(1)
-                           FROM offr_sku_line osl,
-                                dstrbtd_mrkt_sls dms,
-                                sls_typ st
-                          WHERE dms.offr_sku_line_id = osl.offr_sku_line_id
-                            AND osl.offr_prfl_prcpt_id = offr_prfl_prc_point.offr_prfl_prcpt_id
-                            AND st.sls_typ_id = dms.sls_typ_id
-                            AND osl.mrkt_id = l_mrkt_id
-                            AND osl.offr_perd_id = l_offr_perd_id
-                            AND st.sls_typ_grp_nm = 'Actual'
-                            AND dms.ver_id = 0
-                            AND dms.unit_qty > 0), 0)) AS has_unit_qty
-                  ,o.offr_typ
-                    FROM (SELECT *
-                             FROM offr
-                            WHERE offr_id IN
-                              (SELECT p_offr_id FROM table(p_get_offr)) AND
-                            offr.mrkt_id = l_mrkt_id
-                         AND offr.offr_perd_id = l_offr_perd_id
-                         AND offr.ver_id = l_ver_id) o
-                        , (SELECT offr_sku_line.offr_sku_line_id
-                                 ,offr_sku_line.sku_id
-                                 ,offr_sku_line.featrd_side_cd
-                                 ,offr_sku_line.pg_ofs_nr
-                                 ,offr_sku_line.prfl_cd
-                                 ,offr_sku_line.sls_cls_cd
-                                 ,offr_sku_line.offr_id
-                                 ,offr_sku_line.offr_sku_set_id
-                                 ,offr_sku_line.offr_prfl_prcpt_id
-                                 ,offr_sku_line.dltd_ind
-                                 ,offr_sku_line.line_nr
-                                 ,offr_sku_line.set_cmpnt_qty
-                                 ,offr_sku_line.mrkt_id
-                                  --,dms_current.sum_unit_qty AS sum_unit_qty
-                                 ,CASE
-                                    WHEN actual_sku.wghtd_avg_cost_amt IS NOT NULL THEN
-                                     actual_sku.wghtd_avg_cost_amt
-                                    ELSE
-                                     planned_sku.wghtd_avg_cost_amt
-                                  END sku_cost_amt
-                                 ,l_ver_id AS ver_id
-                                 ,sku_reg_prc.reg_prc_amt
-                                 ,sku.sku_nm
-                                 ,l_sls_typ AS sales_type
-                                 ,(SELECT MAX(sls_typ_id)
-                                     FROM dstrbtd_mrkt_sls
-                                    WHERE mrkt_id = l_mrkt_id
-                                      AND offr_perd_id = l_offr_perd_id
-                                      AND sls_perd_id = l_offr_perd_id
-                                      AND veh_id = offr_sku_line.veh_id
-                                      AND ver_id = l_ver_id) max_sales_type
-                                 ,(SELECT NVL(SUM(unit_qty), 0) AS sum_unit_qty
-                                     FROM dstrbtd_mrkt_sls
-                                    WHERE sls_typ_id = l_sls_typ
-                                      AND mrkt_id = l_mrkt_id
-                                      AND offr_perd_id = l_offr_perd_id
-                                      AND sls_perd_id = l_offr_perd_id
-                                      AND offr_sku_line_id =
-                                          offr_sku_line.offr_sku_line_id
-                                    GROUP BY offr_sku_line_id, sls_typ_id) sum_unit_qty
-                             FROM offr_sku_line
-                                  --,(SELECT SUM(unit_qty) AS sum_unit_qty, offr_sku_line_id,sls_typ_id FROM dstrbtd_mrkt_sls WHERE sls_typ_id = l_sls_typ AND mrkt_id = l_mrkt_id AND offr_perd_id = l_offr_perd_id GROUP BY offr_sku_line_id,sls_Typ_id) dms_current
-                                 ,sku_cost    actual_sku
-                                 ,sku_cost    planned_sku
-                                 ,sku_reg_prc
-                                 ,sku
-                                 ,offr        o
-                            WHERE --dms_current.offr_sku_line_id(+) =
-                           --offr_sku_line.offr_sku_line_id
-                           -- AND
-                            o.offr_id = offr_sku_line.offr_id
+          FROM latest_osl_stuff    osl_ltst
+              ,offr_prfl_prc_point
+              ,sku_reg_prc
+              ,sku_cost            actual_sku
+              ,sku_cost            planned_sku
+         WHERE offr_prfl_prc_point.offr_prfl_prcpt_id =
+               osl_ltst.offr_prfl_prcpt_id
+           AND osl_ltst.sku_id = actual_sku.sku_id(+)
+           AND actual_sku.cost_typ(+) = 'A'
+           AND actual_sku.mrkt_id(+) = l_mrkt_id
+           AND actual_sku.offr_perd_id(+) = l_offr_perd_id
+           AND osl_ltst.sku_id = planned_sku.sku_id(+)
+           AND planned_sku.mrkt_id(+) = l_mrkt_id
+           AND planned_sku.offr_perd_id(+) = l_offr_perd_id
+           AND planned_sku.cost_typ(+) = 'P'
+           AND sku_reg_prc.sku_id(+) = osl_ltst.sku_id
+           AND sku_reg_prc.offr_perd_id(+) = l_offr_perd_id
+           AND sku_reg_prc.mrkt_id(+) = l_mrkt_id
+           AND osl_ltst.mrkt_id = l_mrkt_id
+           AND osl_ltst.offr_perd_id = l_offr_perd_id) osl_latest
+      ,offr_prfl_prc_point
+      ,prfl
+      ,form
+      ,offr_sku_set
+      ,offr_lock
+      ,offr_sls_cls_sku
+      ,offr_prfl_sls_cls_plcmt
+      ,mrkt_veh_perd_sctn
+      ,(SELECT *
+          FROM mrkt_veh_perd_sctn t2
+         WHERE t2.mrkt_id = l_mrkt_id
+           AND t2.ver_id = l_ver_id
+           AND t2.offr_perd_id = l_offr_perd_id
+        UNION
+        SELECT DISTINCT t2.mrkt_id
+                       ,t2.offr_perd_id
+                       ,t2.ver_id
+                       ,1
+                       ,0
+                       ,t2.veh_id
+                       ,0
+                       ,0
+                       ,NULL
+                       ,0
+                       ,0
+                       ,USER
+                       ,SYSDATE
+                       ,USER
+                       ,SYSDATE
+          FROM mrkt_veh_perd_ver t2
+         WHERE t2.mrkt_id = l_mrkt_id
+           AND t2.ver_id = l_ver_id
+           AND t2.offr_perd_id = l_offr_perd_id) mvps
+      ,comsn_typ
+      ,mrkt_tax_typ
+      ,brnd_grp
+      ,brnd
+      ,mrkt_tmp_fsc
+      ,mrkt_tmp_fsc_master
+ WHERE
+--mrkt_tmp_fsc and master
+ osl_current.sku_id = mrkt_tmp_fsc_master.sku_id(+)
+ AND osl_current.sku_id = mrkt_tmp_fsc.sku_id(+)
+ AND mrkt_tmp_fsc_master.mrkt_id(+) = osl_current.mrkt_id
+ AND mrkt_tmp_fsc.mrkt_id(+) = osl_current.mrkt_id
 
-                         AND o.mrkt_id = l_mrkt_id
-                         AND o.offr_perd_id = l_offr_perd_id
-                         AND o.ver_id = l_ver_id
-                           --AND o.offr_id IN (SELECT p_offr_id FROM table(p_get_offr))
-
-                         AND offr_sku_line.sku_id = actual_sku.sku_id(+)
-                         AND actual_sku.cost_typ(+) = 'A'
-                         AND actual_sku.mrkt_id(+) = l_mrkt_id
-                         AND actual_sku.offr_perd_id(+) = l_offr_perd_id
-                         AND offr_sku_line.sku_id = planned_sku.sku_id(+)
-                         AND planned_sku.mrkt_id(+) = l_mrkt_id
-                         AND planned_sku.offr_perd_id(+) = l_offr_perd_id
-                         AND planned_sku.cost_typ(+) = 'P'
-                         AND sku_reg_prc.mrkt_id(+) = l_mrkt_id
-                         AND sku_reg_prc.offr_perd_id(+) = l_offr_perd_id
-                         AND sku_reg_prc.sku_id(+) = offr_sku_line.sku_id
-                         AND sku.sku_id(+) = offr_sku_line.sku_id) osl_current
-                        ,(SELECT osl_ltst.*
-                                ,CASE
-                                   WHEN actual_sku.wghtd_avg_cost_amt IS NOT NULL THEN
-                                    actual_sku.wghtd_avg_cost_amt
-                                   ELSE
-                                    planned_sku.wghtd_avg_cost_amt
-                                 END sku_cost_amt
-                                ,sku_reg_prc.reg_prc_amt
-                                ,offr_prfl_prc_point.nr_for_qty
-                                ,offr_prfl_prc_point.sls_prc_amt AS offr_prfl_sls_prc_amt
-                          --osl ltst subselect
-                            FROM (SELECT osl.offr_sku_line_id
-                                        ,osl.sku_id
-                                        ,osl.offr_prfl_prcpt_id
-                                        ,osl.mrkt_id
-                                        ,osl.offr_perd_id
-                                        ,osl.offr_sku_line_link_id
-                                        ,SUM(dms.unit_qty) AS unit_qty
-                                        ,dms.sls_typ_id
-                                        ,SUM(dms.net_to_avon_fct *
-                                             dms.unit_qty) /
-                                         SUM(dms.unit_qty) AS net_to_avon_fct
-                                    FROM offr_sku_line              osl
-                                        ,offr                       o
-                                        ,dstrbtd_mrkt_sls           dms
-                                        ,latest_version_and_sls_typ
-                                   WHERE o.offr_id = osl.offr_id
-                                     AND osl.offr_sku_line_id =
-                                         dms.offr_sku_line_id
-                                     AND dms.ver_id =
-                                         latest_version_and_sls_typ.ver_id
-                                     AND dms.sls_typ_id =
-                                         latest_version_and_sls_typ.sls_typ_id
-                                     AND o.offr_perd_id =
-                                         latest_version_and_sls_typ.offr_perd_id
-                                     AND dms.unit_qty <> 0
-                                     AND o.mrkt_id = l_mrkt_id
-                                     AND dms.veh_id = latest_version_and_sls_typ.veh_id
-                                   GROUP BY osl.offr_sku_line_id
-                                           ,osl.offr_sku_line_link_id
-                                           ,osl.sku_id
-                                           ,osl.offr_prfl_prcpt_id
-                                           ,dms.ver_id
-                                           ,dms.sls_typ_id
-                                           ,osl.mrkt_id
-                                           ,osl.offr_perd_id) osl_ltst
-                                ,offr_prfl_prc_point
-                                ,sku_reg_prc
-                                ,sku_cost actual_sku
-                                ,sku_cost planned_sku
-                           WHERE offr_prfl_prc_point.offr_prfl_prcpt_id =
-                                 osl_ltst.offr_prfl_prcpt_id
-                             AND osl_ltst.sku_id = actual_sku.sku_id(+)
-                             AND actual_sku.cost_typ(+) = 'A'
-                             AND actual_sku.mrkt_id(+) = l_mrkt_id
-                             AND actual_sku.offr_perd_id(+) = l_offr_perd_id
-                             AND osl_ltst.sku_id = planned_sku.sku_id(+)
-                             AND planned_sku.mrkt_id(+) = l_mrkt_id
-                             AND planned_sku.offr_perd_id(+) = l_offr_perd_id
-                             AND planned_sku.cost_typ(+) = 'P'
-                             AND sku_reg_prc.sku_id(+) = osl_ltst.sku_id
-                             AND sku_reg_prc.offr_perd_id(+) = l_offr_perd_id
-                             AND sku_reg_prc.mrkt_id(+) = l_mrkt_id
-                             AND osl_ltst.mrkt_id = l_mrkt_id
-                             AND osl_ltst.offr_perd_id = l_offr_perd_id) osl_latest
-                        ,offr_prfl_prc_point
-                        ,prfl
-                        ,form
-                        ,offr_sku_set
-                        ,offr_lock
-                        ,offr_sls_cls_sku
-                        ,offr_prfl_sls_cls_plcmt
-                        ,mrkt_veh_perd_sctn
-                        ,(SELECT *
-                            FROM mrkt_veh_perd_sctn t2
-                           WHERE t2.mrkt_id = l_mrkt_id
-                             AND t2.ver_id = l_ver_id
-                             AND t2.offr_perd_id = l_offr_perd_id
-                          UNION
-                          SELECT DISTINCT t2.mrkt_id
-                                         ,t2.offr_perd_id
-                                         ,t2.ver_id
-                                         ,1
-                                         ,0
-                                         ,t2.veh_id
-                                         ,0
-                                         ,0
-                                         ,NULL
-                                         ,0
-                                         ,0
-                                         ,USER
-                                         ,SYSDATE
-                                         ,USER
-                                         ,SYSDATE
-                            FROM mrkt_veh_perd_ver t2
-                           WHERE t2.mrkt_id = l_mrkt_id
-                             AND t2.ver_id = l_ver_id
-                             AND t2.offr_perd_id = l_offr_perd_id) mvps
-                        ,comsn_typ
-                        ,mrkt_tax_typ
-                        ,brnd_grp
-                        ,brnd
-                        ,mrkt_tmp_fsc
-                        ,mrkt_tmp_fsc_master
-                   WHERE
-                  --mrkt_tmp_fsc and master
-                   osl_current.sku_id = mrkt_tmp_fsc_master.sku_id(+)
-               AND osl_current.sku_id = mrkt_tmp_fsc.sku_id(+)
-               AND mrkt_tmp_fsc_master.mrkt_id(+) = osl_current.mrkt_id
-               AND mrkt_tmp_fsc.mrkt_id(+) = osl_current.mrkt_id
-
-                  --offr outer join on selected version
-               AND o.offr_id = osl_current.offr_id(+)
+--offr outer join on selected version
+ AND o.offr_id = osl_current.offr_id(+)
 --               AND o.offr_typ = 'CMP'
-               AND o.mrkt_id = l_mrkt_id
-               AND o.offr_perd_id = l_offr_perd_id
-               AND o.ver_id = l_ver_id
-               AND osl_current.offr_sku_line_id =
-                   osl_latest.offr_sku_line_link_id(+)
-                  --mrkt_veh_perd_sctn
-               AND mrkt_veh_perd_sctn.mrkt_veh_perd_sctn_id(+) =
-                   o.mrkt_veh_perd_sctn_id
-               AND mrkt_veh_perd_sctn.mrkt_id(+) = o.mrkt_id
-               AND mrkt_veh_perd_sctn.offr_perd_id(+) = o.offr_perd_id
-               AND mrkt_veh_perd_sctn.brchr_plcmt_id(+) = o.brchr_plcmt_id
-               AND mrkt_veh_perd_sctn.ver_id(+) = o.ver_id
-               AND mrkt_veh_perd_sctn.veh_id(+) = o.veh_id
-                  --offr prfl prc point
-               AND offr_prfl_prc_point.offr_prfl_prcpt_id(+) =
-                   osl_current.offr_prfl_prcpt_id
-                  --brnd
-               AND brnd.brnd_id(+) = prfl.brnd_id
-               AND brnd_grp.brnd_grp_id(+) = brnd.brnd_grp_id
-                  --new prfl and form table
-               AND prfl.prfl_cd(+) = offr_prfl_prc_point.prfl_cd
-               AND prfl.form_id = form.form_id(+)
+ AND o.mrkt_id = l_mrkt_id
+ AND o.offr_perd_id = l_offr_perd_id
+ AND o.ver_id = l_ver_id
+ AND osl_current.offr_sku_line_id = osl_latest.offr_sku_line_link_id(+)
+--mrkt_veh_perd_sctn
+ AND mrkt_veh_perd_sctn.mrkt_veh_perd_sctn_id(+) = o.mrkt_veh_perd_sctn_id
+ AND mrkt_veh_perd_sctn.mrkt_id(+) = o.mrkt_id
+ AND mrkt_veh_perd_sctn.offr_perd_id(+) = o.offr_perd_id
+ AND mrkt_veh_perd_sctn.brchr_plcmt_id(+) = o.brchr_plcmt_id
+ AND mrkt_veh_perd_sctn.ver_id(+) = o.ver_id
+ AND mrkt_veh_perd_sctn.veh_id(+) = o.veh_id
+--offr prfl prc point
+ AND offr_prfl_prc_point.offr_prfl_prcpt_id(+) = osl_current.offr_prfl_prcpt_id
+--brnd
+ AND brnd.brnd_id(+) = prfl.brnd_id
+ AND brnd_grp.brnd_grp_id(+) = brnd.brnd_grp_id
+--new prfl and form table
+ AND prfl.prfl_cd(+) = offr_prfl_prc_point.prfl_cd
+ AND prfl.form_id = form.form_id(+)
 
-                  --offr sku set
-               AND offr_sku_set.offr_sku_set_id(+) =
-                   osl_current.offr_sku_set_id
+--offr sku set
+ AND offr_sku_set.offr_sku_set_id(+) = osl_current.offr_sku_set_id
 
-                  --offr lock
-               AND offr_lock.offr_id(+) = o.offr_id
+--offr lock
+ AND offr_lock.offr_id(+) = o.offr_id
 
-                  --offr sls cls sku
-               AND offr_sls_cls_sku.offr_id(+) = osl_current.offr_id
-               AND offr_sls_cls_sku.sls_cls_cd(+) = osl_current.sls_cls_cd
-               AND offr_sls_cls_sku.prfl_cd(+) = osl_current.prfl_cd
-               AND offr_sls_cls_sku.pg_ofs_nr(+) = osl_current.pg_ofs_nr
-               AND offr_sls_cls_sku.featrd_side_cd(+) =
-                   osl_current.featrd_side_cd
-               AND offr_sls_cls_sku.sku_id(+) = osl_current.sku_id
+--offr sls cls sku
+ AND offr_sls_cls_sku.offr_id(+) = osl_current.offr_id
+ AND offr_sls_cls_sku.sls_cls_cd(+) = osl_current.sls_cls_cd
+ AND offr_sls_cls_sku.prfl_cd(+) = osl_current.prfl_cd
+ AND offr_sls_cls_sku.pg_ofs_nr(+) = osl_current.pg_ofs_nr
+ AND offr_sls_cls_sku.featrd_side_cd(+) = osl_current.featrd_side_cd
+ AND offr_sls_cls_sku.sku_id(+) = osl_current.sku_id
 
-                  --offr_prfl_sls_cls_plcmt
-               AND offr_prfl_sls_cls_plcmt.offr_id(+) =
-                   offr_prfl_prc_point.offr_id
-               AND offr_prfl_sls_cls_plcmt.sls_cls_cd(+) =
-                   offr_prfl_prc_point.sls_cls_cd
-               AND offr_prfl_sls_cls_plcmt.pg_ofs_nr(+) =
-                   offr_prfl_prc_point.pg_ofs_nr
-               AND offr_prfl_sls_cls_plcmt.featrd_side_cd(+) =
-                   offr_prfl_prc_point.featrd_side_cd
-               AND offr_prfl_sls_cls_plcmt.prfl_cd(+) =
-                   offr_prfl_prc_point.prfl_cd
-                  --comsn_typ
-               AND comsn_typ.comsn_typ(+) = offr_prfl_prc_point.comsn_typ
-                  --tax_typ
-               AND mrkt_tax_typ.mrkt_id(+) = offr_prfl_prc_point.mrkt_id
-               AND mrkt_tax_typ.tax_type_id(+) =
-                   offr_prfl_prc_point.tax_type_id
-                  --mvps
-               AND mvps.mrkt_veh_perd_sctn_id(+) =
-                   decode(o.mrkt_veh_perd_sctn_id,
-                          NULL,
-                          1,
-                          o.mrkt_veh_perd_sctn_id)
-               AND mvps.veh_id = o.veh_id
+--offr_prfl_sls_cls_plcmt
+ AND offr_prfl_sls_cls_plcmt.offr_id(+) = offr_prfl_prc_point.offr_id
+ AND offr_prfl_sls_cls_plcmt.sls_cls_cd(+) = offr_prfl_prc_point.sls_cls_cd
+ AND offr_prfl_sls_cls_plcmt.pg_ofs_nr(+) = offr_prfl_prc_point.pg_ofs_nr
+ AND offr_prfl_sls_cls_plcmt.featrd_side_cd(+) =
+ offr_prfl_prc_point.featrd_side_cd
+ AND offr_prfl_sls_cls_plcmt.prfl_cd(+) = offr_prfl_prc_point.prfl_cd
+--comsn_typ
+ AND comsn_typ.comsn_typ(+) = offr_prfl_prc_point.comsn_typ
+--tax_typ
+ AND mrkt_tax_typ.mrkt_id(+) = offr_prfl_prc_point.mrkt_id
+ AND mrkt_tax_typ.tax_type_id(+) = offr_prfl_prc_point.tax_type_id
+--mvps
+ AND mvps.mrkt_veh_perd_sctn_id(+) =
+ decode(o.mrkt_veh_perd_sctn_id, NULL, 1, o.mrkt_veh_perd_sctn_id)
+ AND mvps.veh_id = o.veh_id
+
 
                 )
 
