@@ -1008,6 +1008,7 @@ BEGIN
                         ,veh_id
                         ,ver_id
                         ,enrgy_chrt_postn_id
+                        ,brchr_plcmnt_id
                         ,offr_desc_txt
                         ,offr_notes_txt
                         ,offr_lyot_cmnts_txt
@@ -1033,6 +1034,7 @@ BEGIN
   ON (o.offr_id = dl.intrnl_offr_id)
   WHEN MATCHED THEN UPDATE
   SET o.enrgy_chrt_postn_id   = dl.enrgy_chrt_postn_id
+     ,o.brchr_plcmt_id        = dl.brchr_plcmnt_id
      ,o.offr_desc_txt         = dl.offr_desc_txt
      ,o.offr_ntes_txt         = dl.offr_notes_txt
      ,o.offr_lyot_cmnts_txt   = dl.offr_lyot_cmnts_txt
