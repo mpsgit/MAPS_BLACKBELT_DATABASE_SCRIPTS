@@ -7,7 +7,8 @@
 
 @Tables\EDIT_OFFR_HIST.sql
 
-@Utils\insert_CONFIG_ITEM_MRKT_CONFIG_ITEM.sql 
+@Utils\insert_CONFIG_ITEM_MRKT_CONFIG_ITEM.sql
+@Utils\insert_CONFIG_ITEM_MRKT_CONFIG_ITEM_for_more_mrkts.sql
 
 @Packages\PA_MAPS_EDIT_OFFR.sql
 show errors
