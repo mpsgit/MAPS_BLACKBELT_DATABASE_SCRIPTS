@@ -11,5 +11,6 @@ BEGIN
     dbms_output.put_line(i.mrkt_id);
   END LOOP;
 END;
+/
 
 COMMIT;
