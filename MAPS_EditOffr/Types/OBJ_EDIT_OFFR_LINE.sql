@@ -78,6 +78,8 @@ CREATE OR REPLACE TYPE obj_edit_offr_line FORCE AS OBJECT
   sprd_nr                NUMBER,
   offr_prfl_prcpt_id     NUMBER,
   has_unit_qty           NUMBER,
-  offr_typ               VARCHAR2(5)
+  offr_typ               VARCHAR2(5),
+  forcasted_units        NUMBER,
+  forcasted_date         DATE
 );
 /
