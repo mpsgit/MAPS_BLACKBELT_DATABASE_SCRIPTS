@@ -13,6 +13,7 @@ CREATE OR REPLACE TYPE obj_edit_offr_filter_line FORCE AS OBJECT
                              p_sls_typ        NUMBER,
                              p_dltd_ind       NUMBER,
                              p_offr_id        number_array,
-                             p_enrgy_chrt_postn_id number_array
+                             p_enrgy_chrt_postn_id number_array,
+                             p_offr_typ       VARCHAR2(5)
 );
 /

@@ -1342,7 +1342,7 @@ BEGIN
          AND offr_perd_id = mrkt_prd_rec.offr_perd_id
        GROUP BY intrnl_offr_id, sls_typ) LOOP
       l_offr_table.extend;
-      l_offr_table(l_offr_table.last) := obj_get_offr_line(rec.intrnl_offr_id, rec.sls_typ);
+      l_offr_table(l_offr_table.last) := obj_get_offr_line(rec.intrnl_offr_id, rec.sls_typ, NULL);
     END LOOP;
 
     SELECT obj_edit_offr_line(status,
@@ -1702,7 +1702,8 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
          AND p_filter.p_offr_perd_id < to_strt_perd_id
        GROUP BY mrkt_id, sku_id)
         SELECT o.offr_id AS p_offr_id,
-               p_filter.p_sls_typ AS p_sls_typ
+               p_filter.p_sls_typ AS p_sls_typ,
+               p_filter.p_offr_typ AS p_offr_typ
           FROM  offr o
                ,offr_sku_line osl
                ,offr_prfl_prc_point
@@ -1714,7 +1715,14 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                ,dstrbtd_mrkt_sls
          WHERE --offr_sku_line join
                    o.offr_id = osl.offr_id(+)
---               AND o.offr_typ = 'CMP'
+               AND CASE
+                     WHEN p_filter.p_offr_typ IS NULL THEN
+                       1
+                     WHEN o.offr_id = p_filter.p_offr_typ THEN
+                       1
+                     ELSE
+                       0
+                   END = 1
                AND o.mrkt_id = p_filter.p_mrkt_id
                AND o.offr_perd_id = p_filter.p_offr_perd_id
                AND o.ver_id = p_filter.p_ver_id
@@ -1816,7 +1824,7 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
       ) LOOP --get valid offer id-s loop
 
               l_get_offr_table.extend();
-              l_get_offr_table(l_get_offr_table.last) := obj_get_offr_line(offrs.p_offr_id,offrs.p_sls_typ);
+              l_get_offr_table(l_get_offr_table.last) := obj_get_offr_line(offrs.p_offr_id,offrs.p_sls_typ, offrs.p_offr_typ);
    END LOOP; --get valid offer id-s loop
 
   FOR rec IN (SELECT o.* FROM TABLE(get_offr(l_get_offr_table)) o,
@@ -2021,6 +2029,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     l_mrkt_id      offr.mrkt_id%TYPE;
     l_ver_id       offr.ver_id%TYPE;
     l_sls_typ      dstrbtd_mrkt_sls.sls_typ_id%TYPE;
+    l_offr_typ     offr.offr_typ%TYPE;
     l_veh_ids      number_array;
     -- for LOG
     l_run_id  NUMBER := app_plsql_output.generate_new_run_id;
@@ -2044,7 +2053,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
     app_plsql_log.info(l_module_name || ' start');
 
-    SELECT MAX(p_sls_typ) INTO l_sls_typ FROM TABLE(p_get_offr);
+    SELECT MAX(p_sls_typ), MAX(p_offr_typ) INTO l_sls_typ, l_offr_typ FROM TABLE(p_get_offr);
     SELECT MAX(o.mrkt_id)
       INTO l_mrkt_id
       FROM TABLE(p_get_offr) poi
@@ -2117,7 +2126,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
 
     FOR rec IN (
 
-          
+
 WITH latest_version_and_sls_typ AS
                    (SELECT asl.ver_id
                           ,asl.sls_typ_id
@@ -2246,7 +2255,7 @@ SELECT o.offr_id  AS intrnl_offr_id
           round(100 - (osl_latest.offr_prfl_sls_prc_amt /
                 osl_latest.nr_for_qty / osl_latest.reg_prc_amt) * 100)
        END lv_discount
-       
+
       ,osl_latest.unit_qty AS lv_units
       ,osl_latest.unit_qty * osl_latest.sku_cost_amt AS lv_total_cost
       ,CASE
@@ -2573,7 +2582,7 @@ SELECT o.offr_id  AS intrnl_offr_id
                AND dms.ver_id = 0
                AND dms.unit_qty > 0),
             0)) AS has_unit_qty
-      ,o.offr_typ 
+      ,o.offr_typ
   FROM (SELECT *
            FROM offr
           WHERE offr_id IN (SELECT p_offr_id FROM table(p_get_offr)) AND
@@ -2624,14 +2633,14 @@ SELECT o.offr_id  AS intrnl_offr_id
                ,sku_reg_prc
                ,sku
                ,offr        o
-          WHERE 
+          WHERE
           o.offr_id = offr_sku_line.offr_id
-         
+
        AND o.mrkt_id = l_mrkt_id
        AND o.offr_perd_id = l_offr_perd_id
        AND o.ver_id = l_ver_id
        AND o.offr_id IN (SELECT p_offr_id FROM table(p_get_offr))
-         
+
        AND offr_sku_line.sku_id = actual_sku.sku_id(+)
        AND actual_sku.cost_typ(+) = 'A'
        AND actual_sku.mrkt_id(+) = l_mrkt_id
@@ -2720,10 +2729,16 @@ SELECT o.offr_id  AS intrnl_offr_id
  AND osl_current.sku_id = mrkt_tmp_fsc.sku_id(+)
  AND mrkt_tmp_fsc_master.mrkt_id(+) = osl_current.mrkt_id
  AND mrkt_tmp_fsc.mrkt_id(+) = osl_current.mrkt_id
-
 --offr outer join on selected version
  AND o.offr_id = osl_current.offr_id(+)
---               AND o.offr_typ = 'CMP'
+ AND CASE
+       WHEN l_offr_typ IS NULL THEN
+         1
+       WHEN o.offr_id = l_offr_typ THEN
+         1
+       ELSE
+         0
+     END = 1
  AND o.mrkt_id = l_mrkt_id
  AND o.offr_perd_id = l_offr_perd_id
  AND o.ver_id = l_ver_id
@@ -2983,7 +2998,7 @@ SELECT o.offr_id  AS intrnl_offr_id
     l_edit_offr_table        obj_edit_offr_table;
   BEGIN
     l_offr_table.extend;
-    l_offr_table(l_offr_table.last) := obj_get_offr_line(p_offr_id, p_sls_typ_id);
+    l_offr_table(l_offr_table.last) := obj_get_offr_line(p_offr_id, p_sls_typ_id, NULL);
 
     SELECT obj_edit_offr_line(
                 status, mrkt_id, offr_perd_id, offr_lock, offr_lock_user, offr_sku_line_id, veh_id, brchr_plcmnt_id, brchr_sctn_nm,
@@ -3292,7 +3307,7 @@ SELECT o.offr_id  AS intrnl_offr_id
     l_location               VARCHAR2(1000);
 
     l_lock_user_nm           VARCHAR2(35);
-    l_offr_id                NUMBER;    
+    l_offr_id                NUMBER;
     l_lock_status            NUMBER;
 
   BEGIN
@@ -3594,7 +3609,7 @@ SELECT o.offr_id  AS intrnl_offr_id
         END IF;
 
         l_offr_table.EXTEND;
-        l_offr_table(l_offr_table.LAST) := obj_get_offr_line(l_new_offr_id, 1);
+        l_offr_table(l_offr_table.LAST) := obj_get_offr_line(l_new_offr_id, 1, NULL);
 
       END LOOP;
     END LOOP;
@@ -3660,7 +3675,7 @@ SELECT o.offr_id  AS intrnl_offr_id
 
   BEGIN
     SAVEPOINT del_offr;
-  
+
     l_location := 'deleting dstrbtd_mrkt_sls';
     DELETE FROM dstrbtd_mrkt_sls dms
      WHERE dms.offr_sku_line_id IN (
@@ -3817,7 +3832,7 @@ SELECT o.offr_id  AS intrnl_offr_id
 
     l_procedure_name         VARCHAR2(50) := 'DEL_PRCPT_WITH_DEPS';
     l_location               VARCHAR2(1000);
-    
+
     l_cnt                    INTEGER;
 
   BEGIN
@@ -4002,7 +4017,7 @@ SELECT o.offr_id  AS intrnl_offr_id
       END;
 
       l_get_offr_table.EXTEND;
-      l_get_offr_table(l_get_offr_table.LAST) := obj_get_offr_line(offr_rec.offr_id, 1);
+      l_get_offr_table(l_get_offr_table.LAST) := obj_get_offr_line(offr_rec.offr_id, 1, NULL);
 
     END LOOP; -- offr_rec loop
 
