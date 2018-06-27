@@ -2176,28 +2176,43 @@ CREATE OR REPLACE PACKAGE BODY pa_offer_api AS
                         p_offr_perd_to   IN offr.offr_perd_id%TYPE)
     RETURN obj_sku_cost_table
     PIPELINED IS
+
+    l_module_name  VARCHAR2(30) := 'GET_SKU_COST';
+    l_run_id       NUMBER := app_plsql_output.generate_new_run_id;
+    l_user_id      VARCHAR(35) := USER();
+
   BEGIN
+    app_plsql_log.register(g_package_name || '.' || l_module_name);
+    app_plsql_output.set_run_id(l_run_id);
+    app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
+    app_plsql_log.info(l_module_name || ' start');
+
     FOR rec IN (
       SELECT *
         FROM sku_cost s
        WHERE s.offr_perd_id IN (p_offr_perd_from, p_offr_perd_to)
          AND NVL(s.hold_costs_ind, 'N') = 'N'
-      )
-      LOOP
-        PIPE ROW (obj_sku_cost_line(rec.mrkt_id,
-                                    rec.offr_perd_id,
-                                    rec.sku_id,
-                                    rec.cost_typ,
-                                    rec.crncy_cd,
-                                    rec.wghtd_avg_cost_amt,
-                                    rec.creat_user_id,
-                                    rec.creat_ts,
-                                    rec.last_updt_user_id,
-                                    rec.last_updt_ts,
-                                    rec.hold_costs_ind,
-                                    rec.lcl_cost_ind
-        ));
-      END LOOP;
+    )
+    LOOP
+      PIPE ROW (obj_sku_cost_line(rec.mrkt_id,
+                                  rec.offr_perd_id,
+                                  rec.sku_id,
+                                  rec.cost_typ,
+                                  rec.crncy_cd,
+                                  rec.wghtd_avg_cost_amt,
+                                  rec.creat_user_id,
+                                  rec.creat_ts,
+                                  rec.last_updt_user_id,
+                                  rec.last_updt_ts,
+                                  rec.hold_costs_ind,
+                                  rec.lcl_cost_ind
+      ));
+    END LOOP;
+    app_plsql_log.info(l_module_name || ' stop');
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      app_plsql_log.info('Error in get_sku_cost: ' || SQLERRM(SQLCODE));
   END get_sku_cost;
 
 END pa_offer_api;
