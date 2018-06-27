@@ -18,5 +18,10 @@ CREATE OR REPLACE PACKAGE pa_offer_api AS
 
   PROCEDURE save_offer_api_table(p_ctrl_id IN NUMBER, p_status OUT VARCHAR2);
 
+  FUNCTION get_sku_cost(p_offr_perd_from IN offr.offr_perd_id%TYPE,
+                        p_offr_perd_to   IN offr.offr_perd_id%TYPE)
+    RETURN obj_sku_cost_table
+    PIPELINED;
+
 END pa_offer_api;
 /

@@ -2171,5 +2171,34 @@ CREATE OR REPLACE PACKAGE BODY pa_offer_api AS
       app_plsql_log.info(l_module_name || ' Error in save offr api' ||
                          SQLERRM(SQLCODE));
   END save_offer_api_table;
+  
+  FUNCTION get_sku_cost(p_offr_perd_from IN offr.offr_perd_id%TYPE,
+                        p_offr_perd_to   IN offr.offr_perd_id%TYPE)
+    RETURN obj_sku_cost_table
+    PIPELINED IS
+  BEGIN
+    FOR rec IN (
+      SELECT *
+        FROM sku_cost s
+       WHERE s.offr_perd_id IN (p_offr_perd_from, p_offr_perd_to)
+         AND NVL(s.hold_costs_ind, 'N') = 'N'
+      )
+      LOOP
+        PIPE ROW (obj_sku_cost_line(rec.mrkt_id,
+                                    rec.offr_perd_id,
+                                    rec.sku_id,
+                                    rec.cost_typ,
+                                    rec.crncy_cd,
+                                    rec.wghtd_avg_cost_amt,
+                                    rec.creat_user_id,
+                                    rec.creat_ts,
+                                    rec.last_updt_user_id,
+                                    rec.last_updt_ts,
+                                    rec.hold_costs_ind,
+                                    rec.lcl_cost_ind
+        ));
+      END LOOP;
+  END get_sku_cost;
+
 END pa_offer_api;
 /
