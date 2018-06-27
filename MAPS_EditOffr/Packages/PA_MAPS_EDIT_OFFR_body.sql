@@ -1732,7 +1732,7 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                AND CASE
                      WHEN p_filter.p_offr_typ IS NULL THEN
                        1
-                     WHEN o.offr_id = p_filter.p_offr_typ THEN
+                     WHEN o.offr_typ = p_filter.p_offr_typ THEN
                        1
                      ELSE
                        0
@@ -3342,16 +3342,22 @@ SELECT o.offr_id  AS intrnl_offr_id
 
     l_location := 'Query mrkt_veh_perd_sctn';
     -- Get page offset number
-    SELECT mvps.brchr_plcmt_id,
-           p_sctn_page_ofs_nr - mvps.strtg_page_nr - mvps.strtg_page_side_nr
-      INTO g_brchr_plcmt_id,
-           g_sctn_page_ofs_nr
-      FROM mrkt_veh_perd_sctn mvps
-     WHERE mvps.mrkt_veh_perd_sctn_id = p_mrkt_veh_perd_sctn_id
-       AND mrkt_id                    = p_mrkt_id
-       AND offr_perd_id               = p_offr_perd_id
-       AND veh_id                     = p_veh_id
-       AND ver_id                     = 0;
+    BEGIN
+      SELECT mvps.brchr_plcmt_id,
+             p_sctn_page_ofs_nr - mvps.strtg_page_nr - mvps.strtg_page_side_nr
+        INTO g_brchr_plcmt_id,
+             g_sctn_page_ofs_nr
+        FROM mrkt_veh_perd_sctn mvps
+       WHERE mvps.mrkt_veh_perd_sctn_id = p_mrkt_veh_perd_sctn_id
+         AND mrkt_id                    = p_mrkt_id
+         AND offr_perd_id               = p_offr_perd_id
+         AND veh_id                     = p_veh_id
+         AND ver_id                     = 0;
+    EXCEPTION
+      WHEN no_data_found THEN
+        g_brchr_plcmt_id := NULL;
+        g_sctn_page_ofs_nr := NULL;
+    END;
 
     SELECT seq.NEXTVAL INTO l_offr_id FROM dual;
 
