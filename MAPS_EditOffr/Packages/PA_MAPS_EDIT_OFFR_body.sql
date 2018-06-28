@@ -8,6 +8,16 @@ AS
   co_sls_typ_estimate      CONSTANT sls_typ.sls_typ_id%TYPE := 1;
   co_sls_typ_op_estimate   CONSTANT sls_typ.sls_typ_id%TYPE := 2;
 
+  co_quick_forecast       CONSTANT NUMBER := 1;
+  co_in_depth_forecast    CONSTANT NUMBER := 2;
+  co_manual_forecast      CONSTANT NUMBER := 3;
+  co_maps_forecast        CONSTANT NUMBER := 4;
+  co_ml_forecast          CONSTANT NUMBER := 6;
+
+  co_osl_level            CONSTANT NUMBER := 0;
+  co_spread_sku_level     CONSTANT NUMBER := 1;
+  co_spread_concept_level CONSTANT NUMBER := 2;
+
   -- offr default values
   g_pg_wght_pct            NUMBER;
   g_pg_typ_id              NUMBER;
@@ -2255,7 +2265,50 @@ mrkt_tmp_fsc AS
              AND 'N' = dltd_ind)
    WHERE l_offr_perd_id >= from_strt_perd_id
      AND l_offr_perd_id < to_strt_perd_id
-   GROUP BY mrkt_id, sku_id)
+   GROUP BY mrkt_id, sku_id),
+frcst AS
+  (SELECT offr_sku_line_id,
+          offr_prfl_prcpt_id,
+          SUM(ROUND(NVL(final_units, 0)*item_split/100*pp_split/100)) forcasted_units,
+          MAX(last_updt_ts) forcasted_date
+      FROM   ( SELECT osl.offr_sku_line_id,
+                      osl.offr_prfl_prcpt_id,
+                      bfs.unit_splt_pct item_split,
+                      bfo.avg_prc_unit_shr pp_split,
+                      bfo.last_updt_ts last_updt_ts,
+                      decode(bf.frcst_mthd_id, co_quick_forecast, decode(bf.bnchmrk_prfl_cd, null, bf.brchr_frcst_unit_qty, bf.bnchmrk_frcst_unit_qty),
+                                               co_in_depth_forecast, bf.in_depth_frcst_unit_qty,
+                                               co_manual_forecast, bf.manul_frcst_unit_qty,
+                                               co_maps_forecast, bf.mps_unit_qty,
+                                               co_ml_forecast, bf.ml_frcst_unit_qty,
+                                               0
+                            ) final_units
+                                 FROM   offr_sku_line osl, fs_brchr_frcst bf, fs_brchr_frcst bfs, fs_brchr_frcst bfo
+                                 WHERE  bfo.mrkt_id           = osl.mrkt_id AND
+                                        bfo.offr_perd_id      = osl.offr_perd_id AND
+                                        bfo.frcst_stg_nr      = 1 AND
+                                        bfo.frcst_lvl_id      = co_osl_level AND
+                                        bfo.offr_sku_line_id  = osl.offr_sku_line_id AND
+                                        bfs.mrkt_id           = bfo.mrkt_id AND
+                                        bfs.offr_perd_id      = bfo.offr_perd_id AND
+                                        bfs.frcst_stg_nr      = bfo.frcst_stg_nr AND
+                                        bfs.frcst_lvl_id      = co_spread_sku_level AND
+                                        bfs.veh_id            = bfo.veh_id AND
+                                        bfs.sprd_nr           = bfo.sprd_nr AND
+                                        bfs.prfl_cd           = bfo.prfl_cd AND
+                                        bfs.sku_id            = bfo.sku_id AND
+                                        nvl(bfs.scnrio_id,-1 )= nvl(bfo.scnrio_id,-1) AND
+                                        bf.mrkt_id            = bfs.mrkt_id AND
+                                        bf.offr_perd_id       = bfs.offr_perd_id AND
+                                        bf.frcst_stg_nr       = bfs.frcst_stg_nr AND
+                                        bf.frcst_lvl_id       = co_spread_concept_level AND
+                                        bf.veh_id             = bfs.veh_id AND
+                                        bf.sprd_nr            = bfs.sprd_nr AND
+                                        bf.prfl_cd            = bfs.prfl_cd AND
+                                        nvl(bf.scnrio_id,-1 ) = nvl(bfs.scnrio_id,-1)
+            )
+      GROUP BY offr_sku_line_id, offr_prfl_prcpt_id
+  )
 
 SELECT o.offr_id  AS intrnl_offr_id
       ,l_sls_typ AS sls_typ
@@ -2600,14 +2653,9 @@ SELECT o.offr_id  AS intrnl_offr_id
                AND dms.unit_qty > 0),
             0)) AS has_unit_qty
       ,o.offr_typ
-      ,/*pa_foresight.get_osl_units(osl_current.offr_sku_line_id)*/ null AS forcasted_units
-      ,(SELECT MAX(fbf.last_updt_ts)
-          FROM fs_brchr_frcst fbf
-         WHERE fbf.mrkt_id = o.mrkt_id
-           AND fbf.offr_perd_id = o.offr_perd_id
-           AND fbf.frcst_stg_nr = 1
-           AND fbf.frcst_lvl_id = 0
-           AND fbf.offr_sku_line_id = osl_current.offr_sku_line_id) AS forcasted_date
+      ,frcst.forcasted_units
+      ,frcst.forcasted_date
+--           
   FROM (SELECT *
            FROM offr
           WHERE offr_id IN (SELECT p_offr_id FROM table(p_get_offr)) AND
@@ -2748,6 +2796,7 @@ SELECT o.offr_id  AS intrnl_offr_id
       ,brnd
       ,mrkt_tmp_fsc
       ,mrkt_tmp_fsc_master
+      ,frcst
  WHERE
 --mrkt_tmp_fsc and master
  osl_current.sku_id = mrkt_tmp_fsc_master.sku_id(+)
@@ -2806,6 +2855,9 @@ SELECT o.offr_id  AS intrnl_offr_id
  AND mvps.mrkt_veh_perd_sctn_id(+) =
  decode(o.mrkt_veh_perd_sctn_id, NULL, 1, o.mrkt_veh_perd_sctn_id)
  AND mvps.veh_id = o.veh_id
+--frcst
+ AND frcst.offr_sku_line_id (+) = osl_current.offr_sku_line_id
+ AND frcst.offr_prfl_prcpt_id (+) = osl_current.offr_prfl_prcpt_id
    )
      LOOP
       PIPE ROW(obj_edit_offr_line(rec.status,
