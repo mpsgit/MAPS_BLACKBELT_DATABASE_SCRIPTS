@@ -18,6 +18,8 @@ AS
   co_spread_sku_level     CONSTANT NUMBER := 1;
   co_spread_concept_level CONSTANT NUMBER := 2;
 
+  co_promtn_reg_price     CONSTANT promtn.promtn_desc_txt%TYPE := 'REGULAR PRICE';
+
   -- offr default values
   g_pg_wght_pct            NUMBER;
   g_pg_typ_id              NUMBER;
@@ -3128,6 +3130,9 @@ SELECT o.offr_id  AS intrnl_offr_id
     l_comsn_pct              NUMBER;
     l_gta_mthd_id            NUMBER;
     l_net_to_avon_fct        NUMBER;
+    l_sls_prc_amt            offr_prfl_prc_point.sls_prc_amt%TYPE;
+    l_promtn_desc_txt        promtn.promtn_desc_txt%TYPE;
+    l_promtn_clm_desc_txt    promtn_clm.promtn_clm_desc_txt%TYPE;
 
   BEGIN
 
@@ -3189,14 +3194,41 @@ SELECT o.offr_id  AS intrnl_offr_id
             l_comsn_pct := 0;
         END;
 
+        -- promotion check
+        BEGIN        
+          SELECT p.promtn_desc_txt
+            INTO l_promtn_desc_txt
+            FROM promtn p
+           WHERE p.promtn_id = g_promtn_id;
+        EXCEPTION
+          WHEN no_data_found THEN
+            NULL;
+        END;
+
+        BEGIN
+          SELECT p.promtn_clm_desc_txt
+            INTO l_promtn_clm_desc_txt
+            FROM promtn_clm p
+           WHERE p.promtn_id = g_promtn_id;
+        EXCEPTION
+          WHEN no_data_found THEN
+            NULL;
+        END;
+
+        IF l_promtn_desc_txt = co_promtn_reg_price AND l_promtn_clm_desc_txt = co_promtn_reg_price THEN
+          l_sls_prc_amt := sku_rec.reg_prc_amt;
+        ELSE
+          l_sls_prc_amt := g_sls_prc_amt;
+        END IF;
+
         l_location := 'price point check';
-        SELECT offr_prfl_prcpt_id, crncy_cd, sls_prc_amt, net_to_avon_fct
-          INTO l_offr_prfl_prcpt_id, l_crncy_cd, g_sls_prc_amt, l_net_to_avon_fct
+        SELECT offr_prfl_prcpt_id, crncy_cd, net_to_avon_fct
+          INTO l_offr_prfl_prcpt_id, l_crncy_cd, l_net_to_avon_fct
           FROM offr_prfl_prc_point opp
          WHERE opp.offr_id        = p_offr_id
            AND opp.prfl_cd        = p_prfl_cd
            AND opp.sls_cls_cd     = sku_rec.sls_cls_cd
-           AND opp.sls_prc_amt    = g_sls_prc_amt
+           AND opp.sls_prc_amt    = l_sls_prc_amt
            AND opp.nr_for_qty     = g_nr_for_qty
            AND opp.pg_ofs_nr      = g_pg_ofs_nr
            AND opp.pymt_typ       = g_pymt_typ
@@ -3228,7 +3260,7 @@ SELECT o.offr_id  AS intrnl_offr_id
             WHERE  mrkt_id = p_mrkt_id AND
                    perd_id = p_offr_perd_id;
 
-            l_net_to_avon_fct := pa_maps_gta.get_gta_without_price_point(l_gta_mthd_id, g_sls_prc_amt, g_chrty_amt,
+            l_net_to_avon_fct := pa_maps_gta.get_gta_without_price_point(l_gta_mthd_id, l_sls_prc_amt, g_chrty_amt,
                                                                          g_awrd_sls_prc_amt, l_comsn_pct, l_tax_pct, 0);
           EXCEPTION
             WHEN OTHERS THEN
@@ -3247,7 +3279,7 @@ SELECT o.offr_id  AS intrnl_offr_id
           VALUES
             ( l_offr_prfl_prcpt_id, p_offr_id, g_promtn_clm_id, p_veh_id, g_promtn_id, p_mrkt_id,
               sku_rec.sls_cls_cd, p_prfl_cd, g_ssnl_evnt_id, p_offr_perd_id, l_crncy_cd, 0, g_nr_for_qty,
-              g_unit_qty, g_sls_prc_amt, g_wghtd_avg_cost_amt, g_sls_srce_id, g_sls_prc_amt,
+              g_unit_qty, l_sls_prc_amt, g_wghtd_avg_cost_amt, g_sls_srce_id, l_sls_prc_amt,
               l_tax_pct, g_pymt_typ, l_comsn_pct, g_comsn_typ, l_net_to_avon_fct, g_prmry_offr_ind,
               g_pg_ofs_nr, g_concept_featrd_side_cd, g_chrty_amt, g_awrd_sls_prc_amt, g_tax_type_id, p_user_nm);
 
@@ -3294,7 +3326,7 @@ SELECT o.offr_id  AS intrnl_offr_id
       VALUES
         (l_offr_sku_line_id, p_offr_id, p_veh_id, g_concept_featrd_side_cd, p_offr_perd_id, p_mrkt_id,
          sku_rec.sku_id, g_pg_ofs_nr, p_prfl_cd, l_crncy_cd, 'N', sku_rec.sls_cls_cd,
-         l_offr_prfl_prcpt_id, 'N', 'N', 0, g_sls_prc_amt, 'P', p_user_nm);
+         l_offr_prfl_prcpt_id, 'N', 'N', 0, l_sls_prc_amt, 'P', p_user_nm);
 
       -- also need to create DMS record(s) based on MVPV Sales Type derived during campaign validation
       IF g_sls_typ_id in (co_sls_typ_estimate, co_sls_typ_op_estimate) THEN
