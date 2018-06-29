@@ -3209,7 +3209,7 @@ SELECT o.offr_id  AS intrnl_offr_id
           SELECT p.promtn_clm_desc_txt
             INTO l_promtn_clm_desc_txt
             FROM promtn_clm p
-           WHERE p.promtn_id = g_promtn_id;
+           WHERE p.promtn_clm_id = g_promtn_clm_id;
         EXCEPTION
           WHEN no_data_found THEN
             NULL;
