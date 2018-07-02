@@ -3435,6 +3435,7 @@ SELECT o.offr_id  AS intrnl_offr_id
     l_lock_user_nm           VARCHAR2(35);
     l_offr_id                NUMBER;
     l_lock_status            NUMBER;
+    l_offr_cls_id            NUMBER;
 
   BEGIN
     g_run_id  := app_plsql_output.generate_new_run_id;
@@ -3468,6 +3469,23 @@ SELECT o.offr_id  AS intrnl_offr_id
         g_sctn_page_ofs_nr := NULL;
     END;
 
+    l_location := 'Getting default offer class id';
+    BEGIN
+      SELECT mv.dfalt_offr_cls_id
+        INTO l_offr_cls_id
+        FROM mrkt_veh mv
+       WHERE mv.mrkt_id = p_mrkt_id
+         AND mv.veh_id = p_veh_id;
+         
+      IF l_offr_cls_id IS NULL THEN
+        l_offr_cls_id := g_offr_cls_id;
+      END IF;
+
+    EXCEPTION
+      WHEN no_data_found THEN
+        l_offr_cls_id := g_offr_cls_id;
+    END;
+
     SELECT seq.NEXTVAL INTO l_offr_id FROM dual;
 
     l_location := 'insert offr';
@@ -3480,7 +3498,7 @@ SELECT o.offr_id  AS intrnl_offr_id
           ( l_offr_id, p_mrkt_id, p_offr_perd_id, p_veh_id, 0, g_pg_wght_pct, g_ssnl_evnt_id,
             p_offr_desc_txt, p_mrkt_veh_perd_sctn_id, NVL(p_offr_typ, g_offr_typ), g_brchr_plcmt_id, g_sctn_page_ofs_nr,
             0, 0, g_featrd_side_cd, g_flap_ind, g_offr_stus_cd, p_offr_perd_id, p_offr_perd_id,
-            g_brchr_postn_id, g_unit_rptg_lvl_id, g_rpt_sbtl_typ_id, g_pg_typ_id, g_offr_cls_id, p_user_nm);
+            g_brchr_postn_id, g_unit_rptg_lvl_id, g_rpt_sbtl_typ_id, g_pg_typ_id, l_offr_cls_id, p_user_nm);
 
     IF p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0 THEN
       l_location := 'Calling add_concept';
