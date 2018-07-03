@@ -309,6 +309,7 @@ BEGIN
   AND NVL(hist.forcasted_units        ,-1)  = NVL(cur.forcasted_units            ,-1)
   AND NVL(hist.forcasted_date, to_date('1989.02.15','yyyy.mm.dd'))  = NVL(cur.forcasted_date, to_date('1989.02.15','yyyy.mm.dd'))
   AND NVL(hist.offr_cls_id            ,-1)  = NVL(cur.offr_cls_id                ,-1)
+  AND NVL(hist.spcl_ordr_ind          ,-1)  = NVL(cur.spcl_ordr_ind              ,-1)
    )
    WHEN NOT MATCHED THEN INSERT
      VALUES (
@@ -394,6 +395,7 @@ BEGIN
             ,cur.forcasted_units
             ,cur.forcasted_date
             ,cur.offr_cls_id
+            ,cur.spcl_ordr_ind
      );
      l_rowcount:=SQL%ROWCOUNT;
      app_plsql_log.info('Edit offr history merge rows inserted: ' || to_char(l_rowcount));
@@ -506,6 +508,7 @@ END IF;
   AND NVL(hist.forcasted_units        ,-1)  = NVL(cur.forcasted_units            ,-1)
   AND NVL(hist.forcasted_date, to_date('1989.02.15','yyyy.mm.dd'))  = NVL(cur.forcasted_date, to_date('1989.02.15','yyyy.mm.dd'))
   AND NVL(hist.offr_cls_id            ,-1)  = NVL(cur.offr_cls_id                ,-1)
+  AND NVL(hist.spcl_ordr_ind          ,-1)  = NVL(cur.spcl_ordr_ind              ,-1)
    )
    WHEN NOT MATCHED THEN INSERT
      VALUES (
@@ -591,6 +594,7 @@ END IF;
             ,cur.forcasted_units
             ,cur.forcasted_date
             ,cur.offr_cls_id
+            ,cur.spcl_ordr_ind
      );
      l_rowcount:=SQL%ROWCOUNT;
      app_plsql_log.info('Edit offr history merge rows inserted: ' || to_char(l_rowcount));
@@ -693,7 +697,8 @@ BEGIN
                   ', offr_typ: ' ||                      rec.offr_typ ||
                   ', forcasted_units: ' ||               rec.forcasted_units ||
                   ', cur.forcasted_date: ' ||            rec.forcasted_date ||
-                  ', offr_cls_id: ' ||                   rec.offr_cls_id
+                  ', offr_cls_id: ' ||                   rec.offr_cls_id ||
+                  ', spcl_ordr_ind: ' ||                 rec.spcl_ordr_ind
                   , 1, 4000));
   END LOOP;
 END log_params;
@@ -1056,6 +1061,7 @@ BEGIN
                         ,mrkt_veh_perd_sctn_id
                         ,pg_nr
                         ,offr_lock_user
+                        ,spcl_ordr_ind
            FROM TABLE(p_data_line)
           WHERE intrnl_offr_id = p_offr_id
             AND sls_typ        = p_sls_typ) dl
@@ -1088,7 +1094,8 @@ BEGIN
                                     AND ver_id                     = dl.ver_id
                                 )
      ,o.offr_cls_id           = dl.offr_cls_id
-     ,o.last_updt_user_id     = dl.offr_lock_user;
+     ,o.last_updt_user_id     = dl.offr_lock_user
+     ,o.spcl_ordr_ind         = dl.spcl_ordr_ind;
 
   l_rowcount := SQL%ROWCOUNT;
   app_plsql_log.info(l_log || ' finished, merge rowcount: ' || l_rowcount);
@@ -1454,7 +1461,8 @@ BEGIN
                               offr_typ,
                               forcasted_units,
                               forcasted_date,
-                              offr_cls_id)
+                              offr_cls_id,
+                              spcl_ordr_ind)
     BULK COLLECT INTO l_get_offr_table
     FROM TABLE(pa_maps_edit_offr.get_offr(l_offr_table));
 
@@ -1667,6 +1675,7 @@ FOR offer IN c_offr LOOP
   ,offer.forcasted_units
   ,offer.forcasted_date
   ,offer.offr_cls_id
+  ,offer.spcl_ordr_ind
   ));
 END LOOP;
 
@@ -1950,7 +1959,8 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                 rec.offr_typ,
                 rec.forcasted_units,
                 rec.forcasted_date,
-                rec.offr_cls_id
+                rec.offr_cls_id,
+                rec.spcl_ordr_ind
                 );
 
                 IF l_row_count > row_limit THEN EXIT; END IF;
@@ -2035,7 +2045,8 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                 rec.offr_typ,
                 rec.forcasted_units,
                 rec.forcasted_date,
-                rec.offr_cls_id
+                rec.offr_cls_id,
+                rec.spcl_ordr_ind
                 ));
 
                 l_row_count := l_row_count+1;
@@ -2668,7 +2679,8 @@ SELECT o.offr_id  AS intrnl_offr_id
       ,o.offr_typ
       ,frcst.forcasted_units
       ,frcst.forcasted_date
-      ,offr_cls.offr_cls_id
+      ,o.offr_cls_id
+      ,NVL(o.spcl_ordr_ind, 'N') AS spcl_ordr_ind
 --           
   FROM (SELECT *
            FROM offr
@@ -2811,7 +2823,6 @@ SELECT o.offr_id  AS intrnl_offr_id
       ,mrkt_tmp_fsc
       ,mrkt_tmp_fsc_master
       ,frcst
-      ,offr_cls
  WHERE
 --mrkt_tmp_fsc and master
  osl_current.sku_id = mrkt_tmp_fsc_master.sku_id(+)
@@ -2873,8 +2884,6 @@ SELECT o.offr_id  AS intrnl_offr_id
 --frcst
  AND frcst.offr_sku_line_id (+) = osl_current.offr_sku_line_id
  AND frcst.offr_prfl_prcpt_id (+) = osl_current.offr_prfl_prcpt_id
---offr_cls
- AND offr_cls.offr_cls_id = o.offr_cls_id (+)
    )
      LOOP
       PIPE ROW(obj_edit_offr_line(rec.status,
@@ -2958,7 +2967,8 @@ SELECT o.offr_id  AS intrnl_offr_id
                                   rec.offr_typ,
                                   rec.forcasted_units,
                                   rec.forcasted_date,
-                                  rec.offr_cls_id
+                                  rec.offr_cls_id,
+                                  rec.spcl_ordr_ind
                                   ));
     END LOOP;
     app_plsql_log.info(l_module_name || ' stop');
@@ -3096,7 +3106,7 @@ SELECT o.offr_id  AS intrnl_offr_id
                 lv_discount, lv_units, lv_total_cost, lv_gross_sales, lv_dp_cash, lv_dp_percent, ver_id, sls_prc_amt, reg_prc_amt, line_nr,
                 unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
-                pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id)
+                pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind)
       BULK COLLECT
       INTO l_edit_offr_table
       FROM TABLE(get_offr(l_offr_table));
@@ -3119,7 +3129,7 @@ SELECT o.offr_id  AS intrnl_offr_id
                 lv_discount, lv_units, lv_total_cost, lv_gross_sales, lv_dp_cash, lv_dp_percent, ver_id, sls_prc_amt, reg_prc_amt, line_nr,
                 unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
-                pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id)
+                pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind)
       BULK COLLECT
       INTO l_edit_offr_table
       FROM TABLE(get_offr(p_get_offr_table));
@@ -3484,12 +3494,12 @@ SELECT o.offr_id  AS intrnl_offr_id
           ( offr_id, mrkt_id, offr_perd_id, veh_id, ver_id, pg_wght_pct, ssnl_evnt_id,
             offr_desc_txt, mrkt_veh_perd_sctn_id, offr_typ, brchr_plcmt_id, sctn_page_ofs_nr,
             prfl_cnt, sku_cnt, featrd_side_cd, flap_ind, offr_stus_cd, bilng_perd_id, shpng_perd_id,
-            brchr_postn_id, unit_rptg_lvl_id, rpt_sbtl_typ_id, pg_typ_id, offr_cls_id, creat_user_id)
+            brchr_postn_id, unit_rptg_lvl_id, rpt_sbtl_typ_id, pg_typ_id, offr_cls_id, creat_user_id, spcl_ordr_ind)
         VALUES
           ( l_offr_id, p_mrkt_id, p_offr_perd_id, p_veh_id, 0, g_pg_wght_pct, g_ssnl_evnt_id,
             p_offr_desc_txt, p_mrkt_veh_perd_sctn_id, NVL(p_offr_typ, g_offr_typ), g_brchr_plcmt_id, g_sctn_page_ofs_nr,
             0, 0, g_featrd_side_cd, g_flap_ind, g_offr_stus_cd, p_offr_perd_id, p_offr_perd_id,
-            g_brchr_postn_id, g_unit_rptg_lvl_id, g_rpt_sbtl_typ_id, g_pg_typ_id, l_offr_cls_id, p_user_nm);
+            g_brchr_postn_id, g_unit_rptg_lvl_id, g_rpt_sbtl_typ_id, g_pg_typ_id, l_offr_cls_id, p_user_nm, 'N');
 
     IF p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0 THEN
       l_location := 'Calling add_concept';
@@ -3765,7 +3775,7 @@ SELECT o.offr_id  AS intrnl_offr_id
                 lv_discount, lv_units, lv_total_cost, lv_gross_sales, lv_dp_cash, lv_dp_percent, ver_id, sls_prc_amt, reg_prc_amt, line_nr,
                 unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
-                pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id)
+                pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind)
       BULK COLLECT INTO p_edit_offr_table
       FROM TABLE(get_offr(l_offr_table));
 
@@ -3894,7 +3904,7 @@ SELECT o.offr_id  AS intrnl_offr_id
                               osl_rec.prfl_nm, osl_rec.sku_nm, osl_rec.comsn_typ_desc_txt, osl_rec.tax_typ_desc_txt, osl_rec.offr_sku_set_nm,
                               osl_rec.sls_typ, osl_rec.pc_sp_py, osl_rec.pc_rp, osl_rec.pc_sp, osl_rec.pc_vsp, osl_rec.pc_hit,
                               osl_rec.pg_wght, osl_rec.sprd_nr, osl_rec.offr_prfl_prcpt_id, osl_rec.has_unit_qty, osl_rec.offr_typ,
-                              osl_rec.forcasted_units, osl_rec.forcasted_date, osl_rec.offr_cls_id);
+                              osl_rec.forcasted_units, osl_rec.forcasted_date, osl_rec.offr_cls_id, osl_rec.spcl_ordr_ind);
     END LOOP;
   END add_to_edit_offr_table;
 

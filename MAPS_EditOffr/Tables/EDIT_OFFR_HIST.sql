@@ -82,7 +82,8 @@ CREATE TABLE edit_offr_hist (
   offr_typ               VARCHAR2(5),
   forcasted_units        NUMBER,
   forcasted_date         DATE,
-  offr_cls_id            NUMBER
+  offr_cls_id            NUMBER,
+  spcl_ordr_ind          CHAR(1)
   );
 
 CREATE INDEX fk_offrslstyp_editoffrhist ON edit_offr_hist (intrnl_offr_id, sls_typ);
