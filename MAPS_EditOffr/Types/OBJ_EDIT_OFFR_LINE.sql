@@ -81,7 +81,6 @@ CREATE OR REPLACE TYPE obj_edit_offr_line FORCE AS OBJECT
   offr_typ               VARCHAR2(5),
   forcasted_units        NUMBER,
   forcasted_date         DATE,
-  offr_cls_id            NUMBER,
-  offr_cls_desc_txt      VARCHAR2(100)
+  offr_cls_id            NUMBER
 );
 /
