@@ -1745,6 +1745,7 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
        WHERE p_filter.p_offr_perd_id >= from_strt_perd_id
          AND p_filter.p_offr_perd_id < to_strt_perd_id
        GROUP BY mrkt_id, sku_id)
+--
         SELECT o.offr_id AS p_offr_id,
                p_filter.p_sls_typ AS p_sls_typ,
                p_filter.p_offr_typ AS p_offr_typ
@@ -2333,8 +2334,8 @@ frcst AS
             )
       GROUP BY offr_sku_line_id, offr_prfl_prcpt_id
   )
-
-SELECT o.offr_id  AS intrnl_offr_id
+--
+  SELECT o.offr_id  AS intrnl_offr_id
       ,l_sls_typ AS sls_typ
        --latest version calculations
       ,osl_latest.net_to_avon_fct AS lv_nta
@@ -2733,8 +2734,7 @@ SELECT o.offr_id  AS intrnl_offr_id
                ,sku
                ,offr        o
           WHERE
-          o.offr_id = offr_sku_line.offr_id
-
+           o.offr_id = offr_sku_line.offr_id
        AND o.mrkt_id = l_mrkt_id
        AND o.offr_perd_id = l_offr_perd_id
        AND o.ver_id = l_ver_id
@@ -2825,7 +2825,7 @@ SELECT o.offr_id  AS intrnl_offr_id
       ,frcst
  WHERE
 --mrkt_tmp_fsc and master
- osl_current.sku_id = mrkt_tmp_fsc_master.sku_id(+)
+     osl_current.sku_id = mrkt_tmp_fsc_master.sku_id(+)
  AND osl_current.sku_id = mrkt_tmp_fsc.sku_id(+)
  AND mrkt_tmp_fsc_master.mrkt_id(+) = osl_current.mrkt_id
  AND mrkt_tmp_fsc.mrkt_id(+) = osl_current.mrkt_id
