@@ -14,8 +14,8 @@ CREATE OR REPLACE PACKAGE pa_manual_trend_upload IS
   PROCEDURE save_upload_data(p_table   IN obj_manl_trend_upl_save_table,
                              p_status OUT VARCHAR2);
 
-  PROCEDURE delete_upload_data(p_fsc_cd_arr  IN number_array,
-                               p_status     OUT VARCHAR2);
+  PROCEDURE delete_upload_data(p_table   IN obj_manl_trend_upl_del_table,
+                               p_status OUT VARCHAR2);
 
 END pa_manual_trend_upload;
 /

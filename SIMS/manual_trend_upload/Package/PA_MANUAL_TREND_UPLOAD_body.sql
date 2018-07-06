@@ -282,8 +282,8 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
       ROLLBACK;
   END save_upload_data;
 
-  PROCEDURE delete_upload_data(p_fsc_cd_arr  IN number_array,
-                               p_status     OUT VARCHAR2) IS
+  PROCEDURE delete_upload_data(p_table   IN obj_manl_trend_upl_del_table,
+                               p_status OUT VARCHAR2) IS
 
     l_procedure_name       VARCHAR2(30) := 'DELETE_UPLOAD_DATA';
   BEGIN
@@ -296,10 +296,12 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
 
     p_status := co_exec_status_success;
 
-/*    FORALL i IN p_fsc_cd_arr.FIRST .. p_fsc_cd_arr.LAST
+    FORALL i IN p_table.FIRST .. p_table.LAST
       DELETE FROM manual_trend_upload
-       WHERE fsc_cd = p_fsc_cd_arr(i);*/
-    null;
+       WHERE mrkt_id = p_table(i).mrkt_id
+         AND sls_perd_id = p_table(i).sls_perd_id
+         AND sls_typ_id = p_table(i).sls_typ_id
+         AND fsc_cd = p_table(i).fsc_cd;
 
     app_plsql_log.info(l_procedure_name || ' stop');
 
