@@ -8,7 +8,7 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
                              p_trgt_perd_id IN NUMBER,
                              p_sls_typ_id IN NUMBER)
     RETURN obj_manl_trend_upload_table PIPELINED IS
-    
+
     l_procedure_name         VARCHAR2(50) := 'GET_PRODUCT_TABLE';
 
   BEGIN
@@ -135,6 +135,53 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
         AND mtu.sls_typ_id (+) = dms.sls_typ_id
         AND mtu.fsc_cd (+) = dms.fsc_cd
         AND d.dt = TRUNC(dms.dt)
+      UNION ALL
+      SELECT 0 AS status, 
+             sc_trnd_no_fsc_prod.mrkt_id,
+             sc_trnd_no_fsc_prod.sls_perd_id,
+             sc_trnd_no_fsc_prod.last_updt_ts,
+             sc_trnd_no_fsc_prod.last_updt_user_id,
+             sc_trnd_no_fsc_prod.fsc_cd,
+             sc_trnd_no_fsc_prod.desc_txt,
+             (SELECT day FROM d WHERE dt = TRUNC(dly_bilng_trnd.prcsng_dt)) day,
+             TRUNC(dly_bilng_trnd.prcsng_dt) actual_day,
+             dly_bilng_trnd.unit_qty dly_unit_qty,
+             SUM(dly_bilng_trnd.unit_qty) OVER (PARTITION BY sc_trnd_no_fsc_prod.fsc_cd) total_dly_bilng_unit_qty,
+             sc_trnd_no_fsc_prod.unit_qty trnd_unit_qty,
+             ROUND(sc_trnd_no_fsc_prod.unit_qty / SUM(dly_bilng_trnd.unit_qty)
+                   OVER (PARTITION BY sc_trnd_no_fsc_prod.fsc_cd), 4) r_factor,
+             sc_trnd_no_fsc_prod.SLS_TYP_ID
+        FROM sc_trnd_no_fsc_prod,
+             (SELECT fsc_cd, TRUNC(prcsng_dt) prcsng_dt, SUM(unit_qty) unit_qty
+                FROM dly_bilng_trnd, dly_bilng_trnd_cntrl
+               WHERE dly_bilng_trnd.MRKT_ID = p_mrkt_id
+                 AND dly_bilng_trnd.trnd_sls_perd_id =
+                     DECODE(p_sls_typ_id,
+                            104,
+                            p_trgt_perd_id,
+                            PA_MAPS_PUBLIC.PERD_PLUS(p_mrkt_id, p_trgt_perd_id, -2))
+                 AND dly_bilng_trnd_cntrl.sls_typ_id = 6
+                 AND dly_bilng_trnd_cntrl.dly_bilng_mtch_id = 2401
+                 AND NVL(dly_bilng_trnd_cntrl.lcl_bilng_actn_cd,
+                         dly_bilng_trnd.lcl_bilng_actn_cd) =
+                     dly_bilng_trnd.lcl_bilng_actn_cd
+                 AND NVL(dly_bilng_trnd_cntrl.lcl_bilng_tran_typ,
+                         dly_bilng_trnd.lcl_bilng_tran_typ) =
+                     dly_bilng_trnd.lcl_bilng_tran_typ
+                 AND NVL(dly_bilng_trnd_cntrl.lcl_bilng_offr_typ,
+                         dly_bilng_trnd.lcl_bilng_offr_typ) =
+                     dly_bilng_trnd.lcl_bilng_offr_typ
+                 AND NVL(dly_bilng_trnd_cntrl.lcl_bilng_defrd_Cd,
+                         dly_bilng_trnd.lcl_bilng_defrd_cd) =
+                     dly_bilng_trnd.lcl_bilng_defrd_cd
+                 AND NVL(dly_bilng_trnd_cntrl.lcl_bilng_shpng_cd,
+                         dly_bilng_trnd.lcl_bilng_shpng_cd) =
+                     dly_bilng_trnd.lcl_bilng_shpng_cd
+               GROUP BY fsc_cd, TRUNC(prcsng_dt)) dly_bilng_trnd
+       WHERE sc_trnd_no_fsc_prod.mrkt_id = p_mrkt_id
+         AND sc_trnd_no_fsc_prod.sls_perd_id = p_trgt_perd_id
+         AND sc_trnd_no_fsc_prod.sls_typ_id = p_sls_typ_id
+         AND dly_bilng_trnd.FSC_CD = sc_trnd_no_fsc_prod.FSC_CD
       ORDER BY fsc_cd, actual_day
     )
     LOOP
