@@ -814,14 +814,14 @@ BEGIN
   l_log := 'offr_sku_set';
   MERGE INTO offr_sku_set s
   USING (SELECT CASE
-                  WHEN MIN(oss.set_prc_amt) <> SUM(l.sls_prc_amt * osl.set_cmpnt_qty) THEN
+                  WHEN MIN(oss.set_prc_amt) <> SUM(l.sls_prc_amt * l.cmpnt_qty) THEN
                     3
                   ELSE
                     MIN(oss.set_prc_typ_id)
                 END AS set_prc_typ_id
                ,CASE
-                  WHEN MIN(oss.set_prc_amt) <> SUM(l.sls_prc_amt * osl.set_cmpnt_qty) THEN
-                    SUM(l.sls_prc_amt * osl.set_cmpnt_qty)
+                  WHEN MIN(oss.set_prc_amt) <> SUM(l.sls_prc_amt * l.cmpnt_qty) THEN
+                    SUM(l.sls_prc_amt * l.cmpnt_qty)
                   ELSE
                     MIN(oss.set_prc_amt)
                 END AS sum_prc_amt
