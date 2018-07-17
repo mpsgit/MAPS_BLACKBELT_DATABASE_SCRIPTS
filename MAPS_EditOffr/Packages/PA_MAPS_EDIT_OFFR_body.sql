@@ -855,7 +855,6 @@ BEGIN
   l_log := 'offr_sls_cls_sku';
   FOR rec IN (
     SELECT osl.pg_ofs_nr
-          ,osl.featrd_side_cd AS old_conc_featrd_side_cd
           ,l.sku_id
           ,l.wsl_ind
           ,l.concept_featrd_side_cd
@@ -873,15 +872,14 @@ BEGIN
   LOOP
     BEGIN
       UPDATE offr_sls_cls_sku s
-         SET s.wsl_ind          = rec.wsl_ind
-            ,s.featrd_side_cd   = rec.concept_featrd_side_cd
-            ,s.micr_ncpsltn_ind = rec.micr_ncpsltn_ind
+         SET s.wsl_ind           = rec.wsl_ind
+            ,s.micr_ncpsltn_ind  = rec.micr_ncpsltn_ind
             ,s.last_updt_user_id = rec.offr_lock_user
        WHERE s.offr_id        = rec.intrnl_offr_id
          AND s.sls_cls_cd     = rec.sls_cls_cd
          AND s.prfl_cd        = rec.prfl_cd
          AND s.pg_ofs_nr      = rec.pg_ofs_nr
-         AND s.featrd_side_cd = rec.old_conc_featrd_side_cd
+         AND s.featrd_side_cd = rec.concept_featrd_side_cd
          AND s.sku_id         = rec.sku_id;
     EXCEPTION
       WHEN dup_val_on_index THEN
@@ -1209,76 +1207,26 @@ BEGIN
 
   -- delete offr_prfl_sls_cls_plcmt when there is no child in offr_prfl_prc_point and offr_sls_cls_sku
   l_log := 'delete offr_sls_cls_sku and offr_prfl_sls_cls_plcmt';
-  FOR rec IN (
-    SELECT osl.pg_ofs_nr
-          ,l.*
-      FROM TABLE(p_data_line) l
-          ,offr_sku_line osl
-     WHERE osl.offr_sku_line_id = l.offr_sku_line_id
-       AND l.intrnl_offr_id     = p_offr_id
-       AND l.sls_typ            = p_sls_typ
-  )
-  LOOP
-    SELECT COUNT(*)
-      INTO l_cnt
-      FROM offr_sls_cls_sku s
-     WHERE NOT EXISTS (SELECT *
-                         FROM offr_sku_line osl
-                        WHERE osl.offr_id        = s.offr_id
-                          AND osl.sls_cls_cd     = s.sls_cls_cd
-                          AND osl.prfl_cd        = s.prfl_cd
-                          AND osl.pg_ofs_nr      = s.pg_ofs_nr
-                          AND osl.featrd_side_cd = s.featrd_side_cd
-                          AND osl.sku_id         = s.sku_id)
-       AND s.offr_id        = rec.intrnl_offr_id
-       AND s.sls_cls_cd     = rec.sls_cls_cd
-       AND s.prfl_cd        = rec.prfl_cd
-       AND s.pg_ofs_nr      = rec.pg_ofs_nr
-       AND s.featrd_side_cd = rec.concept_featrd_side_cd
-       AND s.sku_id         = rec.sku_id;
+  DELETE FROM offr_sls_cls_sku s
+   WHERE NOT EXISTS (SELECT *
+                     FROM offr_sku_line osl
+                    WHERE osl.offr_id        = s.offr_id
+                      AND osl.sls_cls_cd     = s.sls_cls_cd
+                      AND osl.prfl_cd        = s.prfl_cd
+                      AND osl.pg_ofs_nr      = s.pg_ofs_nr
+                      AND osl.featrd_side_cd = s.featrd_side_cd
+                      AND osl.sku_id         = s.sku_id)
+     AND s.offr_id = p_offr_id;
 
-    IF l_cnt > 0 THEN
-      DELETE FROM offr_sls_cls_sku s
-       WHERE s.offr_id        = rec.intrnl_offr_id
-         AND s.sls_cls_cd     = rec.sls_cls_cd
-         AND s.prfl_cd        = rec.prfl_cd
-         AND s.pg_ofs_nr      = rec.pg_ofs_nr
-         AND s.featrd_side_cd = rec.concept_featrd_side_cd
-         AND s.sku_id         = rec.sku_id;
-    END IF;
-
-    SELECT COUNT(*)
-      INTO l_cnt
-      FROM offr_prfl_sls_cls_plcmt p
-     WHERE NOT EXISTS (SELECT *
-                         FROM offr_prfl_prc_point s
-                        WHERE s.offr_id        = p.offr_id
-                          AND s.sls_cls_cd     = p.sls_cls_cd
-                          AND s.prfl_cd        = p.prfl_cd
-                          AND s.pg_ofs_nr      = p.pg_ofs_nr
-                          AND s.featrd_side_cd = p.featrd_side_cd)
-       AND NOT EXISTS (SELECT *
-                         FROM offr_sls_cls_sku s
-                        WHERE s.offr_id        = p.offr_id
-                          AND s.sls_cls_cd     = p.sls_cls_cd
-                          AND s.prfl_cd        = p.prfl_cd
-                          AND s.pg_ofs_nr      = p.pg_ofs_nr
-                          AND s.featrd_side_cd = p.featrd_side_cd)
-       AND p.offr_id        = rec.intrnl_offr_id
-       AND p.sls_cls_cd     = rec.sls_cls_cd
-       AND p.prfl_cd        = rec.prfl_cd
-       AND p.pg_ofs_nr      = rec.pg_ofs_nr
-       AND p.featrd_side_cd = rec.concept_featrd_side_cd;
-
-    IF l_cnt > 0 THEN
-      DELETE FROM offr_prfl_sls_cls_plcmt p
-       WHERE p.offr_id        = rec.intrnl_offr_id
-         AND p.sls_cls_cd     = rec.sls_cls_cd
-         AND p.prfl_cd        = rec.prfl_cd
-         AND p.pg_ofs_nr      = rec.pg_ofs_nr
-         AND p.featrd_side_cd = rec.concept_featrd_side_cd;
-    END IF;
-  END LOOP;
+  DELETE FROM offr_prfl_sls_cls_plcmt p
+   WHERE NOT EXISTS (SELECT *
+                     FROM offr_sls_cls_sku s
+                    WHERE s.offr_id        = p.offr_id
+                      AND s.sls_cls_cd     = p.sls_cls_cd
+                      AND s.prfl_cd        = p.prfl_cd
+                      AND s.pg_ofs_nr      = p.pg_ofs_nr
+                      AND s.featrd_side_cd = p.featrd_side_cd)
+     AND p.offr_id = p_offr_id;
 
   app_plsql_log.info(l_log || ' finished');
 
@@ -1470,83 +1418,86 @@ BEGIN
 
     -- check if the received osl -ids are the same as
     FOR offr_sls IN (
-      SELECT offr_id, sls_typ, 1 AS diff -- different lines
+      SELECT offr_id, sls_typ, MAX(diff) AS diff
         FROM (
-          (SELECT intrnl_offr_id AS offr_id, sls_typ, offr_sku_line_id
-             FROM TABLE(l_get_offr_table)
-           MINUS
-            SELECT intrnl_offr_id AS offr_id, sls_typ, offr_sku_line_id
-              FROM TABLE(p_data_line)
-             WHERE mrkt_id = mrkt_prd_rec.mrkt_id
-               AND offr_perd_id = mrkt_prd_rec.offr_perd_id
+          SELECT offr_id, sls_typ, 1 AS diff -- different lines
+            FROM (
+              (SELECT intrnl_offr_id AS offr_id, sls_typ, offr_sku_line_id
+                 FROM TABLE(l_get_offr_table)
+               MINUS
+                SELECT intrnl_offr_id AS offr_id, sls_typ, offr_sku_line_id
+                  FROM TABLE(p_data_line)
+                 WHERE mrkt_id = mrkt_prd_rec.mrkt_id
+                   AND offr_perd_id = mrkt_prd_rec.offr_perd_id
+              )
+             UNION ALL
+              (SELECT intrnl_offr_id AS offr_id, sls_typ, offr_sku_line_id
+                 FROM TABLE(p_data_line)
+                WHERE mrkt_id = mrkt_prd_rec.mrkt_id
+                  AND offr_perd_id = mrkt_prd_rec.offr_perd_id
+               MINUS
+                SELECT intrnl_offr_id AS offr_id, sls_typ, offr_sku_line_id
+                  FROM TABLE(l_get_offr_table)
+              )
           )
-         UNION ALL
-          (SELECT intrnl_offr_id AS offr_id, sls_typ, offr_sku_line_id
-             FROM TABLE(p_data_line)
-            WHERE mrkt_id = mrkt_prd_rec.mrkt_id
-              AND offr_perd_id = mrkt_prd_rec.offr_perd_id
-           MINUS
-            SELECT intrnl_offr_id AS offr_id, sls_typ, offr_sku_line_id
-              FROM TABLE(l_get_offr_table)
+          UNION
+          SELECT offr_id, sls_typ, 0 AS diff -- identical lines
+            FROM (
+              SELECT intrnl_offr_id AS offr_id, sls_typ, offr_sku_line_id
+                 FROM TABLE(l_get_offr_table)
+              INTERSECT
+               SELECT intrnl_offr_id AS offr_id, sls_typ, offr_sku_line_id
+                 FROM TABLE(p_data_line)
+                  WHERE mrkt_id = mrkt_prd_rec.mrkt_id
+                    AND offr_perd_id = mrkt_prd_rec.offr_perd_id
           )
-      )
-      UNION
-      SELECT offr_id, sls_typ, 0 AS diff -- identical lines
-        FROM (
-          SELECT intrnl_offr_id AS offr_id, sls_typ, offr_sku_line_id
-             FROM TABLE(l_get_offr_table)
-          INTERSECT
-           SELECT intrnl_offr_id AS offr_id, sls_typ, offr_sku_line_id
-             FROM TABLE(p_data_line)
-              WHERE mrkt_id = mrkt_prd_rec.mrkt_id
-                AND offr_perd_id = mrkt_prd_rec.offr_perd_id
-      )
+        )
+        GROUP BY offr_id, sls_typ
     )
     LOOP
-      --app_plsql_log.info('save: offr_id: ' || offr_sls.offr_id || ', sls_typ: ' || offr_sls.sls_typ);
-      SELECT DISTINCT offr_lock_user, offr_lock, status
-        INTO l_offr_lock_user, l_offr_lock, l_status
-        FROM TABLE(p_data_line)
-       WHERE intrnl_offr_id = offr_sls.offr_id
-         AND sls_typ = offr_sls.sls_typ;
+      IF offr_sls.diff = 0 THEN
+        --app_plsql_log.info('save: offr_id: ' || offr_sls.offr_id || ', sls_typ: ' || offr_sls.sls_typ);
+        SELECT DISTINCT offr_lock_user, offr_lock, status
+          INTO l_offr_lock_user, l_offr_lock, l_status
+          FROM TABLE(p_data_line)
+         WHERE intrnl_offr_id = offr_sls.offr_id
+           AND sls_typ = offr_sls.sls_typ;
 
-      IF l_status = 1 THEN -- Check if user has right to modify without locking
-        l_result := 1;
-        BEGIN
-          -- Without locking user can only modifiy units
-          MERGE INTO dstrbtd_mrkt_sls dms
-          USING (SELECT *
-                   FROM TABLE(p_data_line)
-                  WHERE intrnl_offr_id = offr_sls.offr_id
-                    AND sls_typ        = offr_sls.sls_typ) dl
-          ON (dms.offr_sku_line_id = dl.offr_sku_line_id
-          AND dms.offr_perd_id     = dl.offr_perd_id
-          AND dms.sls_perd_id      = dl.offr_perd_id
-          AND dms.veh_id           = dl.veh_id
-          AND dms.ver_id           = dl.ver_id
-          AND dms.sls_typ_id       = dl.sls_typ)
-          WHEN MATCHED THEN UPDATE
-          SET dms.unit_qty = dl.unit_qty
-             ,dms.last_updt_user_id = dl.last_updt_user_id;
+        IF l_status = 1 THEN -- Check if user has right to modify without locking
+          l_result := 1;
+          BEGIN
+            -- Without locking user can only modifiy units
+            MERGE INTO dstrbtd_mrkt_sls dms
+            USING (SELECT *
+                     FROM TABLE(p_data_line)
+                    WHERE intrnl_offr_id = offr_sls.offr_id
+                      AND sls_typ        = offr_sls.sls_typ) dl
+            ON (dms.offr_sku_line_id = dl.offr_sku_line_id
+            AND dms.offr_perd_id     = dl.offr_perd_id
+            AND dms.sls_perd_id      = dl.offr_perd_id
+            AND dms.veh_id           = dl.veh_id
+            AND dms.ver_id           = dl.ver_id
+            AND dms.sls_typ_id       = dl.sls_typ)
+            WHEN MATCHED THEN UPDATE
+            SET dms.unit_qty = dl.unit_qty
+               ,dms.last_updt_user_id = dl.last_updt_user_id;
 
-          l_rowcount := SQL%ROWCOUNT;
+            l_rowcount := SQL%ROWCOUNT;
 
-          -- Calculate the offset units
-          pa_maps_gta.set_offset_units(poffer_id => offr_sls.offr_id, psales_type_id => offr_sls.sls_typ);
+            -- Calculate the offset units
+            pa_maps_gta.set_offset_units(poffer_id => offr_sls.offr_id, psales_type_id => offr_sls.sls_typ);
 
-          app_plsql_log.info('Setting units finished (without lock), merge rowcount: ' || l_rowcount);
+            app_plsql_log.info('Setting units finished (without lock), merge rowcount: ' || l_rowcount);
 
-        EXCEPTION
-          WHEN OTHERS THEN
-            ROLLBACK;
-            app_plsql_log.info(l_module_name || ', ' || 'Setting units finished (without lock), offr_id: ' ||
-                               offr_sls.offr_id || ', sls_typ: ' || offr_sls.sls_typ || ', Error: ' || SQLERRM);
-            l_result := 0;
-        END;
-      ELSE
-        IF l_offr_lock = 0 OR lock_offr_chk(offr_sls.offr_id, l_offr_lock_user) <> 0 THEN
-
-          IF offr_sls.diff = 0 THEN
+          EXCEPTION
+            WHEN OTHERS THEN
+              ROLLBACK;
+              app_plsql_log.info(l_module_name || ', ' || 'Setting units finished (without lock), offr_id: ' ||
+                                 offr_sls.offr_id || ', sls_typ: ' || offr_sls.sls_typ || ', Error: ' || SQLERRM);
+              l_result := 0;
+          END;
+        ELSE
+          IF l_offr_lock = 0 OR lock_offr_chk(offr_sls.offr_id, l_offr_lock_user) <> 0 THEN
             l_result := 1;
             BEGIN
               save_edit_offr_lines(offr_sls.offr_id, offr_sls.sls_typ, p_data_line);
@@ -1557,11 +1508,12 @@ BEGIN
                 l_result := 0;
             END;
           ELSE
-            l_result := 2;
-          END IF;
-        ELSE
-          l_result := 3; --lock problem
-        END IF; -- lock_offr_chk
+            l_result := 3; --lock problem
+          END IF; -- lock_offr_chk
+        END IF;
+
+      ELSE
+        l_result := 2;
       END IF;
 
       IF l_result <> 1 THEN
