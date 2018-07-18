@@ -8,17 +8,21 @@ AS
   co_sls_typ_estimate      CONSTANT sls_typ.sls_typ_id%TYPE := 1;
   co_sls_typ_op_estimate   CONSTANT sls_typ.sls_typ_id%TYPE := 2;
 
-  co_quick_forecast       CONSTANT NUMBER := 1;
-  co_in_depth_forecast    CONSTANT NUMBER := 2;
-  co_manual_forecast      CONSTANT NUMBER := 3;
-  co_maps_forecast        CONSTANT NUMBER := 4;
-  co_ml_forecast          CONSTANT NUMBER := 6;
+  co_quick_forecast        CONSTANT NUMBER := 1;
+  co_in_depth_forecast     CONSTANT NUMBER := 2;
+  co_manual_forecast       CONSTANT NUMBER := 3;
+  co_maps_forecast         CONSTANT NUMBER := 4;
+  co_ml_forecast           CONSTANT NUMBER := 6;
 
-  co_osl_level            CONSTANT NUMBER := 0;
-  co_spread_sku_level     CONSTANT NUMBER := 1;
-  co_spread_concept_level CONSTANT NUMBER := 2;
+  co_osl_level             CONSTANT NUMBER := 0;
+  co_spread_sku_level      CONSTANT NUMBER := 1;
+  co_spread_concept_level  CONSTANT NUMBER := 2;
 
-  co_promtn_reg_price     CONSTANT promtn.promtn_desc_txt%TYPE := 'REGULAR PRICE';
+  co_promtn_reg_price      CONSTANT promtn.promtn_desc_txt%TYPE := 'REGULAR PRICE';
+  
+  co_fs_left               CONSTANT offr.featrd_side_cd%TYPE := 0;
+  co_fs_right              CONSTANT offr.featrd_side_cd%TYPE := 1;
+  co_fs_both               CONSTANT offr.featrd_side_cd%TYPE := 2;
 
   -- offr default values
   g_pg_wght_pct            NUMBER;
@@ -3403,6 +3407,19 @@ frcst AS
     l_location := 'initializing default values';
     init_default_values(p_mrkt_id);
 
+    IF NVL(p_sctn_page_ofs_nr, 0) = 0 THEN
+      g_featrd_side_cd := co_fs_both;
+      g_pg_wght_pct := 200;
+    ELSIF p_sctn_page_ofs_nr MOD 2 = 0 THEN
+      g_featrd_side_cd := co_fs_left;
+      g_pg_wght_pct := 100;
+    ELSE
+      g_featrd_side_cd := co_fs_right;
+      g_pg_wght_pct := 100;
+    END IF;
+
+    g_concept_featrd_side_cd := g_featrd_side_cd;
+
     l_location := 'Query mrkt_veh_perd_sctn';
     -- Get page offset number
     BEGIN
@@ -3419,7 +3436,6 @@ frcst AS
     EXCEPTION
       WHEN no_data_found THEN
         g_brchr_plcmt_id := NULL;
-        g_sctn_page_ofs_nr := NULL;
     END;
 
     l_location := 'Getting default offer class id';
@@ -3429,7 +3445,7 @@ frcst AS
         FROM mrkt_veh mv
        WHERE mv.mrkt_id = p_mrkt_id
          AND mv.veh_id = p_veh_id;
-         
+
       IF l_offr_cls_id IS NULL THEN
         l_offr_cls_id := g_offr_cls_id;
       END IF;
