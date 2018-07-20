@@ -29,7 +29,7 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
                        DECODE(p_sls_typ_id,
                               104,
                               p_trgt_perd_id,
-                              PA_MAPS_PUBLIC.PERD_PLUS(dly_bilng_trnd.mrkt_id, p_trgt_perd_id, -2))
+                              pa_maps_public.perd_plus(dly_bilng_trnd.mrkt_id, p_trgt_perd_id, -2))
                    AND dly_bilng_trnd_cntrl.sls_typ_id = 6
                    AND dly_bilng_trnd_cntrl.dly_bilng_mtch_id = 2401
                    AND NVL(dly_bilng_trnd_cntrl.lcl_bilng_actn_cd,
@@ -54,8 +54,8 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
                         ,sku_id
                         ,mstr_fsc_cd fsc_cd
                         ,strt_perd_id from_strt_perd_id
-                        ,nvl(lead(strt_perd_id, 1)
-                             over(PARTITION BY mrkt_id, sku_id ORDER BY strt_perd_id),
+                        ,NVL(LEAD(strt_perd_id, 1)
+                             OVER (PARTITION BY mrkt_id, sku_id ORDER BY strt_perd_id),
                              99999999) to_strt_perd_id
                     FROM mstr_fsc_asgnmt
                    WHERE p_mrkt_id = mrkt_id
@@ -68,8 +68,8 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
                         ,sku_id
                         ,fsc_cd fsc_cd
                         ,strt_perd_id from_strt_perd_id
-                        ,nvl(lead(strt_perd_id, 1)
-                             over(PARTITION BY mrkt_id, fsc_cd ORDER BY strt_perd_id),
+                        ,NVL(LEAD(strt_perd_id, 1)
+                             OVER (PARTITION BY mrkt_id, fsc_cd ORDER BY strt_perd_id),
                              99999999) to_strt_perd_id
                     FROM mrkt_fsc
                    WHERE p_mrkt_id = mrkt_id
@@ -80,31 +80,27 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
            GROUP BY mrkt_id, sku_id)
       --
       SELECT 1 AS status,
-             dms.mrkt_id,
-             dms.sls_perd_id,
-             mtu.last_updt_ts,
-             mtu.last_updt_user_id,
-             NVL(dms.fsc_cd, dms.mstr_fsc_cd) AS fsc_cd,
+             db.mrkt_id,
+             db.sls_perd_id,
+             db.last_updt_ts,
+             db.last_updt_user_id,
+             NVL(db.fsc_cd, db.mstr_fsc_cd) AS fsc_cd,
              sku.sku_nm AS desc_txt,
-             (SELECT day FROM d WHERE d.dt = TRUNC(dms.dt)) AS day,
-             dms.dt AS actual_day,
-             dms.sum_units AS dly_unit_qty,
-             SUM(dms.sum_units) OVER (PARTITION BY NVL(dms.fsc_cd, dms.mstr_fsc_cd)) AS total_dly_bilng_unit_qty,
-             mtu.unit_qty AS trnd_unit_qty,
-             ROUND(NVL(mtu.unit_qty, 0) / CASE WHEN 
-                                            SUM(dms.sum_units) OVER (PARTITION BY NVL(dms.fsc_cd, dms.mstr_fsc_cd)) = 0 THEN
-                                              1
-                                          ELSE
-                                            SUM(dms.sum_units) OVER (PARTITION BY NVL(dms.fsc_cd, dms.mstr_fsc_cd))
-                                          END, 4)
-             /*0*/ AS r_factor,
-             dms.sls_typ_id
+--             (SELECT day FROM d WHERE d.dt = TRUNC(db.dt)) AS day,
+             d.day AS day,
+             db.dt AS actual_day,
+             db.sum_units AS dly_unit_qty,
+             SUM(db.sum_units) OVER (PARTITION BY NVL(db.fsc_cd, db.mstr_fsc_cd)) AS total_dly_bilng_unit_qty,
+             NULL AS trnd_unit_qty,
+             NULL AS r_factor,
+             db.sls_typ_id
         FROM sku,
-             manual_trend_upload mtu,
              d,
             (SELECT osl.sku_id,
-                    SUM(dms.unit_qty) sum_units,
+                    SUM(dms.unit_qty) sum_units, --dbt.unit_qty?
                     dbt.prcsng_dt dt,
+                    dbt.last_updt_ts,
+                    dbt.last_updt_user_id,
                     COALESCE(dbt.fsc_cd, fsc_mstr.fsc_cd, fsc.fsc_cd) AS fsc_cd,
                     MAX(mfa.mstr_fsc_cd) AS mstr_fsc_cd,
                     osl.mrkt_id,
@@ -129,21 +125,18 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
                 AND dbtosl.sls_typ_id = 6
                 AND dms.sls_typ_id = p_sls_typ_id
                 AND dms.ver_id = 0
-                AND dms.sls_perd_id = p_sls_perd_id
+                AND dms.sls_perd_id = p_trgt_perd_id
                 AND dms.mrkt_id = p_mrkt_id
              GROUP BY osl.sku_id, COALESCE(dbt.fsc_cd, fsc_mstr.fsc_cd, fsc.fsc_cd),
-                      osl.mrkt_id, dms.sls_perd_id, dms.sls_typ_id, dbt.prcsng_dt
-             ) dms
-      WHERE sku.sku_id = dms.sku_id
-        AND mtu.mrkt_id (+) = dms.mrkt_id
-        AND mtu.sls_perd_id (+) = dms.sls_perd_id
-        AND mtu.sls_typ_id (+) = dms.sls_typ_id
-        AND mtu.fsc_cd (+) = dms.fsc_cd
-        AND d.dt = TRUNC(dms.dt)
+                      osl.mrkt_id, dms.sls_perd_id, dms.sls_typ_id, dbt.prcsng_dt,
+                      dbt.last_updt_ts, dbt.last_updt_user_id
+             ) db
+      WHERE sku.sku_id (+) = db.sku_id
+        AND d.dt = TRUNC(db.dt)
       --
       UNION ALL
       --
-      SELECT 0 AS status, 
+      SELECT 0 AS status,
              sc_trnd_no_fsc_prod.mrkt_id,
              sc_trnd_no_fsc_prod.sls_perd_id,
              sc_trnd_no_fsc_prod.last_updt_ts,
@@ -152,12 +145,12 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
              sc_trnd_no_fsc_prod.desc_txt,
              (SELECT day FROM d WHERE dt = TRUNC(dly_bilng_trnd.prcsng_dt)) AS day,
              TRUNC(dly_bilng_trnd.prcsng_dt) AS actual_day,
-             dly_bilng_trnd.unit_qty dly_unit_qty,
+             dly_bilng_trnd.unit_qty AS dly_unit_qty,
              SUM(dly_bilng_trnd.unit_qty) OVER (PARTITION BY sc_trnd_no_fsc_prod.fsc_cd) AS total_dly_bilng_unit_qty,
              sc_trnd_no_fsc_prod.unit_qty AS trnd_unit_qty,
              ROUND(sc_trnd_no_fsc_prod.unit_qty / SUM(dly_bilng_trnd.unit_qty)
                    OVER (PARTITION BY sc_trnd_no_fsc_prod.fsc_cd), 4) AS r_factor,
-             sc_trnd_no_fsc_prod.SLS_TYP_ID
+             sc_trnd_no_fsc_prod.sls_typ_id
         FROM sc_trnd_no_fsc_prod,
              (SELECT fsc_cd, TRUNC(prcsng_dt) prcsng_dt, SUM(unit_qty) unit_qty
                 FROM dly_bilng_trnd, dly_bilng_trnd_cntrl
@@ -166,7 +159,7 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
                      DECODE(p_sls_typ_id,
                             104,
                             p_trgt_perd_id,
-                            PA_MAPS_PUBLIC.PERD_PLUS(p_mrkt_id, p_trgt_perd_id, -2))
+                            pa_maps_public.perd_plus(p_mrkt_id, p_trgt_perd_id, -2))
                  AND dly_bilng_trnd_cntrl.sls_typ_id = 6
                  AND dly_bilng_trnd_cntrl.dly_bilng_mtch_id = 2401
                  AND NVL(dly_bilng_trnd_cntrl.lcl_bilng_actn_cd,
@@ -189,6 +182,32 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
          AND sc_trnd_no_fsc_prod.sls_perd_id = p_trgt_perd_id
          AND sc_trnd_no_fsc_prod.sls_typ_id = p_sls_typ_id
          AND dly_bilng_trnd.fsc_cd = sc_trnd_no_fsc_prod.fsc_cd
+      --
+      UNION ALL
+      --
+      SELECT 2 AS status,
+             mtu.mrkt_id,
+             mtu.sls_perd_id,
+             mtu.last_updt_ts,
+             mtu.last_updt_user_id,
+             mtu.fsc_cd,
+             sku.sku_nm AS desc_txt,
+             NULL AS day,
+             NULL AS actual_day,
+             NULL AS dly_unit_qty,
+             NULL AS total_dly_bilng_unit_qty,
+             mtu.unit_qty AS trnd_unit_qty,
+             NULL AS r_factor,
+             mtu.sls_typ_id
+        FROM manual_trend_upload mtu,
+             mrkt_tmp_fsc f,
+             sku
+       WHERE f.mrkt_id (+) = mtu.mrkt_id
+         AND f.fsc_cd (+) = mtu.fsc_cd
+         AND sku.sku_id (+) = f.sku_id
+         AND mtu.mrkt_id = p_mrkt_id
+         AND mtu.sls_perd_id = p_trgt_perd_id
+         AND mtu.sls_typ_id = p_sls_typ_id
       ORDER BY fsc_cd, actual_day
     )
     LOOP
