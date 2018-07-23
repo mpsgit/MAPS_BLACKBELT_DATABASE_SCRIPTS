@@ -82,6 +82,8 @@ CREATE OR REPLACE TYPE obj_edit_offr_line FORCE AS OBJECT
   forcasted_units        NUMBER,
   forcasted_date         DATE,
   offr_cls_id            NUMBER,
-  spcl_ordr_ind          CHAR(1)
+  spcl_ordr_ind          CHAR(1),
+  offr_ofs_nr            NUMBER,
+  pp_ofs_nr              NUMBER
 );
 /
