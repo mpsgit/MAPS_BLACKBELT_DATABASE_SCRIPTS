@@ -86,7 +86,6 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
              db.last_updt_user_id,
              NVL(db.fsc_cd, db.mstr_fsc_cd) AS fsc_cd,
              sku.sku_nm AS desc_txt,
---             (SELECT day FROM d WHERE d.dt = TRUNC(db.dt)) AS day,
              d.day AS day,
              db.dt AS actual_day,
              db.sum_units AS dly_unit_qty,
@@ -98,9 +97,9 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
              d,
             (SELECT osl.sku_id,
                     SUM(dms.unit_qty) sum_units, --dbt.unit_qty?
-                    dbt.prcsng_dt dt,
-                    dbt.last_updt_ts,
-                    dbt.last_updt_user_id,
+                    dbt.prcsng_dt AS dt,
+                    MAX(dbt.last_updt_ts) AS last_updt_ts,
+                    MAX(dbt.last_updt_user_id) KEEP (DENSE_RANK LAST ORDER BY dbt.last_updt_ts) AS last_updt_user_id,
                     COALESCE(dbt.fsc_cd, fsc_mstr.fsc_cd, fsc.fsc_cd) AS fsc_cd,
                     MAX(mfa.mstr_fsc_cd) AS mstr_fsc_cd,
                     osl.mrkt_id,
@@ -128,8 +127,7 @@ CREATE OR REPLACE PACKAGE BODY pa_manual_trend_upload IS
                 AND dms.sls_perd_id = p_trgt_perd_id
                 AND dms.mrkt_id = p_mrkt_id
              GROUP BY osl.sku_id, COALESCE(dbt.fsc_cd, fsc_mstr.fsc_cd, fsc.fsc_cd),
-                      osl.mrkt_id, dms.sls_perd_id, dms.sls_typ_id, dbt.prcsng_dt,
-                      dbt.last_updt_ts, dbt.last_updt_user_id
+                      osl.mrkt_id, dms.sls_perd_id, dms.sls_typ_id, dbt.prcsng_dt
              ) db
       WHERE sku.sku_id (+) = db.sku_id
         AND d.dt = TRUNC(db.dt)
