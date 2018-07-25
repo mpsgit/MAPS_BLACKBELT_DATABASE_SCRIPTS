@@ -3117,6 +3117,7 @@ frcst AS
                         p_mrkt_id               IN NUMBER,
                         p_offr_perd_id          IN NUMBER,
                         p_veh_id                IN NUMBER,
+                        p_featrd_side_cd        IN VARCHAR2,
                         p_prfl_cd               IN NUMBER,
                         p_user_nm               IN VARCHAR2,
                         p_status               OUT NUMBER) IS
@@ -3160,8 +3161,8 @@ frcst AS
          WHERE offr_id        = p_offr_id
            AND sls_cls_cd     = sku_rec.sls_cls_cd
            AND prfl_cd        = p_prfl_cd
-           AND pg_ofs_nr      = g_pg_ofs_nr
-           AND featrd_side_cd = g_concept_featrd_side_cd;
+           AND pg_ofs_nr      = 0
+           AND featrd_side_cd = p_featrd_side_cd;
       EXCEPTION
         WHEN no_data_found THEN
 
@@ -3170,7 +3171,7 @@ frcst AS
           ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, mrkt_id, veh_id,
             offr_perd_id, sku_cnt, pg_wght_pct, prod_endrsmt_id, pg_typ_id, creat_user_id)
         VALUES
-          ( p_offr_id, sku_rec.sls_cls_cd, p_prfl_cd, g_pg_ofs_nr, g_concept_featrd_side_cd, p_mrkt_id, p_veh_id,
+          ( p_offr_id, sku_rec.sls_cls_cd, p_prfl_cd, 0, p_featrd_side_cd, p_mrkt_id, p_veh_id,
             p_offr_perd_id, 0, g_pg_wght_pct, g_prod_endrsmt_id, g_pg_typ_id, p_user_nm);
 
       END;
@@ -3232,13 +3233,13 @@ frcst AS
            AND opp.sls_cls_cd     = sku_rec.sls_cls_cd
            AND opp.sls_prc_amt    = l_sls_prc_amt
            AND opp.nr_for_qty     = g_nr_for_qty
-           AND opp.pg_ofs_nr      = g_pg_ofs_nr
+           AND opp.pg_ofs_nr      = 0
            AND opp.pymt_typ       = g_pymt_typ
            AND opp.comsn_typ      = g_comsn_typ
            AND opp.tax_type_id    = g_tax_type_id
            AND opp.promtn_id      = g_promtn_id
            AND opp.promtn_clm_id  = g_promtn_clm_id
-           AND opp.featrd_side_cd = g_concept_featrd_side_cd;
+           AND opp.featrd_side_cd = p_featrd_side_cd;
 
         IF sku_rec.rownum = 1 THEN
           RAISE e_prcpnt_already_exists;
@@ -3283,7 +3284,7 @@ frcst AS
               sku_rec.sls_cls_cd, p_prfl_cd, g_ssnl_evnt_id, p_offr_perd_id, l_crncy_cd, 0, g_nr_for_qty,
               g_unit_qty, l_sls_prc_amt, g_wghtd_avg_cost_amt, g_sls_srce_id, l_sls_prc_amt,
               l_tax_pct, g_pymt_typ, l_comsn_pct, g_comsn_typ, l_net_to_avon_fct, g_prmry_offr_ind,
-              g_pg_ofs_nr, g_concept_featrd_side_cd, g_chrty_amt, g_awrd_sls_prc_amt, g_tax_type_id, p_user_nm);
+              0, p_featrd_side_cd, g_chrty_amt, g_awrd_sls_prc_amt, g_tax_type_id, p_user_nm);
 
           -- new profile so increment profile counter for Offer
           UPDATE offr
@@ -3303,8 +3304,8 @@ frcst AS
          WHERE offr_id        = p_offr_id
            AND sls_cls_cd     = sku_rec.sls_cls_cd
            AND prfl_cd        = p_prfl_cd
-           AND pg_ofs_nr      = g_pg_ofs_nr
-           AND featrd_side_cd = g_concept_featrd_side_cd
+           AND pg_ofs_nr      = 0
+           AND featrd_side_cd = p_featrd_side_cd
            AND sku_id         = sku_rec.sku_id;
       EXCEPTION
         WHEN no_data_found THEN
@@ -3313,7 +3314,7 @@ frcst AS
             ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, sku_id, mrkt_id,
               smplg_ind, hero_ind, micr_ncpsltn_ind, reg_prc_amt, cost_amt, creat_user_id)
           VALUES
-            ( p_offr_id, sku_rec.sls_cls_cd, p_prfl_cd, g_pg_ofs_nr, g_concept_featrd_side_cd,
+            ( p_offr_id, sku_rec.sls_cls_cd, p_prfl_cd, 0, p_featrd_side_cd,
               sku_rec.sku_id, p_mrkt_id, 'N', 'N', 'N', sku_rec.reg_prc_amt, g_wghtd_avg_cost_amt, p_user_nm);
 
       END;
@@ -3326,8 +3327,8 @@ frcst AS
          pg_ofs_nr, prfl_cd, crncy_cd, prmry_sku_offr_ind, sls_cls_cd, offr_prfl_prcpt_id,
          demo_avlbl_ind, dltd_ind, unit_splt_pct, sls_prc_amt, cost_typ, creat_user_id)
       VALUES
-        (l_offr_sku_line_id, p_offr_id, p_veh_id, g_concept_featrd_side_cd, p_offr_perd_id, p_mrkt_id,
-         sku_rec.sku_id, g_pg_ofs_nr, p_prfl_cd, l_crncy_cd, 'N', sku_rec.sls_cls_cd,
+        (l_offr_sku_line_id, p_offr_id, p_veh_id, p_featrd_side_cd, p_offr_perd_id, p_mrkt_id,
+         sku_rec.sku_id, 0, p_prfl_cd, l_crncy_cd, 'N', sku_rec.sls_cls_cd,
          l_offr_prfl_prcpt_id, 'N', 'N', 0, l_sls_prc_amt, 'P', p_user_nm);
 
       -- also need to create DMS record(s) based on MVPV Sales Type derived during campaign validation
@@ -3369,8 +3370,8 @@ frcst AS
       WHERE  offr_id        = p_offr_id and
              sls_cls_cd     = sku_rec.sls_cls_cd and
              prfl_cd        = p_prfl_cd and
-             pg_ofs_nr      = g_pg_ofs_nr and
-             featrd_side_cd = g_concept_featrd_side_cd;
+             pg_ofs_nr      = 0 and
+             featrd_side_cd = p_featrd_side_cd;
 
       UPDATE offr_prfl_prc_point
       SET    sku_cnt = nvl(sku_cnt, 0) + 1,
@@ -3399,6 +3400,7 @@ frcst AS
                       p_offr_desc_txt          IN VARCHAR2,
                       p_mrkt_veh_perd_sctn_id  IN NUMBER,
                       p_sctn_page_ofs_nr       IN NUMBER,
+                      p_featrd_side_cd         IN VARCHAR2(5),
                       p_offr_typ               IN VARCHAR2,
                       p_prfl_cd_list           IN number_array,
                       p_user_nm                IN VARCHAR2,
@@ -3427,26 +3429,11 @@ frcst AS
     l_location := 'initializing default values';
     init_default_values(p_mrkt_id);
 
-    IF NVL(p_sctn_page_ofs_nr, 0) = 0 THEN
-      g_featrd_side_cd := co_fs_both;
-      g_pg_wght_pct := 200;
-    ELSIF p_sctn_page_ofs_nr MOD 2 = 0 THEN
-      g_featrd_side_cd := co_fs_left;
-      g_pg_wght_pct := 100;
-    ELSE
-      g_featrd_side_cd := co_fs_right;
-      g_pg_wght_pct := 100;
-    END IF;
-
-    g_concept_featrd_side_cd := g_featrd_side_cd;
-
     l_location := 'Query mrkt_veh_perd_sctn';
     -- Get page offset number
     BEGIN
       SELECT mvps.brchr_plcmt_id,
-             p_sctn_page_ofs_nr - mvps.strtg_page_nr - mvps.strtg_page_side_nr
-        INTO g_brchr_plcmt_id,
-             g_sctn_page_ofs_nr
+        INTO g_brchr_plcmt_id
         FROM mrkt_veh_perd_sctn mvps
        WHERE mvps.mrkt_veh_perd_sctn_id = p_mrkt_veh_perd_sctn_id
          AND mrkt_id                    = p_mrkt_id
@@ -3485,8 +3472,8 @@ frcst AS
             brchr_postn_id, unit_rptg_lvl_id, rpt_sbtl_typ_id, pg_typ_id, offr_cls_id, creat_user_id, spcl_ordr_ind)
         VALUES
           ( l_offr_id, p_mrkt_id, p_offr_perd_id, p_veh_id, 0, g_pg_wght_pct, g_ssnl_evnt_id,
-            p_offr_desc_txt, p_mrkt_veh_perd_sctn_id, NVL(p_offr_typ, g_offr_typ), g_brchr_plcmt_id, g_sctn_page_ofs_nr,
-            0, 0, g_featrd_side_cd, g_flap_ind, g_offr_stus_cd, p_offr_perd_id, p_offr_perd_id,
+            p_offr_desc_txt, p_mrkt_veh_perd_sctn_id, NVL(p_offr_typ, g_offr_typ), g_brchr_plcmt_id, p_sctn_page_ofs_nr,
+            0, 0, p_featrd_side_cd, g_flap_ind, g_offr_stus_cd, p_offr_perd_id, p_offr_perd_id,
             g_brchr_postn_id, g_unit_rptg_lvl_id, g_rpt_sbtl_typ_id, g_pg_typ_id, l_offr_cls_id, p_user_nm, 'N');
 
     IF p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0 THEN
@@ -3496,6 +3483,7 @@ frcst AS
                     p_mrkt_id,
                     p_offr_perd_id,
                     p_veh_id,
+                    p_featrd_side_cd,
                     p_prfl_cd_list(i),
                     p_user_nm,
                     p_status);
@@ -3536,6 +3524,7 @@ frcst AS
     l_mrkt_id                NUMBER;
     l_offr_perd_id           NUMBER;
     l_veh_id                 NUMBER;
+    l_featrd_side_cd         VARCHAR2(5);
 
     e_lock_failed            EXCEPTION;
   BEGIN
@@ -3556,10 +3545,12 @@ frcst AS
     l_location := 'Querying the existing offer';
     SELECT o.mrkt_id,
            o.offr_perd_id,
-           o.veh_id
+           o.veh_id,
+           o.featrd_side_cd
       INTO l_mrkt_id,
            l_offr_perd_id,
-           l_veh_id
+           l_veh_id,
+           l_featrd_side_cd
       FROM offr o
      WHERE o.offr_id = p_offr_id;
 
@@ -3572,6 +3563,7 @@ frcst AS
                   l_mrkt_id,
                   l_offr_perd_id,
                   l_veh_id,
+                  l_featrd_side_cd,
                   p_prfl_cd_list(i),
                   p_user_nm,
                   p_status);
@@ -3615,6 +3607,7 @@ frcst AS
     l_mrkt_id                NUMBER;
     l_offr_perd_id           NUMBER;
     l_veh_id                 NUMBER;
+    l_featrd_side_cd         VARCHAR2(5);
 
     e_lock_failed            EXCEPTION;
   BEGIN
@@ -3635,10 +3628,12 @@ frcst AS
     l_location := 'Querying the existing offer';
     SELECT o.mrkt_id,
            o.offr_perd_id,
-           o.veh_id
+           o.veh_id,
+           o.featrd_side_cd
       INTO l_mrkt_id,
            l_offr_perd_id,
-           l_veh_id
+           l_veh_id,
+           l_featrd_side_cd
       FROM offr o
      WHERE o.offr_id = p_offr_id;
 
@@ -3657,6 +3652,7 @@ frcst AS
                   l_mrkt_id,
                   l_offr_perd_id,
                   l_veh_id,
+                  l_featrd_side_cd,
                   prfl_rec.prfl_cd,
                   p_user_nm,
                   p_status);
