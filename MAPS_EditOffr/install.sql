@@ -13,6 +13,7 @@
 
 @Utils\insert_CONFIG_ITEM_MRKT_CONFIG_ITEM.sql
 @Utils\insert_CONFIG_ITEM_MRKT_CONFIG_ITEM_for_more_mrkts.sql
+@Utils\alter_table_EDIT_OFFR_HIST.sql
 
 @Packages\PA_MAPS_EDIT_OFFR.sql
 show errors
