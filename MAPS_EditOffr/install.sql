@@ -9,8 +9,6 @@
 @Types\OBJ_GET_OFFR_LINE.sql
 @Types\OBJ_GET_OFFR_TABLE.sql
 
-@Tables\EDIT_OFFR_HIST.sql
-
 @Utils\insert_CONFIG_ITEM_MRKT_CONFIG_ITEM.sql
 @Utils\insert_CONFIG_ITEM_MRKT_CONFIG_ITEM_for_more_mrkts.sql
 @Utils\alter_table_EDIT_OFFR_HIST.sql
