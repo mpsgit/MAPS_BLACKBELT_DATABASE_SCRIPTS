@@ -3582,6 +3582,7 @@ frcst AS
 
     p_status := co_exec_status_success;
 
+    l_location := 'lock check';
     lock_offr(p_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
     IF l_lock_status NOT IN (1, 2) THEN
       RAISE e_lock_failed;
@@ -3686,7 +3687,7 @@ frcst AS
     l_location := 'initializing default values';
     l_default_values := query_default_values(l_mrkt_id);
 
-    l_location := 'Adding concepts';
+    l_location := 'Adding pricepoints';
     FOR prfl_rec IN (
       SELECT p.*
         FROM offr_prfl_prc_point p
@@ -4246,6 +4247,87 @@ frcst AS
       ROLLBACK;
 
   END delete_prcpoints;
+
+  PROCEDURE copy_pricepoint(r_pp_rec            IN offr_prfl_prc_point%ROWTYPE,
+                            p_trgt_offr_id      IN NUMBER,
+                            p_trgt_pg_ofs_nr    IN NUMBER,
+                            p_trgt_ftrd_side_cd IN VARCHAR2,
+                            p_user_nm           IN VARCHAR2,
+                            p_status           OUT VARCHAR2) IS
+  BEGIN
+    null;
+  END copy_pricepoint;                            
+
+  PROCEDURE copy_prcpts_to_offr(p_offr_prfl_prcpt_ids IN number_array,
+                                p_trgt_offr_id        IN NUMBER,
+                                p_trgt_pg_ofs_nr      IN NUMBER,
+                                p_trgt_ftrd_side_cd   IN VARCHAR2,
+                                p_user_nm             IN VARCHAR2,
+                                p_move_ind            IN VARCHAR2,
+                                p_status             OUT VARCHAR2) IS
+
+    l_procedure_name         VARCHAR2(50) := 'COPY_PRCPTS_TO_OFFR';
+    l_location               VARCHAR2(1000);
+    
+    l_lock_user_nm           VARCHAR2(35);
+    l_lock_status            NUMBER;
+
+    e_lock_failed            EXCEPTION;
+  BEGIN
+    g_run_id  := app_plsql_output.generate_new_run_id;
+    g_user_id := RTRIM(sys_context('USERENV', 'OS_USER'), 35);
+
+    app_plsql_output.set_run_id(g_run_id);
+    app_plsql_log.set_context(g_user_id, g_package_name, g_run_id);
+    app_plsql_log.info(l_procedure_name || ' start');
+
+/*
+    l_location := 'lock check';
+    lock_offr(p_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
+    IF l_lock_status NOT IN (1, 2) THEN
+      RAISE e_lock_failed;
+    END IF;
+*/
+    l_location := 'Copying pricepoints';
+    FOR r_pp_rec IN (
+      SELECT p.*
+        FROM offr_prfl_prc_point p
+       WHERE p.offr_prfl_prcpt_id IN (SELECT column_value FROM TABLE(p_offr_prfl_prcpt_ids))
+    )
+    LOOP
+      BEGIN
+        copy_pricepoint(r_pp_rec,
+                        p_trgt_offr_id,
+                        p_trgt_pg_ofs_nr,
+                        p_trgt_ftrd_side_cd,
+                        p_user_nm,
+                        p_status);
+        COMMIT;
+
+      EXCEPTION
+        WHEN OTHERS THEN
+          app_plsql_log.info(l_procedure_name || ': Error copying pricepoints at ' || l_location || ', offr_prfl_prcpt_id: ' || r_pp_rec.offr_prfl_prcpt_id);
+          app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+
+          ROLLBACK;
+      END;
+    END LOOP;
+
+    app_plsql_log.info(l_procedure_name || ' stop');
+
+  EXCEPTION
+    WHEN e_lock_failed THEN
+      p_status := co_exec_status_failed;
+      app_plsql_log.info(l_procedure_name || ': Lock failed, user: ' || p_user_nm || ', Status: ' || l_lock_status);
+
+      ROLLBACK;
+
+    WHEN OTHERS THEN
+      app_plsql_log.info(l_procedure_name || ': Error copying pricepoints at ' || l_location);
+      app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+
+      ROLLBACK;
+  END copy_prcpts_to_offr;
 
 END PA_MAPS_EDIT_OFFR;
 /
