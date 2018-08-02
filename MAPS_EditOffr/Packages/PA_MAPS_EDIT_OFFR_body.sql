@@ -4247,16 +4247,189 @@ frcst AS
       ROLLBACK;
 
   END delete_prcpoints;
-
-  PROCEDURE copy_pricepoint(r_pp_rec            IN offr_prfl_prc_point%ROWTYPE,
+  
+  PROCEDURE copy_pricepoint(p_pp_rec            IN offr_prfl_prc_point%ROWTYPE,
                             p_trgt_offr_id      IN NUMBER,
                             p_trgt_pg_ofs_nr    IN NUMBER,
                             p_trgt_ftrd_side_cd IN VARCHAR2,
                             p_user_nm           IN VARCHAR2,
                             p_status           OUT VARCHAR2) IS
+
+    l_procedure_name         VARCHAR2(50) := 'COPY_PRICEPOINT';
+    l_location               VARCHAR2(1000);
+
+    l_offr_prfl_prcpt_id     NUMBER;
+    l_offr_sku_line_id       NUMBER;
+    l_mrkt_id                NUMBER;
+    l_veh_id                 NUMBER;
+    l_offr_perd_id           NUMBER;
+    l_pg_wght_pct            NUMBER;
+    l_prod_endrsmt_id        NUMBER;
+    l_pg_typ_id              NUMBER;
+    l_smplg_ind              CHAR(1);
+    l_hero_ind               CHAR(1);
+    l_micr_ncpsltn_ind       CHAR(1);
+    l_wsl_ind                CHAR(1);
+    l_cost_amt               NUMBER;
+    l_reg_prc_amt            NUMBER;
+    l_found                  NUMBER := 0;
+
   BEGIN
-    null;
-  END copy_pricepoint;                            
+    SELECT o.mrkt_id, o.veh_id, o.offr_perd_id
+      INTO l_mrkt_id, l_veh_id, l_offr_perd_id
+      FROM offr o
+     WHERE o.offr_id = p_trgt_offr_id;
+  
+    BEGIN
+      l_location := 'sales class placement check';
+      SELECT 1 INTO l_found
+        FROM offr_prfl_sls_cls_plcmt
+       WHERE offr_id        = p_trgt_offr_id
+         AND sls_cls_cd     = p_pp_rec.sls_cls_cd
+         AND prfl_cd        = p_pp_rec.prfl_cd
+         AND pg_ofs_nr      = p_trgt_pg_ofs_nr
+         AND featrd_side_cd = p_trgt_ftrd_side_cd;
+    EXCEPTION
+      WHEN no_data_found THEN
+
+        l_location := 'query source offr_prfl_sls_cls_plcmt';
+        SELECT p.pg_wght_pct, p.prod_endrsmt_id, p.pg_typ_id
+          INTO l_pg_wght_pct, l_prod_endrsmt_id, l_pg_typ_id
+          FROM offr_prfl_sls_cls_plcmt p
+         WHERE p.offr_id        = p_pp_rec.offr_id
+           AND p.sls_cls_cd     = p_pp_rec.sls_cls_cd
+           AND p.prfl_cd        = p_pp_rec.prfl_cd
+           AND p.pg_ofs_nr      = p_pp_rec.pg_ofs_nr
+           AND p.featrd_side_cd = p_pp_rec.featrd_side_cd;
+          
+      l_location := 'create sales class placement';
+      INSERT INTO offr_prfl_sls_cls_plcmt
+        ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, mrkt_id, veh_id,
+          offr_perd_id, sku_cnt, pg_wght_pct, prod_endrsmt_id, pg_typ_id, creat_user_id)
+      VALUES
+        ( p_trgt_offr_id, p_pp_rec.sls_cls_cd, p_pp_rec.prfl_cd, p_trgt_pg_ofs_nr,
+          p_trgt_ftrd_side_cd, l_mrkt_id, l_veh_id, l_offr_perd_id, 0, l_pg_wght_pct,
+          l_prod_endrsmt_id, l_pg_typ_id, p_user_nm);
+
+    END;
+
+    SELECT seq.NEXTVAL INTO l_offr_prfl_prcpt_id FROM dual;
+
+    l_location := 'create price point';
+    INSERT INTO offr_prfl_prc_point
+      ( offr_prfl_prcpt_id, offr_id, promtn_clm_id, veh_id, promtn_id, mrkt_id, cnsmr_invstmt_bdgt_id,
+        sls_cls_cd, prfl_cd, ssnl_evnt_id, offr_perd_id, crncy_cd, sku_cnt, nr_for_qty,
+        est_unit_qty, est_sls_amt, est_cost_amt, sls_srce_id, sls_prc_amt,
+        tax_amt, pymt_typ, comsn_amt, comsn_typ, net_to_avon_fct, prmry_offr_ind,
+        pg_ofs_nr, featrd_side_cd, chrty_amt, awrd_sls_prc_amt, tax_type_id, creat_user_id)
+    VALUES
+      ( l_offr_prfl_prcpt_id, p_trgt_offr_id, p_pp_rec.promtn_clm_id, l_veh_id, p_pp_rec.promtn_id, 
+        l_mrkt_id, p_pp_rec.cnsmr_invstmt_bdgt_id, p_pp_rec.sls_cls_cd, p_pp_rec.prfl_cd,
+        p_pp_rec.ssnl_evnt_id, l_offr_perd_id, p_pp_rec.crncy_cd, 0, p_pp_rec.nr_for_qty,
+        p_pp_rec.est_unit_qty, p_pp_rec.est_sls_amt, p_pp_rec.est_cost_amt, p_pp_rec.sls_srce_id, p_pp_rec.sls_prc_amt,
+        p_pp_rec.tax_amt, p_pp_rec.pymt_typ, p_pp_rec.comsn_amt, p_pp_rec.comsn_typ, p_pp_rec.net_to_avon_fct,
+        p_pp_rec.prmry_offr_ind, p_trgt_pg_ofs_nr, p_trgt_ftrd_side_cd, p_pp_rec.chrty_amt, p_pp_rec.awrd_sls_prc_amt,
+        p_pp_rec.tax_type_id, p_user_nm);
+
+    -- new profile so increment profile counter for Offer
+    UPDATE offr o
+    SET    prfl_cnt = nvl(prfl_cnt, 0) + 1,
+           last_updt_user_id = p_user_nm
+    WHERE  offr_id  = p_trgt_offr_id;
+
+    FOR sku_rec IN (
+      SELECT s.*
+        FROM offr_sku_line s
+       WHERE s.offr_prfl_prcpt_id = p_pp_rec.offr_prfl_prcpt_id
+    )
+    LOOP
+      BEGIN
+        l_location := 'sales class sku check';
+        SELECT 1 INTO l_found
+          FROM offr_sls_cls_sku
+         WHERE offr_id        = p_trgt_offr_id
+           AND sls_cls_cd     = p_pp_rec.sls_cls_cd
+           AND prfl_cd        = p_pp_rec.prfl_cd
+           AND pg_ofs_nr      = p_trgt_pg_ofs_nr
+           AND featrd_side_cd = p_trgt_ftrd_side_cd
+           AND sku_id         = sku_rec.sku_id;
+      EXCEPTION
+        WHEN no_data_found THEN
+          
+          l_location := 'query source offr_sls_cls_sku';
+          SELECT s.smplg_ind, s.hero_ind, s.micr_ncpsltn_ind, s.wsl_ind, s.cost_amt, s.reg_prc_amt
+            INTO l_smplg_ind, l_hero_ind, l_micr_ncpsltn_ind, l_wsl_ind, l_cost_amt, l_reg_prc_amt
+            FROM offr_sls_cls_sku s
+           WHERE s.offr_id        = p_pp_rec.offr_id
+             AND s.sls_cls_cd     = p_pp_rec.sls_cls_cd
+             AND s.prfl_cd        = p_pp_rec.prfl_cd
+             AND s.pg_ofs_nr      = p_pp_rec.pg_ofs_nr
+             AND s.featrd_side_cd = p_pp_rec.featrd_side_cd
+             AND s.sku_id         = sku_rec.sku_id;
+        
+          l_location := 'create sales class sku';
+          INSERT INTO offr_sls_cls_sku
+            ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, sku_id, mrkt_id,
+              smplg_ind, hero_ind, micr_ncpsltn_ind, wsl_ind, reg_prc_amt, cost_amt, creat_user_id)
+          VALUES
+            ( p_trgt_offr_id, p_pp_rec.sls_cls_cd, p_pp_rec.prfl_cd, p_trgt_pg_ofs_nr, p_trgt_ftrd_side_cd,
+              sku_rec.sku_id, l_mrkt_id, l_smplg_ind, l_hero_ind, l_micr_ncpsltn_ind, l_wsl_ind,
+              l_reg_prc_amt, l_cost_amt, p_user_nm);
+      END;
+
+      SELECT seq.NEXTVAL INTO l_offr_sku_line_id FROM dual;
+
+      l_location := 'create OSL';
+      INSERT INTO offr_sku_line
+        (offr_sku_line_id, offr_id, veh_id, featrd_side_cd, offr_perd_id, mrkt_id, sku_id,
+         pg_ofs_nr, prfl_cd, crncy_cd, prmry_sku_offr_ind, sls_cls_cd, offr_prfl_prcpt_id,
+         demo_avlbl_ind, dltd_ind, unit_splt_pct, sls_prc_amt, cost_typ, creat_user_id)
+      VALUES
+        (l_offr_sku_line_id, p_trgt_offr_id, l_veh_id, p_trgt_ftrd_side_cd, l_offr_perd_id, l_mrkt_id,
+         sku_rec.sku_id, p_trgt_pg_ofs_nr, p_pp_rec.prfl_cd, sku_rec.crncy_cd, sku_rec.prmry_sku_offr_ind,
+         sku_rec.sls_cls_cd, l_offr_prfl_prcpt_id, sku_rec.demo_avlbl_ind, sku_rec.dltd_ind, sku_rec.unit_splt_pct,
+         sku_rec.sls_prc_amt, sku_rec.cost_typ, p_user_nm);
+
+      INSERT INTO dstrbtd_mrkt_sls
+        (mrkt_id, sls_perd_id, offr_sku_line_id, sls_typ_id, sls_srce_id, offr_perd_id,
+         veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt, creat_user_id)
+      SELECT l_mrkt_id, sls_perd_id, l_offr_sku_line_id, sls_typ_id, sls_srce_id, l_offr_perd_id,
+             l_veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt, p_user_nm
+        FROM dstrbtd_mrkt_sls dms
+       WHERE dms.offr_sku_line_id = sku_rec.offr_sku_line_id;
+
+    -- new sku added so increment sku counters for OFFR, OPSCP and OPP
+      UPDATE offr o
+      SET    sku_cnt = nvl(sku_cnt, 0) + 1,
+             last_updt_user_id = p_user_nm
+      WHERE  offr_id = p_trgt_offr_id;
+
+      UPDATE offr_prfl_sls_cls_plcmt
+      SET    sku_cnt = nvl(sku_cnt, 0) + 1,
+             last_updt_user_id = p_user_nm
+      WHERE  offr_id        = p_trgt_offr_id
+         AND sls_cls_cd     = sku_rec.sls_cls_cd
+         AND prfl_cd        = sku_rec.prfl_cd
+         AND pg_ofs_nr      = p_trgt_pg_ofs_nr
+         AND featrd_side_cd = p_trgt_ftrd_side_cd;
+
+      UPDATE offr_prfl_prc_point
+      SET    sku_cnt = nvl(sku_cnt, 0) + 1,
+             last_updt_user_id = p_user_nm
+      WHERE  offr_prfl_prcpt_id = l_offr_prfl_prcpt_id;
+
+    END LOOP;
+
+    p_status := co_exec_status_success;
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      app_plsql_log.info(l_procedure_name || ': Error adding offer at ' || l_location);
+      app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+      p_status := co_exec_status_failed;
+      RAISE;
+
+  END copy_pricepoint;
 
   PROCEDURE copy_prcpts_to_offr(p_offr_prfl_prcpt_ids IN number_array,
                                 p_trgt_offr_id        IN NUMBER,
@@ -4302,6 +4475,11 @@ frcst AS
                         p_trgt_ftrd_side_cd,
                         p_user_nm,
                         p_status);
+
+        IF p_move_ind = 'Y' THEN
+          del_prcpt_with_deps(r_pp_rec.offr_prfl_prcpt_id);
+        END IF;
+
         COMMIT;
 
       EXCEPTION
