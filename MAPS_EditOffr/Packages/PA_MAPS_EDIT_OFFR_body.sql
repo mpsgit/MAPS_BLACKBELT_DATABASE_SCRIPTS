@@ -3119,7 +3119,6 @@ frcst AS
                         p_veh_id                IN NUMBER,
                         p_featrd_side_cd        IN VARCHAR2,
                         p_prfl_cd               IN NUMBER,
-                        p_pp_rec                IN offr_prfl_prc_point%ROWTYPE,
                         p_default_values        IN t_default_values,
                         p_user_nm               IN VARCHAR2,
                         p_status               OUT NUMBER) IS
@@ -3149,20 +3148,11 @@ frcst AS
 
   BEGIN
     l_default_values := p_default_values;
-    IF p_pp_rec.offr_prfl_prcpt_id IS NOT NULL THEN
-     
-      l_cnsmr_invstmt_bdgt_id := p_pp_rec.cnsmr_invstmt_bdgt_id;
-      l_pymt_typ              := p_pp_rec.pymt_typ;
-      l_comsn_typ             := p_pp_rec.comsn_typ;
-      l_tax_type_id           := p_pp_rec.tax_type_id;
-      --l_micr_ncpsltn_ind
-      --l_wsl_ind := p_
-    ELSE
-      l_cnsmr_invstmt_bdgt_id := NULL;
-      l_pymt_typ              := p_default_values.pymt_typ;
-      l_comsn_typ             := p_default_values.comsn_typ;
-      l_tax_type_id           := p_default_values.tax_type_id;
-    END IF;
+
+    l_cnsmr_invstmt_bdgt_id := NULL;
+    l_pymt_typ              := p_default_values.pymt_typ;
+    l_comsn_typ             := p_default_values.comsn_typ;
+    l_tax_type_id           := p_default_values.tax_type_id;
 
     FOR sku_rec IN (
       SELECT rownum,
@@ -3206,9 +3196,7 @@ frcst AS
         -- calculate commission and tax
         l_location := 'calculate tax';
         BEGIN
-          IF p_pp_rec.offr_prfl_prcpt_id IS NULL THEN
-            l_tax_type_id := pa_maps_gta.get_default_tax_type_id(p_mrkt_id, p_prfl_cd, sku_rec.sls_cls_cd, p_offr_perd_id, p_veh_id);
-          END IF;
+          l_tax_type_id := pa_maps_gta.get_default_tax_type_id(p_mrkt_id, p_prfl_cd, sku_rec.sls_cls_cd, p_offr_perd_id, p_veh_id);
           l_tax_pct := get_tax_rate(p_mrkt_id, l_tax_type_id, p_offr_perd_id);
         EXCEPTION
           WHEN OTHERS THEN
@@ -3217,10 +3205,8 @@ frcst AS
 
         l_location := 'calculate commission';
         BEGIN
-          IF p_pp_rec.offr_prfl_prcpt_id IS NULL THEN
-            l_comsn_typ := pa_maps_gta.get_commission_type(p_mrkt_id, p_veh_id, p_offr_perd_id, p_prfl_cd, 'N',
+          l_comsn_typ := pa_maps_gta.get_commission_type(p_mrkt_id, p_veh_id, p_offr_perd_id, p_prfl_cd, 'N',
                              NULL, NULL, NULL, NULL, NULL);
-          END IF;
           l_comsn_pct := get_comsn_pct(p_mrkt_id, p_offr_perd_id, l_comsn_typ);
         EXCEPTION
           WHEN OTHERS THEN
@@ -3248,16 +3234,11 @@ frcst AS
             NULL;
         END;
 
-        IF (l_promtn_desc_txt = co_promtn_reg_price 
-            AND l_promtn_clm_desc_txt = co_promtn_reg_price)
-            OR p_pp_rec.offr_prfl_prcpt_id IS NOT NULL THEN
+        IF l_promtn_desc_txt = co_promtn_reg_price 
+            AND l_promtn_clm_desc_txt = co_promtn_reg_price THEN
           l_sls_prc_amt := sku_rec.reg_prc_amt;
         ELSE
           l_sls_prc_amt := l_default_values.sls_prc_amt;
-        END IF;
-
-        IF p_pp_rec.offr_prfl_prcpt_id IS NOT NULL THEN
-          RAISE no_data_found;
         END IF;
         
         l_location := 'price point check';
@@ -3330,7 +3311,6 @@ frcst AS
 
         WHEN e_prcpnt_already_exists THEN
           RAISE;
-
       END;
 
       BEGIN
@@ -3430,6 +3410,32 @@ frcst AS
 
   END add_concept;
 
+  PROCEDURE add_pricepoint(p_offr_id               IN NUMBER,
+                           p_mrkt_id               IN NUMBER,
+                           p_offr_perd_id          IN NUMBER,
+                           p_veh_id                IN NUMBER,
+                           p_featrd_side_cd        IN VARCHAR2,
+                           p_pp_rec                IN offr_prfl_prc_point%ROWTYPE,
+                           p_default_values        IN t_default_values,
+                           p_user_nm               IN VARCHAR2,
+                           p_status               OUT NUMBER) IS
+
+    l_procedure_name         VARCHAR2(50) := 'ADD_PRICEPOINT';
+    l_location               VARCHAR2(1000);
+  BEGIN
+/*          l_cnsmr_invstmt_bdgt_id := p_pp_rec.cnsmr_invstmt_bdgt_id;
+      l_pymt_typ              := p_pp_rec.pymt_typ;
+      l_comsn_typ             := p_pp_rec.comsn_typ;
+      l_tax_type_id           := p_pp_rec.tax_type_id;
+*/
+
+
+--            IF p_pp_rec.offr_prfl_prcpt_id IS NOT NULL THEN
+--              l_sls_prc_amt := sku_rec.reg_prc_amt;
+
+    null;
+  END add_pricepoint;
+
   PROCEDURE add_offer(p_mrkt_id                IN NUMBER,
                       p_offr_perd_id           IN NUMBER,
                       p_veh_id                 IN NUMBER,
@@ -3526,7 +3532,6 @@ frcst AS
                     p_veh_id,
                     p_featrd_side_cd,
                     p_prfl_cd_list(i),
-                    NULL,
                     l_default_values,
                     p_user_nm,
                     p_status);
@@ -3611,7 +3616,6 @@ frcst AS
                   l_veh_id,
                   l_featrd_side_cd,
                   p_prfl_cd_list(i),
-                  NULL,
                   l_default_values,
                   p_user_nm,
                   p_status);
@@ -3694,16 +3698,15 @@ frcst AS
        WHERE p.offr_prfl_prcpt_id IN (SELECT column_value FROM TABLE(p_offr_prfl_prcpt_id_list))
     )
     LOOP
-      add_concept(p_offr_id,
-                  l_mrkt_id,
-                  l_offr_perd_id,
-                  l_veh_id,
-                  prfl_rec.featrd_side_cd,
-                  prfl_rec.prfl_cd,
-                  prfl_rec,
-                  l_default_values,
-                  p_user_nm,
-                  p_status);
+      add_pricepoint(p_offr_id,
+                     l_mrkt_id,
+                     l_offr_perd_id,
+                     l_veh_id,
+                     prfl_rec.featrd_side_cd,
+                     prfl_rec,
+                     l_default_values,
+                     p_user_nm,
+                     p_status);
       IF p_status = co_exec_status_prcpnt_ex THEN
         app_plsql_log.info(l_procedure_name || ': Pricepoint with default values already exists. offr_prfl_prcpt_id: ' || prfl_rec.offr_prfl_prcpt_id);
       END IF;
