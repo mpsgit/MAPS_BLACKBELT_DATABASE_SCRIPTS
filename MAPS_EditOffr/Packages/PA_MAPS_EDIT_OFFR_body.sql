@@ -3349,7 +3349,6 @@ frcst AS
 
       -- also need to create DMS record(s) based on MVPV Sales Type derived during campaign validation
       IF g_sls_typ_id in (co_sls_typ_estimate, co_sls_typ_op_estimate) THEN
-
         -- create estimate DMS record
         l_location := 'create DMS for estimate';
         INSERT INTO dstrbtd_mrkt_sls
@@ -3358,11 +3357,9 @@ frcst AS
         VALUES
           (p_mrkt_id, p_offr_perd_id, l_offr_sku_line_id, co_sls_typ_estimate, l_default_values.sls_srce_id, p_offr_perd_id,
            p_veh_id, l_default_values.unit_qty, 0, 0, l_net_to_avon_fct, l_default_values.wghtd_avg_cost_amt, p_user_nm);
-
       END IF;
 
       IF g_sls_typ_id in (co_sls_typ_op_estimate) THEN
-
         -- create operational estimate DMS record
         l_location := 'create DMS for operational estimate';
         INSERT INTO dstrbtd_mrkt_sls
@@ -3371,7 +3368,6 @@ frcst AS
         VALUES
           (p_mrkt_id, p_offr_perd_id, l_offr_sku_line_id, co_sls_typ_op_estimate, l_default_values.sls_srce_id, p_offr_perd_id,
            p_veh_id, l_default_values.unit_qty, 0, 0, l_net_to_avon_fct, l_default_values.wghtd_avg_cost_amt, p_user_nm);
-
       END IF;
 
       -- new sku added so increment sku counters for OFFR, OPSCP and OPP
@@ -3403,7 +3399,7 @@ frcst AS
       p_status := co_exec_status_prcpnt_ex;
 
     WHEN OTHERS THEN
-      app_plsql_log.info(l_procedure_name || ': Error adding offer at ' || l_location);
+      app_plsql_log.info(l_procedure_name || ': Error adding concept at ' || l_location);
       app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
       p_status := co_exec_status_failed;
       RAISE;
@@ -3414,7 +3410,6 @@ frcst AS
                            p_mrkt_id               IN NUMBER,
                            p_offr_perd_id          IN NUMBER,
                            p_veh_id                IN NUMBER,
-                           p_featrd_side_cd        IN VARCHAR2,
                            p_pp_rec                IN offr_prfl_prc_point%ROWTYPE,
                            p_default_values        IN t_default_values,
                            p_user_nm               IN VARCHAR2,
@@ -3422,18 +3417,162 @@ frcst AS
 
     l_procedure_name         VARCHAR2(50) := 'ADD_PRICEPOINT';
     l_location               VARCHAR2(1000);
+
+    l_default_values         t_default_values;
+
+    l_found                  NUMBER := 0;
+    l_offr_prfl_prcpt_id     offr_prfl_prc_point.offr_prfl_prcpt_id%TYPE;
+    l_offr_sku_line_id       offr_sku_line.offr_sku_line_id%TYPE;
+    l_micr_ncpsltn_ind       offr_sls_cls_sku.micr_ncpsltn_ind%TYPE := 'N';
+    l_wsl_ind                offr_sls_cls_sku.wsl_ind%TYPE := 'N';
   BEGIN
-/*          l_cnsmr_invstmt_bdgt_id := p_pp_rec.cnsmr_invstmt_bdgt_id;
-      l_pymt_typ              := p_pp_rec.pymt_typ;
-      l_comsn_typ             := p_pp_rec.comsn_typ;
-      l_tax_type_id           := p_pp_rec.tax_type_id;
-*/
+    l_default_values := p_default_values;
 
+    SELECT o.micr_ncpsltn_ind
+      INTO l_micr_ncpsltn_ind
+      FROM offr o
+     WHERE o.offr_id = p_offr_id;
 
---            IF p_pp_rec.offr_prfl_prcpt_id IS NOT NULL THEN
---              l_sls_prc_amt := sku_rec.reg_prc_amt;
+    l_location := 'sales class placement check';
+    BEGIN
+      SELECT 1 INTO l_found
+        FROM offr_prfl_sls_cls_plcmt
+       WHERE offr_id        = p_offr_id
+         AND sls_cls_cd     = p_pp_rec.sls_cls_cd
+         AND prfl_cd        = p_pp_rec.prfl_cd
+         AND pg_ofs_nr      = 0
+         AND featrd_side_cd = p_pp_rec.featrd_side_cd;
+    EXCEPTION
+      WHEN no_data_found THEN
 
-    null;
+      l_location := 'create sales class placement';
+      INSERT INTO offr_prfl_sls_cls_plcmt
+        ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, mrkt_id, veh_id,
+          offr_perd_id, sku_cnt, pg_wght_pct, prod_endrsmt_id, pg_typ_id, creat_user_id)
+      VALUES
+        ( p_offr_id, p_pp_rec.sls_cls_cd, p_pp_rec.prfl_cd, 0, p_pp_rec.featrd_side_cd, p_mrkt_id, p_veh_id,
+          p_offr_perd_id, 0, l_default_values.pg_wght_pct, l_default_values.prod_endrsmt_id,
+          l_default_values.pg_typ_id, p_user_nm);
+    END;
+
+    SELECT seq.NEXTVAL INTO l_offr_prfl_prcpt_id FROM dual;
+
+    l_location := 'create price point';
+    INSERT INTO offr_prfl_prc_point
+      ( offr_prfl_prcpt_id, offr_id, promtn_clm_id, veh_id, promtn_id, mrkt_id, cnsmr_invstmt_bdgt_id,
+        sls_cls_cd, prfl_cd, ssnl_evnt_id, offr_perd_id, crncy_cd, sku_cnt, nr_for_qty,
+        est_unit_qty, est_sls_amt, est_cost_amt, sls_srce_id, sls_prc_amt,
+        tax_amt, pymt_typ, comsn_amt, comsn_typ, net_to_avon_fct, prmry_offr_ind,
+        pg_ofs_nr, featrd_side_cd, chrty_amt, awrd_sls_prc_amt, tax_type_id, creat_user_id)
+    VALUES
+      ( l_offr_prfl_prcpt_id, p_offr_id, l_default_values.promtn_clm_id, p_veh_id, l_default_values.promtn_id, p_mrkt_id, p_pp_rec.cnsmr_invstmt_bdgt_id,
+        p_pp_rec.sls_cls_cd, p_pp_rec.prfl_cd, l_default_values.ssnl_evnt_id, p_offr_perd_id, p_pp_rec.crncy_cd, 0, l_default_values.nr_for_qty,
+        l_default_values.unit_qty, p_pp_rec.est_sls_amt, l_default_values.wghtd_avg_cost_amt, l_default_values.sls_srce_id, p_pp_rec.sls_prc_amt,
+        p_pp_rec.tax_amt, p_pp_rec.pymt_typ, p_pp_rec.comsn_amt, p_pp_rec.comsn_typ, p_pp_rec.net_to_avon_fct, l_default_values.prmry_offr_ind,
+        0, p_pp_rec.featrd_side_cd, l_default_values.chrty_amt, l_default_values.awrd_sls_prc_amt, p_pp_rec.tax_type_id, p_user_nm);
+
+    -- new profile so increment profile counter for Offer
+    l_location := 'update offr prfl_cnt';
+    UPDATE offr
+    SET    prfl_cnt = nvl(prfl_cnt, 0) + 1,
+           last_updt_user_id = p_user_nm
+    WHERE  offr_id  = p_offr_id;
+
+    FOR sku_rec IN (
+      SELECT *
+        FROM offr_sku_line osl
+       WHERE osl.offr_prfl_prcpt_id = p_pp_rec.offr_prfl_prcpt_id
+    )
+    LOOP
+      BEGIN
+        l_location := 'sales class sku check';
+        SELECT 1 INTO l_found
+          FROM offr_sls_cls_sku
+         WHERE offr_id        = p_offr_id
+           AND sls_cls_cd     = sku_rec.sls_cls_cd
+           AND prfl_cd        = p_pp_rec.prfl_cd
+           AND pg_ofs_nr      = 0
+           AND featrd_side_cd = p_pp_rec.featrd_side_cd
+           AND sku_id         = sku_rec.sku_id;
+      EXCEPTION
+        WHEN no_data_found THEN
+          l_location := 'create sales class sku';
+          INSERT INTO offr_sls_cls_sku
+            ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, sku_id, mrkt_id,
+              smplg_ind, hero_ind, micr_ncpsltn_ind, wsl_ind, reg_prc_amt, cost_amt, creat_user_id)
+          VALUES
+            ( p_offr_id, sku_rec.sls_cls_cd, p_pp_rec.prfl_cd, 0, p_pp_rec.featrd_side_cd,
+              sku_rec.sku_id, p_mrkt_id, 'N', 'N', l_micr_ncpsltn_ind, l_wsl_ind, sku_rec.sls_prc_amt, l_default_values.wghtd_avg_cost_amt, p_user_nm);
+      END;
+
+      SELECT seq.NEXTVAL INTO l_offr_sku_line_id FROM dual;
+
+      l_location := 'create OSL';
+      INSERT INTO offr_sku_line
+        (offr_sku_line_id, offr_id, veh_id, featrd_side_cd, offr_perd_id, mrkt_id, sku_id,
+         pg_ofs_nr, prfl_cd, crncy_cd, prmry_sku_offr_ind, sls_cls_cd, offr_prfl_prcpt_id,
+         demo_avlbl_ind, dltd_ind, unit_splt_pct, sls_prc_amt, cost_typ, creat_user_id)
+      VALUES
+        (l_offr_sku_line_id, p_offr_id, p_veh_id, p_pp_rec.featrd_side_cd, p_offr_perd_id, p_mrkt_id,
+         sku_rec.sku_id, 0, p_pp_rec.prfl_cd, sku_rec.crncy_cd, 'N', sku_rec.sls_cls_cd,
+         l_offr_prfl_prcpt_id, 'N', 'N', 0, sku_rec.sls_prc_amt, 'P', p_user_nm);
+
+      -- also need to create DMS record(s) based on MVPV Sales Type derived during campaign validation
+      IF g_sls_typ_id in (co_sls_typ_estimate, co_sls_typ_op_estimate) THEN
+
+        -- create estimate DMS record
+        l_location := 'create DMS for estimate';
+        INSERT INTO dstrbtd_mrkt_sls
+          (mrkt_id, sls_perd_id, offr_sku_line_id, sls_typ_id, sls_srce_id, offr_perd_id,
+           veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt, creat_user_id)
+        VALUES
+          (p_mrkt_id, p_offr_perd_id, l_offr_sku_line_id, co_sls_typ_estimate, l_default_values.sls_srce_id, p_offr_perd_id,
+           p_veh_id, l_default_values.unit_qty, 0, 0, p_pp_rec.net_to_avon_fct, l_default_values.wghtd_avg_cost_amt, p_user_nm);
+      END IF;
+
+      IF g_sls_typ_id in (co_sls_typ_op_estimate) THEN
+
+        -- create operational estimate DMS record
+        l_location := 'create DMS for operational estimate';
+        INSERT INTO dstrbtd_mrkt_sls
+          (mrkt_id, sls_perd_id, offr_sku_line_id, sls_typ_id, sls_srce_id, offr_perd_id,
+           veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt, creat_user_id)
+        VALUES
+          (p_mrkt_id, p_offr_perd_id, l_offr_sku_line_id, co_sls_typ_op_estimate, l_default_values.sls_srce_id, p_offr_perd_id,
+           p_veh_id, l_default_values.unit_qty, 0, 0, p_pp_rec.net_to_avon_fct, l_default_values.wghtd_avg_cost_amt, p_user_nm);
+      END IF;
+
+      -- new sku added so increment sku counters for OFFR, OPSCP and OPP
+      UPDATE offr
+         SET sku_cnt = nvl(sku_cnt, 0) + 1,
+             last_updt_user_id = p_user_nm
+       WHERE offr_id = p_offr_id;
+
+      UPDATE offr_prfl_sls_cls_plcmt
+         SET sku_cnt = nvl(sku_cnt, 0) + 1,
+             last_updt_user_id = p_user_nm
+       WHERE offr_id        = p_offr_id
+         AND sls_cls_cd     = sku_rec.sls_cls_cd
+         AND prfl_cd        = p_pp_rec.prfl_cd
+         AND pg_ofs_nr      = 0
+         AND featrd_side_cd = p_pp_rec.featrd_side_cd;
+
+      UPDATE offr_prfl_prc_point
+         SET sku_cnt = nvl(sku_cnt, 0) + 1,
+             last_updt_user_id = p_user_nm
+       WHERE offr_prfl_prcpt_id = l_offr_prfl_prcpt_id;
+
+    END LOOP;
+
+    p_status := co_exec_status_success;
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      app_plsql_log.info(l_procedure_name || ': Error adding pricepoint at ' || l_location);
+      app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+      p_status := co_exec_status_failed;
+      RAISE;
+
   END add_pricepoint;
 
   PROCEDURE add_offer(p_mrkt_id                IN NUMBER,
@@ -3692,7 +3831,7 @@ frcst AS
     l_default_values := query_default_values(l_mrkt_id);
 
     l_location := 'Adding pricepoints';
-    FOR prfl_rec IN (
+    FOR prpct_rec IN (
       SELECT p.*
         FROM offr_prfl_prc_point p
        WHERE p.offr_prfl_prcpt_id IN (SELECT column_value FROM TABLE(p_offr_prfl_prcpt_id_list))
@@ -3702,13 +3841,12 @@ frcst AS
                      l_mrkt_id,
                      l_offr_perd_id,
                      l_veh_id,
-                     prfl_rec.featrd_side_cd,
-                     prfl_rec,
+                     prpct_rec,
                      l_default_values,
                      p_user_nm,
                      p_status);
       IF p_status = co_exec_status_prcpnt_ex THEN
-        app_plsql_log.info(l_procedure_name || ': Pricepoint with default values already exists. offr_prfl_prcpt_id: ' || prfl_rec.offr_prfl_prcpt_id);
+        app_plsql_log.info(l_procedure_name || ': Pricepoint with default values already exists. offr_prfl_prcpt_id: ' || prpct_rec.offr_prfl_prcpt_id);
       END IF;
     END LOOP;
 
