@@ -763,7 +763,7 @@ BEGIN
      WHERE p.offr_id        = rec.intrnl_offr_id
        AND p.sls_cls_cd     = rec.sls_cls_cd
        AND p.prfl_cd        = rec.prfl_cd
-       AND p.pg_ofs_nr      = rec.pg_ofs_nr
+       AND p.pg_ofs_nr      = rec.pp_ofs_nr
        AND p.featrd_side_cd = rec.concept_featrd_side_cd;
 
     IF l_cnt = 0 THEN
@@ -774,7 +774,7 @@ BEGIN
       )
       VALUES
       (
-        rec.intrnl_offr_id, rec.sls_cls_cd, rec.prfl_cd, rec.pg_ofs_nr, rec.concept_featrd_side_cd, rec.mrkt_id,
+        rec.intrnl_offr_id, rec.sls_cls_cd, rec.prfl_cd, rec.pp_ofs_nr, rec.concept_featrd_side_cd, rec.mrkt_id,
         rec.veh_id, rec.offr_perd_id, l_sku_cnt, rec.pg_wght, 0, 1, rec.offr_lock_user, rec.offr_lock_user
       );
     END IF;
@@ -785,7 +785,7 @@ BEGIN
      WHERE s.offr_id        = rec.intrnl_offr_id
        AND s.sls_cls_cd     = rec.sls_cls_cd
        AND s.prfl_cd        = rec.prfl_cd
-       AND s.pg_ofs_nr      = rec.pg_ofs_nr
+       AND s.pg_ofs_nr      = rec.pp_ofs_nr
        AND s.featrd_side_cd = rec.concept_featrd_side_cd
        AND s.sku_id         = rec.sku_id;
 
@@ -798,7 +798,7 @@ BEGIN
       )
       VALUES
       (
-        rec.intrnl_offr_id, rec.sls_cls_cd, rec.prfl_cd, rec.pg_ofs_nr, rec.concept_featrd_side_cd, rec.sku_id,
+        rec.intrnl_offr_id, rec.sls_cls_cd, rec.prfl_cd, rec.pp_ofs_nr, rec.concept_featrd_side_cd, rec.sku_id,
         rec.mrkt_id, 'N', 'N', rec.micr_ncpsltn_ind, rec.reg_prc_amt, NULL, NULL, 'N', 'N', rec.wsl_ind,
         rec.offr_lock_user, rec.offr_lock_user
       );
@@ -3176,8 +3176,8 @@ frcst AS
          WHERE offr_id        = p_offr_id
            AND sls_cls_cd     = sku_rec.sls_cls_cd
            AND prfl_cd        = p_prfl_cd
-           AND pg_ofs_nr      = 0
-           AND featrd_side_cd = p_featrd_side_cd;
+           AND pg_ofs_nr      = l_default_values.pg_ofs_nr
+           AND featrd_side_cd = l_default_values.featrd_side_cd;
       EXCEPTION
         WHEN no_data_found THEN
 
@@ -3186,7 +3186,7 @@ frcst AS
           ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, mrkt_id, veh_id,
             offr_perd_id, sku_cnt, pg_wght_pct, prod_endrsmt_id, pg_typ_id, creat_user_id)
         VALUES
-          ( p_offr_id, sku_rec.sls_cls_cd, p_prfl_cd, 0, p_featrd_side_cd, p_mrkt_id, p_veh_id,
+          ( p_offr_id, sku_rec.sls_cls_cd, p_prfl_cd, l_default_values.pg_ofs_nr, l_default_values.featrd_side_cd, p_mrkt_id, p_veh_id,
             p_offr_perd_id, 0, l_default_values.pg_wght_pct, l_default_values.prod_endrsmt_id,
             l_default_values.pg_typ_id, p_user_nm);
 
@@ -3250,13 +3250,13 @@ frcst AS
            AND opp.sls_cls_cd     = sku_rec.sls_cls_cd
            AND opp.sls_prc_amt    = l_sls_prc_amt
            AND opp.nr_for_qty     = l_default_values.nr_for_qty
-           AND opp.pg_ofs_nr      = 0
+           AND opp.pg_ofs_nr      = l_default_values.pg_ofs_nr
            AND opp.pymt_typ       = l_pymt_typ
            AND opp.comsn_typ      = l_comsn_typ
            AND opp.tax_type_id    = l_tax_type_id
            AND opp.promtn_id      = l_default_values.promtn_id
            AND opp.promtn_clm_id  = l_default_values.promtn_clm_id
-           AND opp.featrd_side_cd = p_featrd_side_cd;
+           AND opp.featrd_side_cd = l_default_values.featrd_side_cd;
 
         IF sku_rec.rownum = 1 THEN
           RAISE e_prcpnt_already_exists;
@@ -3301,7 +3301,7 @@ frcst AS
               sku_rec.sls_cls_cd, p_prfl_cd, l_default_values.ssnl_evnt_id, p_offr_perd_id, l_crncy_cd, 0, l_default_values.nr_for_qty,
               l_default_values.unit_qty, l_sls_prc_amt, l_default_values.wghtd_avg_cost_amt, l_default_values.sls_srce_id, l_sls_prc_amt,
               l_tax_pct, l_pymt_typ, l_comsn_pct, l_comsn_typ, l_net_to_avon_fct, l_default_values.prmry_offr_ind,
-              0, p_featrd_side_cd, l_default_values.chrty_amt, l_default_values.awrd_sls_prc_amt, l_tax_type_id, p_user_nm);
+              l_default_values.pg_ofs_nr, l_default_values.featrd_side_cd, l_default_values.chrty_amt, l_default_values.awrd_sls_prc_amt, l_tax_type_id, p_user_nm);
 
           -- new profile so increment profile counter for Offer
           UPDATE offr
@@ -3320,8 +3320,8 @@ frcst AS
          WHERE offr_id        = p_offr_id
            AND sls_cls_cd     = sku_rec.sls_cls_cd
            AND prfl_cd        = p_prfl_cd
-           AND pg_ofs_nr      = 0
-           AND featrd_side_cd = p_featrd_side_cd
+           AND pg_ofs_nr      = l_default_values.pg_ofs_nr
+           AND featrd_side_cd = l_default_values.featrd_side_cd
            AND sku_id         = sku_rec.sku_id;
       EXCEPTION
         WHEN no_data_found THEN
@@ -3330,7 +3330,7 @@ frcst AS
             ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, sku_id, mrkt_id,
               smplg_ind, hero_ind, micr_ncpsltn_ind, wsl_ind, reg_prc_amt, cost_amt, creat_user_id)
           VALUES
-            ( p_offr_id, sku_rec.sls_cls_cd, p_prfl_cd, 0, p_featrd_side_cd,
+            ( p_offr_id, sku_rec.sls_cls_cd, p_prfl_cd, l_default_values.pg_ofs_nr, l_default_values.featrd_side_cd,
               sku_rec.sku_id, p_mrkt_id, 'N', 'N', l_micr_ncpsltn_ind, l_wsl_ind, sku_rec.reg_prc_amt, l_default_values.wghtd_avg_cost_amt, p_user_nm);
 
       END;
@@ -3343,8 +3343,8 @@ frcst AS
          pg_ofs_nr, prfl_cd, crncy_cd, prmry_sku_offr_ind, sls_cls_cd, offr_prfl_prcpt_id,
          demo_avlbl_ind, dltd_ind, unit_splt_pct, sls_prc_amt, cost_typ, creat_user_id)
       VALUES
-        (l_offr_sku_line_id, p_offr_id, p_veh_id, p_featrd_side_cd, p_offr_perd_id, p_mrkt_id,
-         sku_rec.sku_id, 0, p_prfl_cd, l_crncy_cd, 'N', sku_rec.sls_cls_cd,
+        (l_offr_sku_line_id, p_offr_id, p_veh_id, l_default_values.featrd_side_cd, p_offr_perd_id, p_mrkt_id,
+         sku_rec.sku_id, l_default_values.pg_ofs_nr, p_prfl_cd, l_crncy_cd, 'N', sku_rec.sls_cls_cd,
          l_offr_prfl_prcpt_id, 'N', 'N', 0, l_sls_prc_amt, 'P', p_user_nm);
 
       -- also need to create DMS record(s) based on MVPV Sales Type derived during campaign validation
@@ -3356,7 +3356,7 @@ frcst AS
            veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt, creat_user_id)
         VALUES
           (p_mrkt_id, p_offr_perd_id, l_offr_sku_line_id, co_sls_typ_estimate, l_default_values.sls_srce_id, p_offr_perd_id,
-           p_veh_id, l_default_values.unit_qty, 0, 0, l_net_to_avon_fct, l_default_values.wghtd_avg_cost_amt, p_user_nm);
+           p_veh_id, l_default_values.unit_qty, l_comsn_pct, l_tax_pct, l_net_to_avon_fct, l_default_values.wghtd_avg_cost_amt, p_user_nm);
       END IF;
 
       IF g_sls_typ_id in (co_sls_typ_op_estimate) THEN
@@ -3367,7 +3367,7 @@ frcst AS
            veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt, creat_user_id)
         VALUES
           (p_mrkt_id, p_offr_perd_id, l_offr_sku_line_id, co_sls_typ_op_estimate, l_default_values.sls_srce_id, p_offr_perd_id,
-           p_veh_id, l_default_values.unit_qty, 0, 0, l_net_to_avon_fct, l_default_values.wghtd_avg_cost_amt, p_user_nm);
+           p_veh_id, l_default_values.unit_qty, l_comsn_pct, l_tax_pct, l_net_to_avon_fct, l_default_values.wghtd_avg_cost_amt, p_user_nm);
       END IF;
 
       -- new sku added so increment sku counters for OFFR, OPSCP and OPP
@@ -3422,11 +3422,34 @@ frcst AS
 
     l_found                  NUMBER := 0;
     l_offr_prfl_prcpt_id     offr_prfl_prc_point.offr_prfl_prcpt_id%TYPE;
+    l_tax_amt                offr_prfl_prc_point.tax_amt%TYPE;
+    l_comsn_amt              offr_prfl_prc_point.comsn_amt%TYPE;
+    l_net_to_avon_fct        offr_prfl_prc_point.net_to_avon_fct%TYPE;
     l_offr_sku_line_id       offr_sku_line.offr_sku_line_id%TYPE;
     l_micr_ncpsltn_ind       offr_sls_cls_sku.micr_ncpsltn_ind%TYPE := 'N';
     l_wsl_ind                offr_sls_cls_sku.wsl_ind%TYPE := 'N';
   BEGIN
     l_default_values := p_default_values;
+
+    l_location := 'price point check';
+    SELECT COUNT(*) INTO l_found
+      FROM offr_prfl_prc_point opp
+     WHERE opp.offr_id        = p_offr_id
+       AND opp.prfl_cd        = p_pp_rec.prfl_cd
+       AND opp.sls_cls_cd     = p_pp_rec.sls_cls_cd
+       AND opp.sls_prc_amt    = p_pp_rec.sls_prc_amt
+       AND opp.nr_for_qty     = l_default_values.nr_for_qty
+       AND opp.pg_ofs_nr      = l_default_values.pg_ofs_nr
+       AND opp.pymt_typ       = l_default_values.pymt_typ
+       AND opp.comsn_typ      = l_default_values.comsn_typ
+       AND opp.tax_type_id    = l_default_values.tax_type_id
+       AND opp.promtn_id      = l_default_values.promtn_id
+       AND opp.promtn_clm_id  = l_default_values.promtn_clm_id
+       AND opp.featrd_side_cd = l_default_values.featrd_side_cd;
+
+    IF l_found > 0 THEN
+      RAISE e_prcpnt_already_exists;
+    END IF;
 
     SELECT o.micr_ncpsltn_ind
       INTO l_micr_ncpsltn_ind
@@ -3440,8 +3463,8 @@ frcst AS
        WHERE offr_id        = p_offr_id
          AND sls_cls_cd     = p_pp_rec.sls_cls_cd
          AND prfl_cd        = p_pp_rec.prfl_cd
-         AND pg_ofs_nr      = 0
-         AND featrd_side_cd = p_pp_rec.featrd_side_cd;
+         AND pg_ofs_nr      = l_default_values.pg_ofs_nr
+         AND featrd_side_cd = l_default_values.featrd_side_cd;
     EXCEPTION
       WHEN no_data_found THEN
 
@@ -3450,10 +3473,29 @@ frcst AS
         ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, mrkt_id, veh_id,
           offr_perd_id, sku_cnt, pg_wght_pct, prod_endrsmt_id, pg_typ_id, creat_user_id)
       VALUES
-        ( p_offr_id, p_pp_rec.sls_cls_cd, p_pp_rec.prfl_cd, 0, p_pp_rec.featrd_side_cd, p_mrkt_id, p_veh_id,
-          p_offr_perd_id, 0, l_default_values.pg_wght_pct, l_default_values.prod_endrsmt_id,
+        ( p_offr_id, p_pp_rec.sls_cls_cd, p_pp_rec.prfl_cd, l_default_values.pg_ofs_nr, l_default_values.featrd_side_cd,
+          p_mrkt_id, p_veh_id, p_offr_perd_id, 0, l_default_values.pg_wght_pct, l_default_values.prod_endrsmt_id,
           l_default_values.pg_typ_id, p_user_nm);
     END;
+
+    BEGIN
+      l_tax_amt := get_tax_rate(p_mrkt_id, l_default_values.tax_type_id, p_offr_perd_id);
+    EXCEPTION
+      WHEN OTHERS THEN
+        l_tax_amt := 0;
+    END;
+
+    BEGIN
+      l_comsn_amt := get_comsn_pct(p_mrkt_id, p_offr_perd_id, l_default_values.comsn_typ);
+    EXCEPTION
+      WHEN OTHERS THEN
+        l_comsn_amt := 0;
+    END;
+
+    l_net_to_avon_fct := pa_maps_gta.get_gta_without_price_point(pa_maps_gta.pri_get_gta_method_id(p_mrkt_id,
+                                                                                                   p_offr_perd_id),
+                                                                 p_pp_rec.sls_prc_amt, l_default_values.chrty_amt,
+                                                                 l_default_values.awrd_sls_prc_amt, l_comsn_amt, l_tax_amt, 0);
 
     SELECT seq.NEXTVAL INTO l_offr_prfl_prcpt_id FROM dual;
 
@@ -3468,8 +3510,8 @@ frcst AS
       ( l_offr_prfl_prcpt_id, p_offr_id, l_default_values.promtn_clm_id, p_veh_id, l_default_values.promtn_id, p_mrkt_id, p_pp_rec.cnsmr_invstmt_bdgt_id,
         p_pp_rec.sls_cls_cd, p_pp_rec.prfl_cd, l_default_values.ssnl_evnt_id, p_offr_perd_id, p_pp_rec.crncy_cd, 0, l_default_values.nr_for_qty,
         l_default_values.unit_qty, p_pp_rec.est_sls_amt, l_default_values.wghtd_avg_cost_amt, l_default_values.sls_srce_id, p_pp_rec.sls_prc_amt,
-        p_pp_rec.tax_amt, p_pp_rec.pymt_typ, p_pp_rec.comsn_amt, p_pp_rec.comsn_typ, p_pp_rec.net_to_avon_fct, l_default_values.prmry_offr_ind,
-        0, p_pp_rec.featrd_side_cd, l_default_values.chrty_amt, l_default_values.awrd_sls_prc_amt, p_pp_rec.tax_type_id, p_user_nm);
+        l_tax_amt, l_default_values.pymt_typ, l_comsn_amt, l_default_values.comsn_typ, l_net_to_avon_fct, l_default_values.prmry_offr_ind, l_default_values.pg_ofs_nr,
+        l_default_values.featrd_side_cd, l_default_values.chrty_amt, l_default_values.awrd_sls_prc_amt, l_default_values.tax_type_id, p_user_nm);
 
     -- new profile so increment profile counter for Offer
     l_location := 'update offr prfl_cnt';
@@ -3491,8 +3533,8 @@ frcst AS
          WHERE offr_id        = p_offr_id
            AND sls_cls_cd     = sku_rec.sls_cls_cd
            AND prfl_cd        = p_pp_rec.prfl_cd
-           AND pg_ofs_nr      = 0
-           AND featrd_side_cd = p_pp_rec.featrd_side_cd
+           AND pg_ofs_nr      = l_default_values.featrd_side_cd
+           AND featrd_side_cd = l_default_values.featrd_side_cd
            AND sku_id         = sku_rec.sku_id;
       EXCEPTION
         WHEN no_data_found THEN
@@ -3501,8 +3543,9 @@ frcst AS
             ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, sku_id, mrkt_id,
               smplg_ind, hero_ind, micr_ncpsltn_ind, wsl_ind, reg_prc_amt, cost_amt, creat_user_id)
           VALUES
-            ( p_offr_id, sku_rec.sls_cls_cd, p_pp_rec.prfl_cd, 0, p_pp_rec.featrd_side_cd,
-              sku_rec.sku_id, p_mrkt_id, 'N', 'N', l_micr_ncpsltn_ind, l_wsl_ind, sku_rec.sls_prc_amt, l_default_values.wghtd_avg_cost_amt, p_user_nm);
+            ( p_offr_id, sku_rec.sls_cls_cd, p_pp_rec.prfl_cd, 0, l_default_values.featrd_side_cd,
+              sku_rec.sku_id, p_mrkt_id, 'N', 'N', l_micr_ncpsltn_ind, l_wsl_ind, sku_rec.sls_prc_amt,
+              l_default_values.wghtd_avg_cost_amt, p_user_nm);
       END;
 
       SELECT seq.NEXTVAL INTO l_offr_sku_line_id FROM dual;
@@ -3513,8 +3556,8 @@ frcst AS
          pg_ofs_nr, prfl_cd, crncy_cd, prmry_sku_offr_ind, sls_cls_cd, offr_prfl_prcpt_id,
          demo_avlbl_ind, dltd_ind, unit_splt_pct, sls_prc_amt, cost_typ, creat_user_id)
       VALUES
-        (l_offr_sku_line_id, p_offr_id, p_veh_id, p_pp_rec.featrd_side_cd, p_offr_perd_id, p_mrkt_id,
-         sku_rec.sku_id, 0, p_pp_rec.prfl_cd, sku_rec.crncy_cd, 'N', sku_rec.sls_cls_cd,
+        (l_offr_sku_line_id, p_offr_id, p_veh_id, l_default_values.featrd_side_cd, p_offr_perd_id, p_mrkt_id,
+         sku_rec.sku_id, l_default_values.pg_ofs_nr, p_pp_rec.prfl_cd, sku_rec.crncy_cd, 'N', sku_rec.sls_cls_cd,
          l_offr_prfl_prcpt_id, 'N', 'N', 0, sku_rec.sls_prc_amt, 'P', p_user_nm);
 
       -- also need to create DMS record(s) based on MVPV Sales Type derived during campaign validation
@@ -3527,7 +3570,7 @@ frcst AS
            veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt, creat_user_id)
         VALUES
           (p_mrkt_id, p_offr_perd_id, l_offr_sku_line_id, co_sls_typ_estimate, l_default_values.sls_srce_id, p_offr_perd_id,
-           p_veh_id, l_default_values.unit_qty, 0, 0, p_pp_rec.net_to_avon_fct, l_default_values.wghtd_avg_cost_amt, p_user_nm);
+           p_veh_id, l_default_values.unit_qty, l_comsn_amt, l_tax_amt, l_net_to_avon_fct, l_default_values.wghtd_avg_cost_amt, p_user_nm);
       END IF;
 
       IF g_sls_typ_id in (co_sls_typ_op_estimate) THEN
@@ -3539,7 +3582,7 @@ frcst AS
            veh_id, unit_qty, comsn_amt, tax_amt, net_to_avon_fct, cost_amt, creat_user_id)
         VALUES
           (p_mrkt_id, p_offr_perd_id, l_offr_sku_line_id, co_sls_typ_op_estimate, l_default_values.sls_srce_id, p_offr_perd_id,
-           p_veh_id, l_default_values.unit_qty, 0, 0, p_pp_rec.net_to_avon_fct, l_default_values.wghtd_avg_cost_amt, p_user_nm);
+           p_veh_id, l_default_values.unit_qty, l_comsn_amt, l_tax_amt, l_net_to_avon_fct, l_default_values.wghtd_avg_cost_amt, p_user_nm);
       END IF;
 
       -- new sku added so increment sku counters for OFFR, OPSCP and OPP
@@ -3567,6 +3610,9 @@ frcst AS
     p_status := co_exec_status_success;
 
   EXCEPTION
+    WHEN e_prcpnt_already_exists THEN
+      p_status := co_exec_status_prcpnt_ex;
+
     WHEN OTHERS THEN
       app_plsql_log.info(l_procedure_name || ': Error adding pricepoint at ' || l_location);
       app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
@@ -3758,6 +3804,16 @@ frcst AS
                   l_default_values,
                   p_user_nm,
                   p_status);
+
+      IF p_status = co_exec_status_prcpnt_ex THEN
+        ROLLBACK;
+        app_plsql_log.info(l_procedure_name || ': Pricepoint with default values already exists. offr_prfl_prcpt_id: ' || p_prfl_cd_list(i));
+
+        l_location := 'getting offer table';
+        p_edit_offr_table := get_offr_table(p_offr_id);
+
+        RETURN;
+      END IF;
     END LOOP;
 
     COMMIT;
@@ -3845,8 +3901,15 @@ frcst AS
                      l_default_values,
                      p_user_nm,
                      p_status);
+
       IF p_status = co_exec_status_prcpnt_ex THEN
+        ROLLBACK;
         app_plsql_log.info(l_procedure_name || ': Pricepoint with default values already exists. offr_prfl_prcpt_id: ' || prpct_rec.offr_prfl_prcpt_id);
+
+        l_location := 'getting offer table';
+        p_edit_offr_table := get_offr_table(p_offr_id);
+
+        RETURN;
       END IF;
     END LOOP;
 
