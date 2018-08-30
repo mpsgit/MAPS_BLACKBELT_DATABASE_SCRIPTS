@@ -3809,9 +3809,6 @@ frcst AS
         ROLLBACK;
         app_plsql_log.info(l_procedure_name || ': Pricepoint with default values already exists. offr_prfl_prcpt_id: ' || p_prfl_cd_list(i));
 
-        l_location := 'getting offer table';
-        p_edit_offr_table := get_offr_table(p_offr_id);
-
         RETURN;
       END IF;
     END LOOP;
@@ -3905,9 +3902,6 @@ frcst AS
       IF p_status = co_exec_status_prcpnt_ex THEN
         ROLLBACK;
         app_plsql_log.info(l_procedure_name || ': Pricepoint with default values already exists. offr_prfl_prcpt_id: ' || prpct_rec.offr_prfl_prcpt_id);
-
-        l_location := 'getting offer table';
-        p_edit_offr_table := get_offr_table(p_offr_id);
 
         RETURN;
       END IF;
@@ -4640,16 +4634,20 @@ frcst AS
                                 p_trgt_pg_ofs_nr      IN NUMBER,
                                 p_trgt_ftrd_side_cd   IN VARCHAR2,
                                 p_user_nm             IN VARCHAR2,
+                                p_clstr_id            IN NUMBER,
                                 p_move_ind            IN VARCHAR2,
-                                p_status             OUT VARCHAR2) IS
+                                p_status             OUT NUMBER,
+                                p_edit_offr_table    OUT obj_edit_offr_table) IS
 
     l_procedure_name         VARCHAR2(50) := 'COPY_PRCPTS_TO_OFFR';
     l_location               VARCHAR2(1000);
     
     l_lock_user_nm           VARCHAR2(35);
     l_lock_status            NUMBER;
+    l_src_offr_id            offr.offr_id%TYPE;
 
-    e_lock_failed            EXCEPTION;
+    e_src_lock_failed        EXCEPTION;
+    e_trgt_lock_failed       EXCEPTION;
   BEGIN
     g_run_id  := app_plsql_output.generate_new_run_id;
     g_user_id := RTRIM(sys_context('USERENV', 'OS_USER'), 35);
@@ -4658,13 +4656,24 @@ frcst AS
     app_plsql_log.set_context(g_user_id, g_package_name, g_run_id);
     app_plsql_log.info(l_procedure_name || ' start');
 
-/*
-    l_location := 'lock check';
-    lock_offr(p_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
+    l_location := 'Getting source offr_id';
+    SELECT offr_id
+      INTO l_src_offr_id
+      FROM offr_prfl_prc_point p
+     WHERE p.offr_prfl_prcpt_id = p_offr_prfl_prcpt_ids(1);
+
+    l_location := 'Source offr lock check';
+    lock_offr(l_src_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
     IF l_lock_status NOT IN (1, 2) THEN
-      RAISE e_lock_failed;
+      RAISE e_src_lock_failed;
     END IF;
-*/
+
+    l_location := 'Target offr lock check';
+    lock_offr(p_trgt_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
+    IF l_lock_status NOT IN (1, 2) THEN
+      RAISE e_trgt_lock_failed;
+    END IF;
+
     l_location := 'Copying pricepoints';
     FOR r_pp_rec IN (
       SELECT p.*
@@ -4695,16 +4704,26 @@ frcst AS
       END;
     END LOOP;
 
+    l_location := 'getting offer table';
+    p_edit_offr_table := get_offr_table(p_trgt_offr_id);
+
     app_plsql_log.info(l_procedure_name || ' stop');
 
   EXCEPTION
-    WHEN e_lock_failed THEN
+    WHEN e_src_lock_failed THEN
       p_status := co_exec_status_failed;
-      app_plsql_log.info(l_procedure_name || ': Lock failed, user: ' || p_user_nm || ', Status: ' || l_lock_status);
+      app_plsql_log.info(l_procedure_name || ': Source offer lock failed, user: ' || p_user_nm || ', Status: ' || l_lock_status);
+
+      ROLLBACK;
+
+    WHEN e_trgt_lock_failed THEN
+      p_status := co_exec_status_failed;
+      app_plsql_log.info(l_procedure_name || ': Target offer lock failed, user: ' || p_user_nm || ', Status: ' || l_lock_status);
 
       ROLLBACK;
 
     WHEN OTHERS THEN
+      p_status := co_exec_status_failed;
       app_plsql_log.info(l_procedure_name || ': Error copying pricepoints at ' || l_location);
       app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
 

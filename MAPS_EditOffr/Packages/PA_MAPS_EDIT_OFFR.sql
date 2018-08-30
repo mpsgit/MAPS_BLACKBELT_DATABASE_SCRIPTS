@@ -92,8 +92,10 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                                 p_trgt_pg_ofs_nr      IN NUMBER,
                                 p_trgt_ftrd_side_cd   IN VARCHAR2,
                                 p_user_nm             IN VARCHAR2,
+                                p_clstr_id            IN NUMBER,
                                 p_move_ind            IN VARCHAR2,
-                                p_status             OUT VARCHAR2);
+                                p_status             OUT NUMBER,
+                                p_edit_offr_table    OUT obj_edit_offr_table);
 
 END pa_maps_edit_offr;
 /
