@@ -84,6 +84,11 @@ CREATE OR REPLACE TYPE obj_edit_offr_hist_line FORCE AS OBJECT
   offr_cls_id            NUMBER,
   spcl_ordr_ind          CHAR(1),
   offr_ofs_nr            NUMBER,
-  pp_ofs_nr              NUMBER
+  pp_ofs_nr              NUMBER,
+  impct_catgry_id        NUMBER,
+  hero_ind               CHAR(1),
+  smplg_ind              CHAR(1),
+  mltpl_ind              CHAR(1),
+  cmltv_ind              CHAR(1)
 );  
 /

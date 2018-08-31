@@ -313,6 +313,11 @@ BEGIN
   AND NVL(hist.spcl_ordr_ind          ,-1)  = NVL(cur.spcl_ordr_ind              ,-1)
   AND NVL(hist.offr_ofs_nr            ,-1)  = NVL(cur.offr_ofs_nr                ,-1)
   AND NVL(hist.pp_ofs_nr              ,-1)  = NVL(cur.pp_ofs_nr                  ,-1)
+  AND NVL(hist.impct_catgry_id        ,-1)  = NVL(cur.impct_catgry_id            ,-1)
+  AND NVL(hist.hero_ind               ,-1)  = NVL(cur.hero_ind                   ,-1)
+  AND NVL(hist.smplg_ind              ,-1)  = NVL(cur.smplg_ind                  ,-1)
+  AND NVL(hist.mltpl_ind              ,-1)  = NVL(cur.mltpl_ind                  ,-1)
+  AND NVL(hist.cmltv_ind              ,-1)  = NVL(cur.cmltv_ind                  ,-1)
    )
    WHEN NOT MATCHED THEN INSERT
      VALUES (
@@ -401,6 +406,11 @@ BEGIN
             ,cur.spcl_ordr_ind
             ,cur.offr_ofs_nr
             ,cur.pp_ofs_nr
+            ,cur.impct_catgry_id
+            ,cur.hero_ind
+            ,cur.smplg_ind
+            ,cur.mltpl_ind
+            ,cur.cmltv_ind
      );
      l_rowcount:=SQL%ROWCOUNT;
      app_plsql_log.info('Edit offr history merge rows inserted: ' || to_char(l_rowcount));
@@ -516,6 +526,11 @@ END IF;
   AND NVL(hist.spcl_ordr_ind          ,-1)  = NVL(cur.spcl_ordr_ind              ,-1)
   AND NVL(hist.offr_ofs_nr            ,-1)  = NVL(cur.offr_ofs_nr                ,-1)
   AND NVL(hist.pp_ofs_nr              ,-1)  = NVL(cur.pp_ofs_nr                  ,-1)
+  AND NVL(hist.impct_catgry_id        ,-1)  = NVL(cur.impct_catgry_id            ,-1)
+  AND NVL(hist.hero_ind               ,-1)  = NVL(cur.hero_ind                   ,-1)
+  AND NVL(hist.smplg_ind              ,-1)  = NVL(cur.smplg_ind                  ,-1)
+  AND NVL(hist.mltpl_ind              ,-1)  = NVL(cur.mltpl_ind                  ,-1)
+  AND NVL(hist.cmltv_ind              ,-1)  = NVL(cur.cmltv_ind                  ,-1)
    )
    WHEN NOT MATCHED THEN INSERT
      VALUES (
@@ -604,6 +619,11 @@ END IF;
             ,cur.spcl_ordr_ind
             ,cur.offr_ofs_nr
             ,cur.pp_ofs_nr
+            ,cur.impct_catgry_id
+            ,cur.hero_ind
+            ,cur.smplg_ind
+            ,cur.mltpl_ind
+            ,cur.cmltv_ind
      );
      l_rowcount:=SQL%ROWCOUNT;
      app_plsql_log.info('Edit offr history merge rows inserted: ' || to_char(l_rowcount));
@@ -709,7 +729,12 @@ BEGIN
                   ', offr_cls_id: ' ||                   rec.offr_cls_id ||
                   ', spcl_ordr_ind: ' ||                 rec.spcl_ordr_ind ||
                   ', offr_ofs_nr: ' ||                   rec.offr_ofs_nr ||
-                  ', pp_ofs_nr: ' ||                     rec.pp_ofs_nr
+                  ', pp_ofs_nr: ' ||                     rec.pp_ofs_nr ||
+                  ', impct_catgry_id: ' ||               rec.impct_catgry_id ||
+                  ', hero_ind: ' ||                      rec.hero_ind ||
+                  ', smplg_ind: ' ||                     rec.smplg_ind ||
+                  ', mltpl_ind: ' ||                     rec.mltpl_ind ||
+                  ', cmltv_ind: ' ||                     rec.cmltv_ind
                   , 1, 4000));
   END LOOP;
 END log_params;
@@ -1419,7 +1444,12 @@ BEGIN
                               offr_cls_id,
                               spcl_ordr_ind,
                               offr_ofs_nr,
-                              pp_ofs_nr)
+                              pp_ofs_nr,
+                              impct_catgry_id,
+                              hero_ind,
+                              smplg_ind,
+                              mltpl_ind,
+                              cmltv_ind)
     BULK COLLECT INTO l_get_offr_table
     FROM TABLE(pa_maps_edit_offr.get_offr(l_offr_table));
 
@@ -1639,6 +1669,11 @@ FOR offer IN c_offr LOOP
   ,offer.spcl_ordr_ind
   ,offer.offr_ofs_nr
   ,offer.pp_ofs_nr
+  ,offer.impct_catgry_id
+  ,offer.hero_ind
+  ,offer.smplg_ind
+  ,offer.mltpl_ind
+  ,offer.cmltv_ind
   ));
 END LOOP;
 
@@ -1926,7 +1961,12 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                 rec.offr_cls_id,
                 rec.spcl_ordr_ind,
                 rec.offr_ofs_nr,
-                rec.pp_ofs_nr
+                rec.pp_ofs_nr,
+                rec.impct_catgry_id,
+                rec.hero_ind,
+                rec.smplg_ind,
+                rec.mltpl_ind,
+                rec.cmltv_ind
                 );
 
                 IF l_row_count > row_limit THEN EXIT; END IF;
@@ -2014,7 +2054,12 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                 rec.offr_cls_id,
                 rec.spcl_ordr_ind,
                 rec.offr_ofs_nr,
-                rec.pp_ofs_nr
+                rec.pp_ofs_nr,
+                rec.impct_catgry_id,
+                rec.hero_ind,
+                rec.smplg_ind,
+                rec.mltpl_ind,
+                rec.cmltv_ind
                 ));
 
                 l_row_count := l_row_count+1;
@@ -2651,6 +2696,11 @@ frcst AS
       ,NVL(o.spcl_ordr_ind, 'N') AS spcl_ordr_ind
       ,o.sctn_page_ofs_nr AS offr_ofs_nr
       ,offr_prfl_prc_point.pg_ofs_nr AS pp_ofs_nr
+      ,offr_prfl_prc_point.impct_catgry_id
+      ,offr_sls_cls_sku.hero_ind
+      ,offr_sls_cls_sku.smplg_ind
+      ,offr_sls_cls_sku.mltpl_ind
+      ,offr_sls_cls_sku.cmltv_ind
 --           
   FROM (SELECT *
            FROM offr
@@ -2939,7 +2989,12 @@ frcst AS
                                   rec.offr_cls_id,
                                   rec.spcl_ordr_ind,
                                   rec.offr_ofs_nr,
-                                  rec.pp_ofs_nr
+                                  rec.pp_ofs_nr,
+                                  rec.impct_catgry_id,
+                                  rec.hero_ind,
+                                  rec.smplg_ind,
+                                  rec.mltpl_ind,
+                                  rec.cmltv_ind
                                   ));
     END LOOP;
     app_plsql_log.info(l_module_name || ' stop');
@@ -3081,7 +3136,7 @@ frcst AS
                 unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
                 pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
-                offr_ofs_nr, pp_ofs_nr)
+                offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind)
       BULK COLLECT
       INTO l_edit_offr_table
       FROM TABLE(get_offr(l_offr_table));
@@ -3105,7 +3160,7 @@ frcst AS
                 unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
                 pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
-                offr_ofs_nr, pp_ofs_nr)
+                offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind)
       BULK COLLECT
       INTO l_edit_offr_table
       FROM TABLE(get_offr(p_get_offr_table));
@@ -4006,7 +4061,7 @@ frcst AS
                 unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
                 pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
-                offr_ofs_nr, pp_ofs_nr)
+                offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind)
       BULK COLLECT INTO p_edit_offr_table
       FROM TABLE(get_offr(l_offr_table));
 
@@ -4136,7 +4191,7 @@ frcst AS
                               osl_rec.sls_typ, osl_rec.pc_sp_py, osl_rec.pc_rp, osl_rec.pc_sp, osl_rec.pc_vsp, osl_rec.pc_hit,
                               osl_rec.pg_wght, osl_rec.sprd_nr, osl_rec.offr_prfl_prcpt_id, osl_rec.has_unit_qty, osl_rec.offr_typ,
                               osl_rec.forcasted_units, osl_rec.forcasted_date, osl_rec.offr_cls_id, osl_rec.spcl_ordr_ind,
-                              osl_rec.offr_ofs_nr, osl_rec.pp_ofs_nr);
+                              osl_rec.offr_ofs_nr, osl_rec.pp_ofs_nr, osl_rec.impct_catgry_id, osl_rec.hero_ind, osl_rec.smplg_ind, osl_rec.mltpl_ind, osl_rec.cmltv_ind);
     END LOOP;
   END add_to_edit_offr_table;
 
