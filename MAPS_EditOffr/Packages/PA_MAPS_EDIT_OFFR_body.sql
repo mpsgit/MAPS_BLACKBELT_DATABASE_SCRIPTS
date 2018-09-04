@@ -1783,7 +1783,7 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                AND offr_prfl_prc_point.offr_prfl_prcpt_id(+) = osl.offr_prfl_prcpt_id
                AND dstrbtd_mrkt_sls.offr_sku_line_id(+) = osl.offr_sku_line_id
                --FILTERS
-           AND dstrbtd_mrkt_sls.sls_typ_id(+) = p_filter.p_sls_typ
+           AND dstrbtd_mrkt_sls.sls_typ_id (+) = p_filter.p_sls_typ
            AND CASE
                  WHEN p_filter.p_offr_id IS NULL THEN
                   1
@@ -1867,7 +1867,7 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
       ) LOOP --get valid offer id-s loop
 
               l_get_offr_table.extend();
-              l_get_offr_table(l_get_offr_table.last) := obj_get_offr_line(offrs.p_offr_id,offrs.p_sls_typ);
+              l_get_offr_table(l_get_offr_table.last) := obj_get_offr_line(offrs.p_offr_id, offrs.p_sls_typ);
    END LOOP; --get valid offer id-s loop
 
   FOR rec IN (SELECT o.* FROM TABLE(get_offr(l_get_offr_table)) o,
@@ -2117,7 +2117,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
     app_plsql_log.info(l_module_name || ' start');
 
-    SELECT MAX(p_sls_typ) INTO l_sls_typ FROM TABLE(p_get_offr);
+    SELECT MAX(NVL(p_sls_typ, -1)) INTO l_sls_typ FROM TABLE(p_get_offr);
     SELECT MAX(o.mrkt_id)
       INTO l_mrkt_id
       FROM TABLE(p_get_offr) poi
@@ -2139,7 +2139,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
       FROM TABLE(p_get_offr) poi
       JOIN offr o
         ON o.offr_id = poi.p_offr_id;
-    SELECT MIN(p_sls_typ) INTO l_min_sls_typ FROM TABLE(p_get_offr);
+    SELECT MIN(NVL(p_sls_typ, -1)) INTO l_min_sls_typ FROM TABLE(p_get_offr);
     SELECT MIN(o.mrkt_id)
       INTO l_min_mrkt_id
       FROM TABLE(p_get_offr) poi
@@ -2160,8 +2160,13 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
       RAISE_APPLICATION_ERROR(-20100, 'market, campaign, version and sales type must be the same to use this function');
     END IF;
 
+    IF l_sls_typ = -1 THEN
+      l_sls_typ := NULL;      
+    END IF;
+
     dbms_output.put_line(l_sls_typ || l_mrkt_id || l_ver_id ||
                          l_offr_perd_id);
+
     BEGIN
       --    dbms_output.put_line('prc enabled check'||' mrkt_id:'||l_mrkt_id);
       SELECT mrkt_config_item_val_txt
@@ -2194,7 +2199,7 @@ FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
     FOR rec IN (
 
 
-WITH latest_version_and_sls_typ AS
+      WITH latest_version_and_sls_typ AS
                    (SELECT asl.ver_id
                           ,asl.sls_typ_id
                           ,asl.offr_perd_id
@@ -2351,7 +2356,8 @@ frcst AS
   )
 --
   SELECT o.offr_id  AS intrnl_offr_id
-      ,l_sls_typ AS sls_typ
+      --,l_sls_typ AS sls_typ
+      ,osl_current.sales_type AS sls_typ
        --latest version calculations
       ,osl_latest.net_to_avon_fct AS lv_nta
       ,osl_latest.offr_prfl_sls_prc_amt AS lv_sp
@@ -2621,7 +2627,17 @@ frcst AS
                ,l_ver_id AS ver_id
                ,sku_reg_prc.reg_prc_amt
                ,sku.sku_nm
-               ,l_sls_typ AS sales_type
+               --,l_sls_typ AS sales_type
+               ,CASE WHEN l_sls_typ IS NULL THEN
+                   (SELECT MAX(mps_sls_typ_id)
+                      FROM mrkt_veh_perd_ver mvpv
+                     WHERE mvpv.mrkt_id = l_mrkt_id
+                       AND mvpv.offr_perd_id = l_offr_perd_id
+                       AND mvpv.ver_id = l_ver_id
+                       AND mvpv.veh_id = o.veh_id)
+                  ELSE
+                    l_sls_typ
+                  END AS sales_type
                ,(SELECT MAX(sls_typ_id)
                    FROM dstrbtd_mrkt_sls
                   WHERE mrkt_id = l_mrkt_id
@@ -2631,7 +2647,17 @@ frcst AS
                     AND ver_id = l_ver_id) max_sales_type
                ,(SELECT nvl(SUM(unit_qty), 0) AS sum_unit_qty
                    FROM dstrbtd_mrkt_sls
-                  WHERE sls_typ_id = l_sls_typ
+                  WHERE sls_typ_id = --l_sls_typ
+                                     (CASE WHEN l_sls_typ IS NULL THEN
+                                       (SELECT MAX(mps_sls_typ_id)
+                                          FROM mrkt_veh_perd_ver mvpv
+                                         WHERE mvpv.mrkt_id = l_mrkt_id
+                                           AND mvpv.offr_perd_id = l_offr_perd_id
+                                           AND mvpv.ver_id = l_ver_id
+                                           AND mvpv.veh_id = o.veh_id)
+                                      ELSE
+                                        l_sls_typ
+                                      END)
                     AND mrkt_id = l_mrkt_id
                     AND offr_perd_id = l_offr_perd_id
                     AND sls_perd_id = l_offr_perd_id
@@ -4495,6 +4521,30 @@ frcst AS
 
     END;
 
+    l_location := 'Pricepoint check';
+    BEGIN
+      SELECT 1 INTO l_found
+        FROM offr_prfl_prc_point opp
+       WHERE opp.offr_id        = p_trgt_offr_id
+         AND opp.prfl_cd        = p_pp_rec.prfl_cd
+         AND opp.sls_cls_cd     = p_pp_rec.sls_cls_cd
+         AND opp.sls_prc_amt    = p_pp_rec.sls_prc_amt
+         AND opp.nr_for_qty     = p_pp_rec.nr_for_qty
+         AND opp.pg_ofs_nr      = p_pp_rec.pg_ofs_nr
+         AND opp.pymt_typ       = p_pp_rec.pymt_typ
+         AND opp.comsn_typ      = p_pp_rec.comsn_typ
+         AND opp.tax_type_id    = p_pp_rec.tax_type_id
+         AND opp.promtn_id      = p_pp_rec.promtn_id
+         AND opp.promtn_clm_id  = p_pp_rec.promtn_clm_id
+         AND opp.featrd_side_cd = p_pp_rec.featrd_side_cd;
+
+         RAISE e_prcpnt_already_exists;
+
+    EXCEPTION
+      WHEN no_data_found THEN
+        NULL;
+    END;
+
     SELECT seq.NEXTVAL INTO l_offr_prfl_prcpt_id FROM dual;
 
     l_location := 'create price point';
@@ -4605,6 +4655,10 @@ frcst AS
     p_status := co_exec_status_success;
 
   EXCEPTION
+    WHEN e_prcpnt_already_exists THEN
+      app_plsql_log.info(l_procedure_name || ': Pricepoint already exists, offr_prfl_prcpt_id: ' || p_pp_rec.offr_prfl_prcpt_id);
+      RAISE;
+      
     WHEN OTHERS THEN
       app_plsql_log.info(l_procedure_name || ': Error adding offer at ' || l_location);
       app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
@@ -4680,6 +4734,8 @@ frcst AS
         COMMIT;
 
       EXCEPTION
+        WHEN e_prcpnt_already_exists THEN
+          RAISE;
         WHEN OTHERS THEN
           app_plsql_log.info(l_procedure_name || ': Error copying pricepoints at ' || l_location || ', offr_prfl_prcpt_id: ' || r_pp_rec.offr_prfl_prcpt_id);
           app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
@@ -4704,6 +4760,10 @@ frcst AS
       p_status := co_exec_status_failed;
       app_plsql_log.info(l_procedure_name || ': Target offer lock failed, user: ' || p_user_nm || ', Status: ' || l_lock_status);
 
+      ROLLBACK;
+
+    WHEN e_prcpnt_already_exists THEN
+      p_status := co_exec_status_prcpnt_ex;
       ROLLBACK;
 
     WHEN OTHERS THEN
