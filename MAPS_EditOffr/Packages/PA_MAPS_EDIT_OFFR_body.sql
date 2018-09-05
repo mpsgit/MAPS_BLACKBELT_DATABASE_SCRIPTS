@@ -4816,8 +4816,6 @@ frcst AS
           del_prcpt_with_deps(r_pp_rec.offr_prfl_prcpt_id);
         END IF;
 
-        COMMIT;
-
       EXCEPTION
         WHEN e_prcpnt_already_exists THEN
           RAISE;
@@ -4825,9 +4823,11 @@ frcst AS
           app_plsql_log.info(l_procedure_name || ': Error copying pricepoints at ' || l_location || ', offr_prfl_prcpt_id: ' || r_pp_rec.offr_prfl_prcpt_id);
           app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
 
-          ROLLBACK;
+          RAISE;
       END;
     END LOOP;
+
+    COMMIT;
 
     l_location := 'getting offer table';
     p_edit_offr_table := get_offr_table(p_trgt_offr_id);
