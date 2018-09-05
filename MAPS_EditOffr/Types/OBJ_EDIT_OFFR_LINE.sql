@@ -89,6 +89,17 @@ CREATE OR REPLACE TYPE obj_edit_offr_line FORCE AS OBJECT
   hero_ind               CHAR(1),
   smplg_ind              CHAR(1),
   mltpl_ind              CHAR(1),
-  cmltv_ind              CHAR(1)
+  cmltv_ind              CHAR(1),
+  use_instrctns_ind      CHAR(1),
+  pg_typ_id              NUMBER,
+  featrd_prfl_ind        CHAR(1),
+  fxd_pg_wght_ind        CHAR(1),
+  prod_endrsmt_id        NUMBER,
+  frc_mtch_mthd_id       NUMBER,
+  wghtd_avg_cost_amt     NUMBER,
+  incntv_id              NUMBER,
+  intrdctn_perd_id       NUMBER,
+  on_stus_perd_id        NUMBER,
+  dspostn_perd_id        NUMBER
 );
 /

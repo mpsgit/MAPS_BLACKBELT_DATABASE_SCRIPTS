@@ -1449,7 +1449,19 @@ BEGIN
                               hero_ind,
                               smplg_ind,
                               mltpl_ind,
-                              cmltv_ind)
+                              cmltv_ind,
+                              use_instrctns_ind,
+                              pg_typ_id,
+                              featrd_prfl_ind,
+                              fxd_pg_wght_ind,
+                              prod_endrsmt_id,
+                              frc_mtch_mthd_id,
+                              wghtd_avg_cost_amt,
+                              incntv_id,
+                              intrdctn_perd_id,
+                              on_stus_perd_id,
+                              dspostn_perd_id
+    )
     BULK COLLECT INTO l_get_offr_table
     FROM TABLE(pa_maps_edit_offr.get_offr(l_offr_table));
 
@@ -1966,7 +1978,18 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                 rec.hero_ind,
                 rec.smplg_ind,
                 rec.mltpl_ind,
-                rec.cmltv_ind
+                rec.cmltv_ind,
+                rec.use_instrctns_ind,
+                rec.pg_typ_id,
+                rec.featrd_prfl_ind,
+                rec.fxd_pg_wght_ind,
+                rec.prod_endrsmt_id,
+                rec.frc_mtch_mthd_id,
+                rec.wghtd_avg_cost_amt,
+                rec.incntv_id,
+                rec.intrdctn_perd_id,
+                rec.on_stus_perd_id,
+                rec.dspostn_perd_id
                 );
 
                 IF l_row_count > row_limit THEN EXIT; END IF;
@@ -2059,7 +2082,18 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                 rec.hero_ind,
                 rec.smplg_ind,
                 rec.mltpl_ind,
-                rec.cmltv_ind
+                rec.cmltv_ind,
+                rec.use_instrctns_ind,
+                rec.pg_typ_id,
+                rec.featrd_prfl_ind,
+                rec.fxd_pg_wght_ind,
+                rec.prod_endrsmt_id,
+                rec.frc_mtch_mthd_id,
+                rec.wghtd_avg_cost_amt,
+                rec.incntv_id,
+                rec.intrdctn_perd_id,
+                rec.on_stus_perd_id,
+                rec.dspostn_perd_id
                 ));
 
                 l_row_count := l_row_count+1;
@@ -2598,6 +2632,32 @@ frcst AS
       ,offr_sls_cls_sku.smplg_ind
       ,offr_sls_cls_sku.mltpl_ind
       ,offr_sls_cls_sku.cmltv_ind
+      ,offr_prfl_sls_cls_plcmt.use_instrctns_ind
+      ,offr_prfl_sls_cls_plcmt.pg_typ_id
+      ,offr_prfl_sls_cls_plcmt.featrd_prfl_ind
+      ,offr_prfl_sls_cls_plcmt.fxd_pg_wght_ind
+      ,offr_prfl_sls_cls_plcmt.prod_endrsmt_id
+      ,offr_prfl_prc_point.frc_mtch_mthd_id
+/*      ,DECODE(o.ver_id,
+              0, CASE
+                WHEN SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id) = 0
+                    THEN AVG (sco.wghtd_avg_cost_amt) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
+                ELSE   SUM (sco.wghtd_avg_cost_amt * dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
+                     / SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
+              END,
+              CASE
+                WHEN SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id) = 0
+                   THEN AVG (dms.cost_amt) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
+                ELSE   SUM (  dms.cost_amt
+                            * dms.unit_qty
+                           ) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
+                     / SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
+              END
+            )*/ ,0 AS wghtd_avg_cost_amt
+      ,offr_sls_cls_sku.incntv_id
+      ,mrkt_sku.intrdctn_perd_id
+      ,mrkt_sku.on_stus_perd_id
+      ,mrkt_sku.dspostn_perd_id
 --           
   FROM (SELECT *
            FROM offr
@@ -2796,6 +2856,7 @@ frcst AS
                                      'LPY' AS lpy,
                                      'SP' AS sp)) mps) mpsp
      ) pricing
+      ,mrkt_sku
  WHERE
 --mrkt_tmp_fsc and master
      osl_current.sku_id = mrkt_tmp_fsc_master.sku_id(+)
@@ -2857,7 +2918,11 @@ frcst AS
 --frcst
  AND frcst.offr_sku_line_id (+) = osl_current.offr_sku_line_id
  AND frcst.offr_prfl_prcpt_id (+) = osl_current.offr_prfl_prcpt_id
+ --pricing
  AND pricing.sku_id(+) = osl_current.sku_id
+ --mrkt_sku
+ AND mrkt_sku.mrkt_id(+) = l_mrkt_id
+ AND mrkt_sku.sku_id(+) = osl_current.sku_id
    )
      LOOP
       PIPE ROW(obj_edit_offr_line(rec.status,
@@ -2949,7 +3014,18 @@ frcst AS
                                   rec.hero_ind,
                                   rec.smplg_ind,
                                   rec.mltpl_ind,
-                                  rec.cmltv_ind
+                                  rec.cmltv_ind,
+                                  rec.use_instrctns_ind,
+                                  rec.pg_typ_id,
+                                  rec.featrd_prfl_ind,
+                                  rec.fxd_pg_wght_ind,
+                                  rec.prod_endrsmt_id,
+                                  rec.frc_mtch_mthd_id,
+                                  rec.wghtd_avg_cost_amt,
+                                  rec.incntv_id,
+                                  rec.intrdctn_perd_id,
+                                  rec.on_stus_perd_id,
+                                  rec.dspostn_perd_id
                                   ));
     END LOOP;
     app_plsql_log.info(l_module_name || ' stop');
@@ -3091,7 +3167,9 @@ frcst AS
                 unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
                 pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
-                offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind)
+                offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
+                fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id
+)
       BULK COLLECT
       INTO l_edit_offr_table
       FROM TABLE(get_offr(l_offr_table));
@@ -3115,7 +3193,8 @@ frcst AS
                 unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
                 pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
-                offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind)
+                offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
+                fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id)
       BULK COLLECT
       INTO l_edit_offr_table
       FROM TABLE(get_offr(p_get_offr_table));
@@ -4016,7 +4095,8 @@ frcst AS
                 unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
                 pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
-                offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind)
+                offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
+                fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id)
       BULK COLLECT INTO p_edit_offr_table
       FROM TABLE(get_offr(l_offr_table));
 
@@ -4146,7 +4226,10 @@ frcst AS
                               osl_rec.sls_typ, osl_rec.pc_sp_py, osl_rec.pc_rp, osl_rec.pc_sp, osl_rec.pc_vsp, osl_rec.pc_hit,
                               osl_rec.pg_wght, osl_rec.sprd_nr, osl_rec.offr_prfl_prcpt_id, osl_rec.has_unit_qty, osl_rec.offr_typ,
                               osl_rec.forcasted_units, osl_rec.forcasted_date, osl_rec.offr_cls_id, osl_rec.spcl_ordr_ind,
-                              osl_rec.offr_ofs_nr, osl_rec.pp_ofs_nr, osl_rec.impct_catgry_id, osl_rec.hero_ind, osl_rec.smplg_ind, osl_rec.mltpl_ind, osl_rec.cmltv_ind);
+                              osl_rec.offr_ofs_nr, osl_rec.pp_ofs_nr, osl_rec.impct_catgry_id, osl_rec.hero_ind, osl_rec.smplg_ind, osl_rec.mltpl_ind,
+                              osl_rec.cmltv_ind,  osl_rec.use_instrctns_ind,  osl_rec.pg_typ_id,  osl_rec.featrd_prfl_ind,  osl_rec.fxd_pg_wght_ind,
+                              osl_rec.prod_endrsmt_id, osl_rec.frc_mtch_mthd_id, osl_rec.wghtd_avg_cost_amt, osl_rec.incntv_id,
+                              osl_rec.intrdctn_perd_id, osl_rec.on_stus_perd_id, osl_rec.dspostn_perd_id);
     END LOOP;
   END add_to_edit_offr_table;
 
@@ -4701,9 +4784,11 @@ frcst AS
      WHERE p.offr_prfl_prcpt_id = p_offr_prfl_prcpt_ids(1);
 
     l_location := 'Source offr lock check';
-    lock_offr(l_src_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
-    IF l_lock_status NOT IN (1, 2) THEN
-      RAISE e_src_lock_failed;
+    IF p_move_ind = 'Y' THEN
+      lock_offr(l_src_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
+      IF l_lock_status NOT IN (1, 2) THEN
+        RAISE e_src_lock_failed;
+      END IF;
     END IF;
 
     l_location := 'Target offr lock check';
