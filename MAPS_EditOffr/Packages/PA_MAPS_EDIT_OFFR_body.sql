@@ -1513,7 +1513,7 @@ BEGIN
           FROM TABLE(p_data_line)
          WHERE intrnl_offr_id = offr_sls.offr_id
            AND sls_typ = offr_sls.sls_typ;
-
+        
         IF l_status = 1 THEN -- Check if user has right to modify without locking
           l_result := 1;
           BEGIN
@@ -2391,7 +2391,12 @@ frcst AS
 --
   SELECT o.offr_id  AS intrnl_offr_id
       --,l_sls_typ AS sls_typ
-      ,osl_current.sales_type AS sls_typ
+      ,NVL(osl_current.sales_type, (SELECT MAX(mps_sls_typ_id)
+                                          FROM mrkt_veh_perd_ver mvpv
+                                         WHERE mvpv.mrkt_id = l_mrkt_id
+                                           AND mvpv.offr_perd_id = l_offr_perd_id
+                                           AND mvpv.ver_id = l_ver_id
+                                           AND mvpv.veh_id = o.veh_id)) AS sls_typ
        --latest version calculations
       ,osl_latest.net_to_avon_fct AS lv_nta
       ,osl_latest.offr_prfl_sls_prc_amt AS lv_sp
@@ -2638,22 +2643,7 @@ frcst AS
       ,offr_prfl_sls_cls_plcmt.fxd_pg_wght_ind
       ,offr_prfl_sls_cls_plcmt.prod_endrsmt_id
       ,offr_prfl_prc_point.frc_mtch_mthd_id
-/*      ,DECODE(o.ver_id,
-              0, CASE
-                WHEN SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id) = 0
-                    THEN AVG (sco.wghtd_avg_cost_amt) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
-                ELSE   SUM (sco.wghtd_avg_cost_amt * dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
-                     / SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
-              END,
-              CASE
-                WHEN SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id) = 0
-                   THEN AVG (dms.cost_amt) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
-                ELSE   SUM (  dms.cost_amt
-                            * dms.unit_qty
-                           ) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
-                     / SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
-              END
-            )*/ ,0 AS wghtd_avg_cost_amt
+      ,0 AS wghtd_avg_cost_amt
       ,offr_sls_cls_sku.incntv_id
       ,mrkt_sku.intrdctn_perd_id
       ,mrkt_sku.on_stus_perd_id
@@ -2723,6 +2713,38 @@ frcst AS
                     AND sls_perd_id = l_offr_perd_id
                     AND offr_sku_line_id = offr_sku_line.offr_sku_line_id
                   GROUP BY offr_sku_line_id, sls_typ_id) sum_unit_qty
+               /*,(SELECT DECODE(o.ver_id,
+                               0,
+                               CASE
+                                  WHEN SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id) = 0
+                                      THEN AVG (actual_sku.wghtd_avg_cost_amt) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
+                                  ELSE   SUM (actual_sku.wghtd_avg_cost_amt * dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
+                                       / SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
+                               END,
+                               CASE
+                                  WHEN SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id) = 0
+                                     THEN AVG (dms.cost_amt) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
+                                  ELSE   SUM (  dms.cost_amt
+                                              * dms.unit_qty
+                                             ) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
+                                       / SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
+                               END)
+                   FROM dstrbtd_mrkt_sls dms
+                  WHERE dms.sls_typ_id =
+                                     (CASE WHEN l_sls_typ IS NULL THEN
+                                       (SELECT MAX(mps_sls_typ_id)
+                                          FROM mrkt_veh_perd_ver mvpv
+                                         WHERE mvpv.mrkt_id = l_mrkt_id
+                                           AND mvpv.offr_perd_id = l_offr_perd_id
+                                           AND mvpv.ver_id = l_ver_id
+                                           AND mvpv.veh_id = o.veh_id)
+                                      ELSE
+                                        l_sls_typ
+                                      END)
+                    AND dms.mrkt_id = l_mrkt_id
+                    AND dms.offr_perd_id = l_offr_perd_id
+                    AND dms.sls_perd_id = l_offr_perd_id
+                    AND dms.offr_sku_line_id = offr_sku_line.offr_sku_line_id) AS wghtd_avg_cost_amt*/
            FROM offr_sku_line
                ,sku_cost    actual_sku
                ,sku_cost    planned_sku
