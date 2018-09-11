@@ -1433,6 +1433,7 @@ BEGIN
                               pc_vsp,
                               pc_hit,
                               pg_wght,
+                              pp_pg_wght,
                               sprd_nr,
                               offr_prfl_prcpt_id,
                               has_unit_qty,
@@ -1962,6 +1963,7 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                 rec.pc_vsp,
                 rec.pc_hit,
                 rec.pg_wght,
+                rec.pp_pg_wght,
                 rec.sprd_nr,
                 rec.offr_prfl_prcpt_id,
                 rec.has_unit_qty,
@@ -2066,6 +2068,7 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                 rec.pc_vsp,
                 rec.pc_hit,
                 rec.pg_wght,
+                rec.pp_pg_wght,
                 rec.sprd_nr,
                 rec.offr_prfl_prcpt_id,
                 rec.has_unit_qty,
@@ -2578,6 +2581,7 @@ frcst AS
       ,pricing.pc_vsp
       ,pricing.pc_hit
       ,o.pg_wght_pct AS pg_wght
+      ,offr_prfl_sls_cls_plcmt.pg_wght_pct AS pp_pg_wght
       ,CASE
          WHEN offr_prfl_prc_point.featrd_side_cd = 1 THEN
           (SELECT MAX(decode(o.mrkt_veh_perd_sctn_id,
@@ -2641,12 +2645,28 @@ frcst AS
       ,offr_prfl_sls_cls_plcmt.fxd_pg_wght_ind
       ,offr_prfl_sls_cls_plcmt.prod_endrsmt_id
       ,offr_prfl_prc_point.frc_mtch_mthd_id
-      ,0 AS wghtd_avg_cost_amt
+      ,ROUND(DECODE(
+         o.ver_id,
+         0,
+         CASE
+            WHEN SUM(osl_current.sum_unit_qty) OVER (PARTITION BY offr_prfl_prc_point.offr_prfl_prcpt_id, osl_current.sales_type) = 0
+               THEN AVG (osl_current.sku_cost_amt) OVER (PARTITION BY offr_prfl_prc_point.offr_prfl_prcpt_id, osl_current.sum_unit_qty)
+            ELSE   SUM (osl_current.sku_cost_amt * osl_current.sum_unit_qty) OVER (PARTITION BY offr_prfl_prc_point.offr_prfl_prcpt_id, osl_current.sales_type)
+                 / SUM (osl_current.sum_unit_qty) OVER (PARTITION BY offr_prfl_prc_point.offr_prfl_prcpt_id, osl_current.sales_type)
+         END,
+         CASE
+            WHEN SUM (osl_current.sum_unit_qty) OVER (PARTITION BY offr_prfl_prc_point.offr_prfl_prcpt_id, osl_current.sales_type) = 0
+               THEN AVG (osl_current.sum_cost_amt) OVER (PARTITION BY offr_prfl_prc_point.offr_prfl_prcpt_id, osl_current.sales_type)
+            ELSE   SUM (  osl_current.sum_cost_amt
+                        * osl_current.sum_unit_qty
+                       ) OVER (PARTITION BY offr_prfl_prc_point.offr_prfl_prcpt_id, osl_current.sales_type)
+                 / SUM (osl_current.sum_unit_qty) over (PARTITION BY offr_prfl_prc_point.offr_prfl_prcpt_id, osl_current.sales_type)
+         END), 3) AS wghtd_avg_cost_amt
       ,offr_sls_cls_sku.incntv_id
       ,mrkt_sku.intrdctn_perd_id
       ,mrkt_sku.on_stus_perd_id
       ,mrkt_sku.dspostn_perd_id
---           
+--
   FROM (SELECT *
            FROM offr
           WHERE offr_id IN (SELECT p_offr_id FROM table(p_get_offr)) AND
@@ -2711,24 +2731,9 @@ frcst AS
                     AND sls_perd_id = l_offr_perd_id
                     AND offr_sku_line_id = offr_sku_line.offr_sku_line_id
                   GROUP BY offr_sku_line_id, sls_typ_id) sum_unit_qty
-               /*,(SELECT DECODE(o.ver_id,
-                               0,
-                               CASE
-                                  WHEN SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id) = 0
-                                      THEN AVG (actual_sku.wghtd_avg_cost_amt) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
-                                  ELSE   SUM (actual_sku.wghtd_avg_cost_amt * dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
-                                       / SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
-                               END,
-                               CASE
-                                  WHEN SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id) = 0
-                                     THEN AVG (dms.cost_amt) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
-                                  ELSE   SUM (  dms.cost_amt
-                                              * dms.unit_qty
-                                             ) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
-                                       / SUM (dms.unit_qty) over (partition by oppp.offr_prfl_prcpt_id,dms.sls_typ_id)
-                               END)
-                   FROM dstrbtd_mrkt_sls dms
-                  WHERE dms.sls_typ_id =
+               ,(SELECT nvl(SUM(cost_amt), 0) AS sum_cost_amt
+                   FROM dstrbtd_mrkt_sls
+                  WHERE sls_typ_id = --l_sls_typ
                                      (CASE WHEN l_sls_typ IS NULL THEN
                                        (SELECT MAX(mps_sls_typ_id)
                                           FROM mrkt_veh_perd_ver mvpv
@@ -2739,10 +2744,11 @@ frcst AS
                                       ELSE
                                         l_sls_typ
                                       END)
-                    AND dms.mrkt_id = l_mrkt_id
-                    AND dms.offr_perd_id = l_offr_perd_id
-                    AND dms.sls_perd_id = l_offr_perd_id
-                    AND dms.offr_sku_line_id = offr_sku_line.offr_sku_line_id) AS wghtd_avg_cost_amt*/
+                    AND mrkt_id = l_mrkt_id
+                    AND offr_perd_id = l_offr_perd_id
+                    AND sls_perd_id = l_offr_perd_id
+                    AND offr_sku_line_id = offr_sku_line.offr_sku_line_id
+                  GROUP BY offr_sku_line_id, sls_typ_id) AS sum_cost_amt
            FROM offr_sku_line
                ,sku_cost    actual_sku
                ,sku_cost    planned_sku
@@ -3020,6 +3026,7 @@ frcst AS
                                   rec.pc_vsp,
                                   rec.pc_hit,
                                   rec.pg_wght,
+                                  rec.pp_pg_wght,
                                   rec.sprd_nr,
                                   rec.offr_prfl_prcpt_id,
                                   rec.has_unit_qty,
@@ -3186,7 +3193,7 @@ frcst AS
                 lv_discount, lv_units, lv_total_cost, lv_gross_sales, lv_dp_cash, lv_dp_percent, ver_id, sls_prc_amt, reg_prc_amt, line_nr,
                 unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
-                pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
+                pg_wght, pp_pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
                 fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id
 )
@@ -3212,7 +3219,7 @@ frcst AS
                 lv_discount, lv_units, lv_total_cost, lv_gross_sales, lv_dp_cash, lv_dp_percent, ver_id, sls_prc_amt, reg_prc_amt, line_nr,
                 unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
-                pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
+                pg_wght, pp_pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
                 fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id)
       BULK COLLECT
@@ -4115,7 +4122,7 @@ frcst AS
                 lv_discount, lv_units, lv_total_cost, lv_gross_sales, lv_dp_cash, lv_dp_percent, ver_id, sls_prc_amt, reg_prc_amt, line_nr,
                 unit_qty, dltd_ind, created_ts, created_user_id, last_updt_ts, last_updt_user_id, intrnl_offr_id, mrkt_veh_perd_sctn_id,
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
-                pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
+                pg_wght, pp_pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
                 fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id)
       BULK COLLECT INTO p_edit_offr_table
@@ -4245,7 +4252,7 @@ frcst AS
                               osl_rec.last_updt_ts, osl_rec.last_updt_user_id, osl_rec.intrnl_offr_id, osl_rec.mrkt_veh_perd_sctn_id,
                               osl_rec.prfl_nm, osl_rec.sku_nm, osl_rec.comsn_typ_desc_txt, osl_rec.tax_typ_desc_txt, osl_rec.offr_sku_set_nm,
                               osl_rec.sls_typ, osl_rec.pc_sp_py, osl_rec.pc_rp, osl_rec.pc_sp, osl_rec.pc_vsp, osl_rec.pc_hit,
-                              osl_rec.pg_wght, osl_rec.sprd_nr, osl_rec.offr_prfl_prcpt_id, osl_rec.has_unit_qty, osl_rec.offr_typ,
+                              osl_rec.pg_wght, osl_rec.pp_pg_wght, osl_rec.sprd_nr, osl_rec.offr_prfl_prcpt_id, osl_rec.has_unit_qty, osl_rec.offr_typ,
                               osl_rec.forcasted_units, osl_rec.forcasted_date, osl_rec.offr_cls_id, osl_rec.spcl_ordr_ind,
                               osl_rec.offr_ofs_nr, osl_rec.pp_ofs_nr, osl_rec.impct_catgry_id, osl_rec.hero_ind, osl_rec.smplg_ind, osl_rec.mltpl_ind,
                               osl_rec.cmltv_ind,  osl_rec.use_instrctns_ind,  osl_rec.pg_typ_id,  osl_rec.featrd_prfl_ind,  osl_rec.fxd_pg_wght_ind,
@@ -4613,7 +4620,7 @@ frcst AS
            AND p.prfl_cd        = p_pp_rec.prfl_cd
            AND p.pg_ofs_nr      = p_pp_rec.pg_ofs_nr
            AND p.featrd_side_cd = p_pp_rec.featrd_side_cd;
-          
+
       l_location := 'create sales class placement';
       INSERT INTO offr_prfl_sls_cls_plcmt
         ( offr_id, sls_cls_cd, prfl_cd, pg_ofs_nr, featrd_side_cd, mrkt_id, veh_id,

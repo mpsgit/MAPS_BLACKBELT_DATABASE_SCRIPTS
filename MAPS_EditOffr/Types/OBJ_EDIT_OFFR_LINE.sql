@@ -75,6 +75,7 @@ CREATE OR REPLACE TYPE obj_edit_offr_line FORCE AS OBJECT
   pc_vsp                 NUMBER,
   pc_hit                 NUMBER,
   pg_wght                NUMBER(8,3),
+  pp_pg_wght             NUMBER(8,3),
   sprd_nr                NUMBER,
   offr_prfl_prcpt_id     NUMBER,
   has_unit_qty           NUMBER,
