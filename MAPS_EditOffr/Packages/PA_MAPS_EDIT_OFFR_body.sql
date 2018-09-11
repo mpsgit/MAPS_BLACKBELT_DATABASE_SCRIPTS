@@ -51,8 +51,6 @@ AS
   co_spread_sku_level      CONSTANT NUMBER := 1;
   co_spread_concept_level  CONSTANT NUMBER := 2;
 
-  co_promtn_reg_price      CONSTANT promtn.promtn_desc_txt%TYPE := 'REGULAR PRICE';
-
   g_sls_typ_id             NUMBER := 1;
 
   g_run_id                 NUMBER := 0;
@@ -3345,12 +3343,7 @@ frcst AS
             NULL;
         END;
 
-        IF l_promtn_desc_txt = co_promtn_reg_price 
-            AND l_promtn_clm_desc_txt = co_promtn_reg_price THEN
-          l_sls_prc_amt := sku_rec.reg_prc_amt;
-        ELSE
-          l_sls_prc_amt := l_default_values.sls_prc_amt;
-        END IF;
+        l_sls_prc_amt := sku_rec.reg_prc_amt;
         
         l_location := 'price point check';
         SELECT offr_prfl_prcpt_id, crncy_cd, net_to_avon_fct
@@ -3620,7 +3613,7 @@ frcst AS
     VALUES
       ( l_offr_prfl_prcpt_id, p_offr_id, l_default_values.promtn_clm_id, p_veh_id, l_default_values.promtn_id, p_mrkt_id, p_pp_rec.cnsmr_invstmt_bdgt_id,
         p_pp_rec.sls_cls_cd, p_pp_rec.prfl_cd, l_default_values.ssnl_evnt_id, p_offr_perd_id, p_pp_rec.crncy_cd, 0, l_default_values.nr_for_qty,
-        l_default_values.unit_qty, p_pp_rec.est_sls_amt, l_default_values.wghtd_avg_cost_amt, l_default_values.sls_srce_id, p_pp_rec.sls_prc_amt,
+        l_default_values.unit_qty, p_pp_rec.est_sls_amt, l_default_values.wghtd_avg_cost_amt, l_default_values.sls_srce_id, 0,
         l_tax_amt, l_default_values.pymt_typ, l_comsn_amt, l_default_values.comsn_typ, l_net_to_avon_fct, l_default_values.prmry_offr_ind, l_default_values.pg_ofs_nr,
         l_default_values.featrd_side_cd, l_default_values.chrty_amt, l_default_values.awrd_sls_prc_amt, l_default_values.tax_type_id, p_user_nm);
 
@@ -3632,9 +3625,14 @@ frcst AS
     WHERE  offr_id  = p_offr_id;
 
     FOR sku_rec IN (
-      SELECT *
-        FROM offr_sku_line osl
-       WHERE osl.offr_prfl_prcpt_id = p_pp_rec.offr_prfl_prcpt_id
+      SELECT osl.*,
+             srp.reg_prc_amt
+        FROM offr_sku_line osl,
+             sku_reg_prc srp
+       WHERE srp.sku_id = osl.sku_id
+         AND srp.mrkt_id = p_mrkt_id
+         AND srp.offr_perd_id = p_offr_perd_id
+         AND osl.offr_prfl_prcpt_id = p_pp_rec.offr_prfl_prcpt_id
     )
     LOOP
       BEGIN
@@ -3655,7 +3653,7 @@ frcst AS
               smplg_ind, hero_ind, micr_ncpsltn_ind, wsl_ind, reg_prc_amt, cost_amt, creat_user_id)
           VALUES
             ( p_offr_id, sku_rec.sls_cls_cd, p_pp_rec.prfl_cd, 0, l_default_values.featrd_side_cd,
-              sku_rec.sku_id, p_mrkt_id, 'N', 'N', l_micr_ncpsltn_ind, l_wsl_ind, sku_rec.sls_prc_amt,
+              sku_rec.sku_id, p_mrkt_id, 'N', 'N', l_micr_ncpsltn_ind, l_wsl_ind, sku_rec.reg_prc_amt,
               l_default_values.wghtd_avg_cost_amt, p_user_nm);
       END;
 
@@ -3669,7 +3667,7 @@ frcst AS
       VALUES
         (l_offr_sku_line_id, p_offr_id, p_veh_id, l_default_values.featrd_side_cd, p_offr_perd_id, p_mrkt_id,
          sku_rec.sku_id, l_default_values.pg_ofs_nr, p_pp_rec.prfl_cd, sku_rec.crncy_cd, 'N', sku_rec.sls_cls_cd,
-         l_offr_prfl_prcpt_id, 'N', 'N', 0, sku_rec.sls_prc_amt, 'P', p_user_nm);
+         l_offr_prfl_prcpt_id, 'N', 'N', 0, sku_rec.reg_prc_amt, 'P', p_user_nm);
 
       -- also need to create DMS record(s) based on MVPV Sales Type derived during campaign validation
       IF g_sls_typ_id in (co_sls_typ_estimate, co_sls_typ_op_estimate) THEN
@@ -3712,8 +3710,9 @@ frcst AS
          AND featrd_side_cd = p_pp_rec.featrd_side_cd;
 
       UPDATE offr_prfl_prc_point
-         SET sku_cnt = nvl(sku_cnt, 0) + 1,
-             last_updt_user_id = p_user_nm
+         SET sku_cnt            = nvl(sku_cnt, 0) + 1,
+             sls_prc_amt        = sku_rec.reg_prc_amt,
+             last_updt_user_id  = p_user_nm
        WHERE offr_prfl_prcpt_id = l_offr_prfl_prcpt_id;
 
     END LOOP;
