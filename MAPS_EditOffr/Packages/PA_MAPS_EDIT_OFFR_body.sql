@@ -2669,8 +2669,8 @@ frcst AS
 --
   FROM (SELECT *
            FROM offr
-          WHERE offr_id IN (SELECT p_offr_id FROM table(p_get_offr)) AND
-          offr.mrkt_id = l_mrkt_id
+          WHERE offr_id IN (SELECT p_offr_id FROM table(p_get_offr))
+       AND offr.mrkt_id = l_mrkt_id
        AND offr.offr_perd_id = l_offr_perd_id
        AND offr.ver_id = l_ver_id) o
       , (SELECT offr_sku_line.offr_sku_line_id
@@ -4641,13 +4641,13 @@ frcst AS
          AND opp.sls_cls_cd     = p_pp_rec.sls_cls_cd
          AND opp.sls_prc_amt    = p_pp_rec.sls_prc_amt
          AND opp.nr_for_qty     = p_pp_rec.nr_for_qty
-         AND opp.pg_ofs_nr      = p_pp_rec.pg_ofs_nr
+         AND opp.pg_ofs_nr      = p_trgt_pg_ofs_nr
          AND opp.pymt_typ       = p_pp_rec.pymt_typ
          AND opp.comsn_typ      = p_pp_rec.comsn_typ
          AND opp.tax_type_id    = p_pp_rec.tax_type_id
          AND opp.promtn_id      = p_pp_rec.promtn_id
          AND opp.promtn_clm_id  = p_pp_rec.promtn_clm_id
-         AND opp.featrd_side_cd = p_pp_rec.featrd_side_cd;
+         AND opp.featrd_side_cd = p_trgt_ftrd_side_cd;
 
          RAISE e_prcpnt_already_exists;
 
