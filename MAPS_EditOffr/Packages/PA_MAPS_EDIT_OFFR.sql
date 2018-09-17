@@ -17,11 +17,21 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
 
   SUBTYPE single_char IS CHAR(1);
 
-  FUNCTION get_edit_offr_table(p_filters IN obj_edit_offr_filter_table)
+  FUNCTION get_edit_offr_table(p_filters IN obj_edit_offr_filter_table,
+                               p_pagination IN CHAR DEFAULT 'N')
     RETURN obj_edit_offr_table
     PIPELINED;
 
-  FUNCTION get_offr(p_get_offr IN obj_get_offr_table)
+  FUNCTION get_offr_eo(p_get_offr   IN obj_get_offr_table)
+    RETURN obj_edit_offr_table
+    PIPELINED;
+
+  FUNCTION get_offr_pg(p_get_offr   IN obj_get_offr_table)
+    RETURN obj_edit_offr_table
+    PIPELINED;
+
+  FUNCTION get_offr(p_get_offr   IN obj_get_offr_table,
+                    p_pagination IN CHAR DEFAULT 'N')
     RETURN obj_edit_offr_table
     PIPELINED;
 
@@ -30,6 +40,7 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
     PIPELINED;
 
   PROCEDURE save_edit_offr_table(p_data_line IN obj_edit_offr_table,
+                                 p_pagination IN CHAR DEFAULT 'N',
                                  p_result    OUT obj_edit_offr_save_table);
 
   PROCEDURE set_history(p_get_offr IN obj_get_offr_table,
@@ -59,6 +70,7 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                       p_prfl_cd_list           IN number_array,
                       p_user_nm                IN VARCHAR2,
                       p_clstr_id               IN NUMBER,
+                      p_pagination             IN CHAR DEFAULT 'N',
                       p_status                OUT NUMBER,
                       p_edit_offr_table       OUT obj_edit_offr_table);
                       
@@ -66,6 +78,7 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                                  p_prfl_cd_list     IN number_array,
                                  p_user_nm          IN VARCHAR2,
                                  p_clstr_id         IN NUMBER,
+                                 p_pagination       IN CHAR DEFAULT 'N',
                                  p_status          OUT NUMBER,
                                  p_edit_offr_table OUT obj_edit_offr_table);
 
@@ -73,11 +86,13 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                                   p_offr_prfl_prcpt_id_list  IN number_array,
                                   p_user_nm                  IN VARCHAR2,
                                   p_clstr_id                 IN NUMBER,
+                                  p_pagination               IN CHAR DEFAULT 'N',
                                   p_status                  OUT NUMBER,
                                   p_edit_offr_table         OUT obj_edit_offr_table);
 
   PROCEDURE copy_offer(p_copy_offr_table   IN obj_copy_offr_table,
                        p_user_nm           IN VARCHAR2,
+                       p_pagination        IN CHAR DEFAULT 'N',
                        p_status           OUT NUMBER,
                        p_edit_offr_table  OUT obj_edit_offr_table);
 
@@ -85,6 +100,7 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                           p_edit_offr_table OUT obj_edit_offr_table);
 
   PROCEDURE delete_prcpoints(p_osl_records      IN obj_edit_offr_table,
+                             p_pagination       IN CHAR DEFAULT 'N',
                              p_edit_offr_table OUT obj_edit_offr_table);
 
   PROCEDURE copy_prcpts_to_offr(p_offr_prfl_prcpt_ids IN number_array,
