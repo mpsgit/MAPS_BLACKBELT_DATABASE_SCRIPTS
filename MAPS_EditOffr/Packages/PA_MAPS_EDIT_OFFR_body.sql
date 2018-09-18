@@ -250,6 +250,7 @@ BEGIN
   AND nvl(hist.prod_typ_id            ,-1)  = nvl(cur.prod_typ_id                ,-1)
   AND nvl(hist.gender_id              ,-1)  = nvl(cur.gender_id                  ,-1)
   AND nvl(hist.sls_cls_cd             ,-1)  = nvl(cur.sls_cls_cd                 ,-1)
+--  AND nvl(hist.pp_sls_cls_cd          ,-1)  = nvl(cur.pp_sls_cls_cd              ,-1)
   AND nvl(hist.offr_desc_txt          ,-1)  = nvl(cur.offr_desc_txt              ,-1)
   AND nvl(hist.offr_notes_txt         ,-1)  = nvl(cur.offr_notes_txt             ,-1)
   AND nvl(hist.offr_lyot_cmnts_txt    ,-1)  = nvl(cur.offr_lyot_cmnts_txt        ,-1)
@@ -3427,6 +3428,7 @@ frcst AS
       ,prfl.prod_typ_id AS prod_typ_id
       ,prfl.gendr_id AS gender_id
       ,osl_current.sls_cls_cd AS sls_cls_cd
+--      ,offr_prfl_prc_point.sls_cls_cd AS pp_sls_cls_cd
       ,o.offr_desc_txt AS offr_desc_txt
       ,o.offr_ntes_txt AS offr_notes_txt
       ,substr(TRIM(o.offr_lyot_cmnts_txt), 0, 3000) AS offr_lyot_cmnts_txt
@@ -5635,9 +5637,9 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
                       p_prfl_cd_list           IN number_array,
                       p_user_nm                IN VARCHAR2,
                       p_clstr_id               IN NUMBER,
-                      p_pagination             IN CHAR DEFAULT 'N',
                       p_status                OUT NUMBER,
-                      p_edit_offr_table       OUT obj_edit_offr_table) IS
+                      p_edit_offr_table       OUT obj_edit_offr_table,
+                      p_pagination             IN CHAR DEFAULT 'N') IS
 
     l_procedure_name         VARCHAR2(50) := 'ADD_OFFER';
     l_location               VARCHAR2(1000);
@@ -5731,7 +5733,7 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
     COMMIT;
 
     l_location := 'getting offer table';
-    p_edit_offr_table := get_offr_table(l_offr_id, p_pagination);
+    p_edit_offr_table := get_offr_table(p_offr_id => l_offr_id, p_pagination => p_pagination);
 
     app_plsql_log.info(l_procedure_name || ' end');
 
@@ -5748,9 +5750,9 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
                                  p_prfl_cd_list     IN number_array,
                                  p_user_nm          IN VARCHAR2,
                                  p_clstr_id         IN NUMBER,
-                                 p_pagination       IN CHAR DEFAULT 'N',
                                  p_status          OUT NUMBER,
-                                 p_edit_offr_table OUT obj_edit_offr_table) IS
+                                 p_edit_offr_table OUT obj_edit_offr_table,
+                                 p_pagination       IN CHAR DEFAULT 'N') IS
 
     l_procedure_name         VARCHAR2(50) := 'ADD_CONCEPTS_TO_OFFR';
     l_location               VARCHAR2(1000);
@@ -5820,7 +5822,7 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
     COMMIT;
 
     l_location := 'getting offer table';
-    p_edit_offr_table := get_offr_table(p_offr_id, p_pagination);
+    p_edit_offr_table := get_offr_table(p_offr_id => p_offr_id, p_pagination => p_pagination);
 
     app_plsql_log.info(l_procedure_name || ' stop');
 
@@ -5843,9 +5845,9 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
                                   p_offr_prfl_prcpt_id_list  IN number_array,
                                   p_user_nm                  IN VARCHAR2,
                                   p_clstr_id                 IN NUMBER,
-                                  p_pagination               IN CHAR DEFAULT 'N',
                                   p_status                  OUT NUMBER,
-                                  p_edit_offr_table         OUT obj_edit_offr_table) IS
+                                  p_edit_offr_table         OUT obj_edit_offr_table,
+                                  p_pagination               IN CHAR DEFAULT 'N') IS
 
     l_procedure_name         VARCHAR2(50) := 'ADD_PRCPOINTS_TO_OFFR';
     l_location               VARCHAR2(1000);
@@ -5915,7 +5917,7 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
     COMMIT;
 
     l_location := 'getting offer table';
-    p_edit_offr_table := get_offr_table(p_offr_id, p_pagination);
+    p_edit_offr_table := get_offr_table(p_offr_id => p_offr_id, p_pagination => p_pagination);
 
     app_plsql_log.info(l_procedure_name || ' stop');
 
@@ -5936,9 +5938,9 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
 
   PROCEDURE copy_offer(p_copy_offr_table   IN obj_copy_offr_table,
                        p_user_nm           IN VARCHAR2,
-                       p_pagination        IN CHAR DEFAULT 'N',
                        p_status           OUT NUMBER,
-                       p_edit_offr_table  OUT obj_edit_offr_table) IS
+                       p_edit_offr_table  OUT obj_edit_offr_table,
+                       p_pagination        IN CHAR DEFAULT 'N') IS
 
     l_procedure_name         VARCHAR2(50) := 'COPY_OFFER';
     l_location               VARCHAR2(1000);
@@ -6328,8 +6330,8 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
   END del_prcpt_with_deps;
 
   PROCEDURE delete_prcpoints(p_osl_records      IN obj_edit_offr_table,
-                             p_pagination       IN CHAR DEFAULT 'N',
-                             p_edit_offr_table OUT obj_edit_offr_table) IS
+                             p_edit_offr_table OUT obj_edit_offr_table,
+                             p_pagination       IN CHAR DEFAULT 'N') IS
 
     l_procedure_name         VARCHAR2(50) := 'DELETE_PRCPOINTS';
     l_location               VARCHAR2(1000);
@@ -6748,7 +6750,7 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
     COMMIT;
 
     l_location := 'getting offer table';
-    p_edit_offr_table := get_offr_table(p_trgt_offr_id, 'Y');
+    p_edit_offr_table := get_offr_table(p_offr_id => p_trgt_offr_id, p_pagination => 'Y');
 
     app_plsql_log.info(l_procedure_name || ' stop');
 

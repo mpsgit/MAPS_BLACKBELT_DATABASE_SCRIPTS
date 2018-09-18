@@ -70,38 +70,38 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                       p_prfl_cd_list           IN number_array,
                       p_user_nm                IN VARCHAR2,
                       p_clstr_id               IN NUMBER,
-                      p_pagination             IN CHAR DEFAULT 'N',
                       p_status                OUT NUMBER,
-                      p_edit_offr_table       OUT obj_edit_offr_table);
+                      p_edit_offr_table       OUT obj_edit_offr_table,
+                      p_pagination             IN CHAR DEFAULT 'N');
                       
   PROCEDURE add_concepts_to_offr(p_offr_id          IN NUMBER,
                                  p_prfl_cd_list     IN number_array,
                                  p_user_nm          IN VARCHAR2,
                                  p_clstr_id         IN NUMBER,
-                                 p_pagination       IN CHAR DEFAULT 'N',
                                  p_status          OUT NUMBER,
-                                 p_edit_offr_table OUT obj_edit_offr_table);
+                                 p_edit_offr_table OUT obj_edit_offr_table,
+                                 p_pagination       IN CHAR DEFAULT 'N');
 
   PROCEDURE add_prcpoints_to_offr(p_offr_id                  IN NUMBER,
                                   p_offr_prfl_prcpt_id_list  IN number_array,
                                   p_user_nm                  IN VARCHAR2,
                                   p_clstr_id                 IN NUMBER,
-                                  p_pagination               IN CHAR DEFAULT 'N',
                                   p_status                  OUT NUMBER,
-                                  p_edit_offr_table         OUT obj_edit_offr_table);
+                                  p_edit_offr_table         OUT obj_edit_offr_table,
+                                  p_pagination               IN CHAR DEFAULT 'N');
 
   PROCEDURE copy_offer(p_copy_offr_table   IN obj_copy_offr_table,
                        p_user_nm           IN VARCHAR2,
-                       p_pagination        IN CHAR DEFAULT 'N',
                        p_status           OUT NUMBER,
-                       p_edit_offr_table  OUT obj_edit_offr_table);
+                       p_edit_offr_table  OUT obj_edit_offr_table,
+                       p_pagination        IN CHAR DEFAULT 'N');
 
   PROCEDURE delete_offers(p_osl_records      IN obj_edit_offr_table,
                           p_edit_offr_table OUT obj_edit_offr_table);
 
   PROCEDURE delete_prcpoints(p_osl_records      IN obj_edit_offr_table,
-                             p_pagination       IN CHAR DEFAULT 'N',
-                             p_edit_offr_table OUT obj_edit_offr_table);
+                             p_edit_offr_table OUT obj_edit_offr_table,
+                             p_pagination       IN CHAR DEFAULT 'N');
 
   PROCEDURE copy_prcpts_to_offr(p_offr_prfl_prcpt_ids IN number_array,
                                 p_trgt_offr_id        IN NUMBER,
