@@ -410,6 +410,7 @@ BEGIN
             ,cur.smplg_ind
             ,cur.mltpl_ind
             ,cur.cmltv_ind
+--            ,cur.pp_sls_cls_cd
      );
      l_rowcount:=SQL%ROWCOUNT;
      app_plsql_log.info('Edit offr history merge rows inserted: ' || to_char(l_rowcount));
@@ -464,6 +465,7 @@ END IF;
   AND nvl(hist.prod_typ_id            ,-1)  = nvl(cur.prod_typ_id                ,-1)
   AND nvl(hist.gender_id              ,-1)  = nvl(cur.gender_id                  ,-1)
   AND nvl(hist.sls_cls_cd             ,-1)  = nvl(cur.sls_cls_cd                 ,-1)
+--  AND nvl(hist.pp_sls_cls_cd          ,-1)  = nvl(cur.pp_sls_cls_cd              ,-1)
   AND nvl(hist.offr_desc_txt          ,-1)  = nvl(cur.offr_desc_txt              ,-1)
   AND nvl(hist.offr_notes_txt         ,-1)  = nvl(cur.offr_notes_txt             ,-1)
   AND nvl(hist.offr_lyot_cmnts_txt    ,-1)  = nvl(cur.offr_lyot_cmnts_txt        ,-1)
@@ -623,6 +625,7 @@ END IF;
             ,cur.smplg_ind
             ,cur.mltpl_ind
             ,cur.cmltv_ind
+--            ,cur.pp_sls_cls_cd
      );
      l_rowcount:=SQL%ROWCOUNT;
      app_plsql_log.info('Edit offr history merge rows inserted: ' || to_char(l_rowcount));
@@ -667,6 +670,7 @@ BEGIN
                   ', prod_typ_id: ' ||                   rec.prod_typ_id ||
                   ', gender_id: ' ||                     rec.gender_id ||
                   ', sls_cls_cd: ' ||                    rec.sls_cls_cd ||
+--                  ', pp_sls_cls_cd: ' ||                 rec.pp_sls_cls_cd ||
                   ', offr_desc_txt: ' ||                 rec.offr_desc_txt ||
                   ', offr_notes_txt: ' ||                rec.offr_notes_txt ||
                   ', offr_lyot_cmnts_txt: ' ||           rec.offr_lyot_cmnts_txt ||
@@ -1324,8 +1328,8 @@ END save_edit_offr_lines;
 
 -----------------------SAVE_EDIT_OFFR_TABLE----------------------------------
 PROCEDURE save_edit_offr_table(p_data_line  IN obj_edit_offr_table,
-                               p_pagination IN CHAR DEFAULT 'N',
-                               p_result    OUT obj_edit_offr_save_table) AS
+                               p_result    OUT obj_edit_offr_save_table,
+                               p_pagination IN CHAR DEFAULT 'N') AS
 --p_result 0 ora error,1 successful, 2 osl count diff fount, 3 lock problem
 
   l_run_id         NUMBER := app_plsql_output.generate_new_run_id;
@@ -1383,6 +1387,7 @@ BEGIN
                               prod_typ_id,
                               gender_id,
                               sls_cls_cd,
+--                              pp_sls_cls_cd,
                               offr_desc_txt,
                               offr_notes_txt,
                               offr_lyot_cmnts_txt,
@@ -1621,6 +1626,7 @@ FOR offer IN c_offr LOOP
   ,offer.prod_typ_id
   ,offer.gender_id
   ,offer.sls_cls_cd
+--  ,offer.pp_sls_cls_cd
   ,offer.offr_desc_txt
   ,offer.offr_notes_txt
   ,offer.offr_lyot_cmnts_txt
@@ -1913,6 +1919,7 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                 rec.prod_typ_id,
                 rec.gender_id,
                 rec.sls_cls_cd,
+--                rec.pp_sls_cls_cd,
                 rec.offr_desc_txt,
                 rec.offr_notes_txt,
                 rec.offr_lyot_cmnts_txt,
@@ -2018,6 +2025,7 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
                 rec.prod_typ_id,
                 rec.gender_id,
                 rec.sls_cls_cd,
+--                rec.pp_sls_cls_cd,
                 rec.offr_desc_txt,
                 rec.offr_notes_txt,
                 rec.offr_lyot_cmnts_txt,
@@ -2482,6 +2490,7 @@ frcst AS
       ,prfl.prod_typ_id AS prod_typ_id
       ,prfl.gendr_id AS gender_id
       ,osl_current.sls_cls_cd AS sls_cls_cd
+--      ,offr_prfl_prc_point.sls_cls_cd AS pp_sls_cls_cd
       ,o.offr_desc_txt AS offr_desc_txt
       ,o.offr_ntes_txt AS offr_notes_txt
       ,substr(TRIM(o.offr_lyot_cmnts_txt), 0, 3000) AS offr_lyot_cmnts_txt
@@ -2975,6 +2984,7 @@ frcst AS
                                   rec.prod_typ_id,
                                   rec.gender_id,
                                   rec.sls_cls_cd,
+--                                  rec.pp_sls_cls_cd,
                                   rec.offr_desc_txt,
                                   rec.offr_notes_txt,
                                   rec.offr_lyot_cmnts_txt,
@@ -3928,6 +3938,7 @@ frcst AS
                                   rec.prod_typ_id,
                                   rec.gender_id,
                                   rec.sls_cls_cd,
+--                                  rec.pp_sls_cls_cd,
                                   rec.offr_desc_txt,
                                   rec.offr_notes_txt,
                                   rec.offr_lyot_cmnts_txt,
@@ -4259,6 +4270,7 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
       ,prfl.prod_typ_id AS prod_typ_id
       ,prfl.gendr_id AS gender_id
       ,osl_current.sls_cls_cd AS sls_cls_cd
+--      ,offr_prfl_prc_point.sls_cls_cd AS pp_sls_cls_cd
       ,o.offr_desc_txt AS offr_desc_txt
       ,o.offr_ntes_txt AS offr_notes_txt
       ,substr(TRIM(o.offr_lyot_cmnts_txt), 0, 3000) AS offr_lyot_cmnts_txt
@@ -4627,6 +4639,7 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
                                   rec.prod_typ_id,
                                   rec.gender_id,
                                   rec.sls_cls_cd,
+--                                  rec.pp_sls_cls_cd,
                                   rec.offr_desc_txt,
                                   rec.offr_notes_txt,
                                   rec.offr_lyot_cmnts_txt,
@@ -5073,7 +5086,7 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
     SELECT obj_edit_offr_line(
                 status, mrkt_id, offr_perd_id, offr_lock, offr_lock_user, offr_sku_line_id, veh_id, brchr_plcmnt_id, brchr_sctn_nm,
                 enrgy_chrt_postn_id, pg_nr, ctgry_id, brnd_id, sgmt_id, form_id, form_grp_id, prfl_cd, sku_id, fsc_cd,
-                prod_typ_id, gender_id, sls_cls_cd, offr_desc_txt, offr_notes_txt, offr_lyot_cmnts_txt, featrd_side_cd,
+                prod_typ_id, gender_id, sls_cls_cd, /*pp_sls_cls_cd,*/ offr_desc_txt, offr_notes_txt, offr_lyot_cmnts_txt, featrd_side_cd,
                 concept_featrd_side_cd, micr_ncpsltn_ind, cnsmr_invstmt_bdgt_id, pymt_typ, promtn_id, promtn_clm_id, spndng_lvl,
                 comsn_typ, tax_type_id, wsl_ind, offr_sku_set_id, cmpnt_qty, nr_for_qty, nta_factor, sku_cost, lv_nta, lv_sp, lv_rp,
                 lv_discount, lv_units, lv_total_cost, lv_gross_sales, lv_dp_cash, lv_dp_percent, ver_id, sls_prc_amt, reg_prc_amt, line_nr,
@@ -5100,7 +5113,7 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
     SELECT obj_edit_offr_line(
                 status, mrkt_id, offr_perd_id, offr_lock, offr_lock_user, offr_sku_line_id, veh_id, brchr_plcmnt_id, brchr_sctn_nm,
                 enrgy_chrt_postn_id, pg_nr, ctgry_id, brnd_id, sgmt_id, form_id, form_grp_id, prfl_cd, sku_id, fsc_cd,
-                prod_typ_id, gender_id, sls_cls_cd, offr_desc_txt, offr_notes_txt, offr_lyot_cmnts_txt, featrd_side_cd,
+                prod_typ_id, gender_id, sls_cls_cd, /*pp_sls_cls_cd,*/ offr_desc_txt, offr_notes_txt, offr_lyot_cmnts_txt, featrd_side_cd,
                 concept_featrd_side_cd, micr_ncpsltn_ind, cnsmr_invstmt_bdgt_id, pymt_typ, promtn_id, promtn_clm_id, spndng_lvl,
                 comsn_typ, tax_type_id, wsl_ind, offr_sku_set_id, cmpnt_qty, nr_for_qty, nta_factor, sku_cost, lv_nta, lv_sp, lv_rp,
                 lv_discount, lv_units, lv_total_cost, lv_gross_sales, lv_dp_cash, lv_dp_percent, ver_id, sls_prc_amt, reg_prc_amt, line_nr,
@@ -6007,7 +6020,7 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
     SELECT obj_edit_offr_line(
                 status, mrkt_id, offr_perd_id, offr_lock, offr_lock_user, offr_sku_line_id, veh_id, brchr_plcmnt_id, brchr_sctn_nm,
                 enrgy_chrt_postn_id, pg_nr, ctgry_id, brnd_id, sgmt_id, form_id, form_grp_id, prfl_cd, sku_id, fsc_cd,
-                prod_typ_id, gender_id, sls_cls_cd, offr_desc_txt, offr_notes_txt, offr_lyot_cmnts_txt, featrd_side_cd,
+                prod_typ_id, gender_id, sls_cls_cd, /*pp_sls_cls_cd,*/ offr_desc_txt, offr_notes_txt, offr_lyot_cmnts_txt, featrd_side_cd,
                 concept_featrd_side_cd, micr_ncpsltn_ind, cnsmr_invstmt_bdgt_id, pymt_typ, promtn_id, promtn_clm_id, spndng_lvl,
                 comsn_typ, tax_type_id, wsl_ind, offr_sku_set_id, cmpnt_qty, nr_for_qty, nta_factor, sku_cost, lv_nta, lv_sp, lv_rp,
                 lv_discount, lv_units, lv_total_cost, lv_gross_sales, lv_dp_cash, lv_dp_percent, ver_id, sls_prc_amt, reg_prc_amt, line_nr,
@@ -6131,7 +6144,7 @@ FUNCTION get_offr_pg(p_get_offr IN obj_get_offr_table)
                               osl_rec.offr_sku_line_id, osl_rec.veh_id, osl_rec.brchr_plcmnt_id, osl_rec.brchr_sctn_nm,
                               osl_rec.enrgy_chrt_postn_id, osl_rec.pg_nr, osl_rec.ctgry_id, osl_rec.brnd_id, osl_rec.sgmt_id,
                               osl_rec.form_id, osl_rec.form_grp_id, osl_rec.prfl_cd, osl_rec.sku_id, osl_rec.fsc_cd,
-                              osl_rec.prod_typ_id, osl_rec.gender_id, osl_rec.sls_cls_cd, osl_rec.offr_desc_txt,
+                              osl_rec.prod_typ_id, osl_rec.gender_id, osl_rec.sls_cls_cd, /*osl_rec.pp_sls_cls_cd,*/ osl_rec.offr_desc_txt,
                               osl_rec.offr_notes_txt, osl_rec.offr_lyot_cmnts_txt, osl_rec.featrd_side_cd,
                               osl_rec.concept_featrd_side_cd, osl_rec.micr_ncpsltn_ind, osl_rec.cnsmr_invstmt_bdgt_id,
                               osl_rec.pymt_typ, osl_rec.promtn_id, osl_rec.promtn_clm_id, osl_rec.spndng_lvl, osl_rec.comsn_typ,

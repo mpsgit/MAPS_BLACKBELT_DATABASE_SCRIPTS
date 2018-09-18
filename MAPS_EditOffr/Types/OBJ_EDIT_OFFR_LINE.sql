@@ -22,6 +22,7 @@ CREATE OR REPLACE TYPE obj_edit_offr_line FORCE AS OBJECT
   prod_typ_id            NUMBER,
   gender_id              NUMBER,
   sls_cls_cd             VARCHAR2(5),
+--  pp_sls_cls_cd          VARCHAR2(5),
   offr_desc_txt          VARCHAR2(254),
   offr_notes_txt         VARCHAR2(1000),
   offr_lyot_cmnts_txt    VARCHAR2(3000),

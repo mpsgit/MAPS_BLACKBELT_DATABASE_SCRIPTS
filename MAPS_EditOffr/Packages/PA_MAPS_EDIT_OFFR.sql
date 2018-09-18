@@ -40,8 +40,8 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
     PIPELINED;
 
   PROCEDURE save_edit_offr_table(p_data_line IN obj_edit_offr_table,
-                                 p_pagination IN CHAR DEFAULT 'N',
-                                 p_result    OUT obj_edit_offr_save_table);
+                                 p_result    OUT obj_edit_offr_save_table,
+                                 p_pagination IN CHAR DEFAULT 'N');
 
   PROCEDURE set_history(p_get_offr IN obj_get_offr_table,
                         p_result   OUT NUMBER);
