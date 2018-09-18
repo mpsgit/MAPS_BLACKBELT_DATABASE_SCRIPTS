@@ -22,14 +22,6 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
     RETURN obj_edit_offr_table
     PIPELINED;
 
-  FUNCTION get_offr_eo(p_get_offr   IN obj_get_offr_table)
-    RETURN obj_edit_offr_table
-    PIPELINED;
-
-  FUNCTION get_offr_pg(p_get_offr   IN obj_get_offr_table)
-    RETURN obj_edit_offr_table
-    PIPELINED;
-
   FUNCTION get_offr(p_get_offr   IN obj_get_offr_table,
                     p_pagination IN CHAR DEFAULT 'N')
     RETURN obj_edit_offr_table
