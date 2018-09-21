@@ -803,8 +803,16 @@ BEGIN
       VALUES
       (
         rec.intrnl_offr_id, rec.pp_sls_cls_cd, rec.prfl_cd, rec.pp_ofs_nr, rec.concept_featrd_side_cd, rec.mrkt_id,
-        rec.veh_id, rec.offr_perd_id, l_sku_cnt, rec.pg_wght, 0, 1, rec.offr_lock_user, rec.offr_lock_user
+        rec.veh_id, rec.offr_perd_id, l_sku_cnt, rec.pp_pg_wght, 0, 1, rec.offr_lock_user, rec.offr_lock_user
       );
+    ELSE
+      UPDATE offr_prfl_sls_cls_plcmt p
+         SET p.pg_wght_pct    = rec.pp_pg_wght
+       WHERE p.offr_id        = rec.intrnl_offr_id
+         AND p.sls_cls_cd     = rec.pp_sls_cls_cd
+         AND p.prfl_cd        = rec.prfl_cd
+         AND p.pg_ofs_nr      = rec.pp_ofs_nr
+         AND p.featrd_side_cd = rec.concept_featrd_side_cd;
     END IF;
 
     SELECT COUNT(*)
@@ -847,6 +855,23 @@ BEGIN
         rec.pg_wght, rec.mrkt_id, to_char(rec.pg_wght) || '%', rec.offr_lock_user, rec.offr_lock_user
       );
     END IF;
+    
+    SELECT COUNT(*)
+      INTO l_cnt
+      FROM pg_wght w
+     WHERE w.pg_wght_pct = rec.pp_pg_wght;
+
+    IF l_cnt = 0 THEN
+      INSERT INTO pg_wght
+      (
+        pg_wght_pct, mrkt_id, pg_wght_desc_txt, creat_user_id, last_updt_user_id
+      )
+      VALUES
+      (
+        rec.pp_pg_wght, rec.mrkt_id, to_char(rec.pp_pg_wght) || '%', rec.offr_lock_user, rec.offr_lock_user
+      );
+    END IF;
+
   END LOOP;
   app_plsql_log.info(l_log || ' finished');
 
