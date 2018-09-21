@@ -852,7 +852,7 @@ BEGIN
 
   l_log := 'offr_sku_set';
   MERGE INTO offr_sku_set s
-  USING (SELECT DISTINCT 
+  USING (SELECT DISTINCT
                 CASE
                   WHEN MIN(oss.set_prc_amt) <> SUM(l.sls_prc_amt * l.cmpnt_qty) THEN
                     3
@@ -867,7 +867,7 @@ BEGIN
                 END AS sum_prc_amt
                ,l.offr_sku_set_nm
                ,l.offr_sku_set_id
-               ,l.concept_featrd_side_cd
+               ,'2' AS concept_featrd_side_cd
                ,l.offr_lock_user
            FROM offr_sku_line osl
                ,offr_sku_set oss
@@ -879,7 +879,6 @@ BEGIN
          GROUP BY l.offr_sku_set_id
                  ,l.offr_sku_set_id
                  ,l.offr_sku_set_nm
-                 ,l.concept_featrd_side_cd
                  ,l.offr_lock_user) dl
   ON (s.offr_sku_set_id = dl.offr_sku_set_id)
   WHEN MATCHED THEN UPDATE
