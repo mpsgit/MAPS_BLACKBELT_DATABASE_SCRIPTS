@@ -2390,16 +2390,10 @@ frcst AS
           MAX(last_updt_ts) forcasted_date
       FROM   ( SELECT osl.offr_sku_line_id,
                       osl.offr_prfl_prcpt_id,
-                      bfs.unit_splt_pct item_split,
-                      bfo.avg_prc_unit_shr pp_split,
+                      bfs.ml_unit_splt_pct AS item_split,
+                      bfo.ml_avg_prc_unit_shr AS pp_split,
                       bfo.last_updt_ts last_updt_ts,
-                      decode(bf.frcst_mthd_id, co_quick_forecast, decode(bf.bnchmrk_prfl_cd, null, bf.brchr_frcst_unit_qty, bf.bnchmrk_frcst_unit_qty),
-                                               co_in_depth_forecast, bf.in_depth_frcst_unit_qty,
-                                               co_manual_forecast, bf.manul_frcst_unit_qty,
-                                               co_maps_forecast, bf.mps_unit_qty,
-                                               co_ml_forecast, bf.ml_frcst_unit_qty,
-                                               0
-                            ) final_units
+                      bf.ml_frcst_unit_qty AS final_units
                                  FROM   offr_sku_line osl, fs_brchr_frcst bf, fs_brchr_frcst bfs, fs_brchr_frcst bfo
                                  WHERE  bfo.mrkt_id           = osl.mrkt_id AND
                                         bfo.offr_perd_id      = osl.offr_perd_id AND
