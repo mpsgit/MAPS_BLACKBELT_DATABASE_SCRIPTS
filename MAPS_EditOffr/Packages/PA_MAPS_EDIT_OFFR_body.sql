@@ -1086,9 +1086,11 @@ BEGIN
   ON (osl.offr_sku_line_id = dl.offr_sku_line_id)
   WHEN MATCHED THEN UPDATE
   SET osl.featrd_side_cd = dl.concept_featrd_side_cd
-     ,osl.set_cmpnt_qty = dl.cmpnt_qty
+     ,osl.set_cmpnt_qty = DECODE(dl.dltd_ind, 'Y', 0, dl.cmpnt_qty)
+     ,osl.set_cmpnt_ind = DECODE(dl.dltd_ind, 'Y', 'N', osl.set_cmpnt_ind)
      ,osl.dltd_ind = dl.dltd_ind
      ,osl.sls_prc_amt = dl.sls_prc_amt
+     ,osl.offr_sku_set_id = DECODE(dl.dltd_ind, 'Y', NULL, dl.offr_sku_set_id)
      ,osl.last_updt_user_id = dl.offr_lock_user;
 
   l_rowcount := SQL%ROWCOUNT;
@@ -4932,6 +4934,26 @@ frcst AS
 
       ROLLBACK;
   END copy_prcpts_to_offr;
+
+  FUNCTION get_scenario(p_mrkt_id      IN NUMBER,
+                        p_offr_perd_id IN NUMBER,
+                        p_veh_id       IN NUMBER) RETURN obj_scenario_table PIPELINED IS
+  BEGIN
+    FOR rec IN (
+      SELECT scnrio_id, scnrio_desc_txt
+        FROM what_if_scnrio
+       WHERE mrkt_id = p_mrkt_id
+         AND strt_perd_id = p_offr_perd_id
+         AND end_perd_id = p_offr_perd_id
+         AND veh_id = p_veh_id
+         AND enbl_scnrio_ind = 'Y'
+         AND shr_ind = 'Y'
+    )
+    LOOP
+      PIPE ROW (obj_scenario_line(rec.scnrio_id, rec.scnrio_desc_txt));
+    END LOOP;
+
+  END get_scenario;
 
 END PA_MAPS_EDIT_OFFR;
 /
