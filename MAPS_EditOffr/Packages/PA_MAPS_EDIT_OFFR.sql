@@ -109,5 +109,17 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                         p_offr_perd_id IN NUMBER,
                         p_veh_id IN NUMBER) RETURN obj_scenario_table PIPELINED;
 
+  PROCEDURE add_scenario(p_mrkt_id         IN NUMBER,
+                         p_veh_id          IN NUMBER,
+                         p_scnrio_desc_txt IN VARCHAR2,
+                         p_strt_perd_id    IN NUMBER,
+                         p_end_perd_id     IN NUMBER,
+                         p_user_nm         IN VARCHAR2);
+
+  PROCEDURE add_offr_to_scenario(p_mrkt_id   IN NUMBER,
+                                 p_veh_id    IN NUMBER,
+                                 p_scnrio_id IN NUMBER,
+                                 p_offr_id   IN NUMBER);
+
 END pa_maps_edit_offr;
 /

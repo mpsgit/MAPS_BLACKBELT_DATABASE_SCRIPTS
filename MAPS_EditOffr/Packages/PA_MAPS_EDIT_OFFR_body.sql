@@ -41,12 +41,6 @@ AS
   co_sls_typ_estimate      CONSTANT sls_typ.sls_typ_id%TYPE := 1;
   co_sls_typ_op_estimate   CONSTANT sls_typ.sls_typ_id%TYPE := 2;
 
-  co_quick_forecast        CONSTANT NUMBER := 1;
-  co_in_depth_forecast     CONSTANT NUMBER := 2;
-  co_manual_forecast       CONSTANT NUMBER := 3;
-  co_maps_forecast         CONSTANT NUMBER := 4;
-  co_ml_forecast           CONSTANT NUMBER := 6;
-
   co_osl_level             CONSTANT NUMBER := 0;
   co_spread_sku_level      CONSTANT NUMBER := 1;
   co_spread_concept_level  CONSTANT NUMBER := 2;
@@ -4955,5 +4949,54 @@ frcst AS
 
   END get_scenario;
 
+  PROCEDURE add_scenario(p_mrkt_id         IN NUMBER,
+                         p_veh_id          IN NUMBER,
+                         p_scnrio_desc_txt IN VARCHAR2,
+                         p_strt_perd_id    IN NUMBER,
+                         p_end_perd_id     IN NUMBER,
+                         p_user_nm         IN VARCHAR2) IS
+
+    l_scnrio_id     NUMBER;
+  BEGIN
+    SELECT seq.nextval INTO l_scnrio_id FROM dual;
+  
+    INSERT INTO what_if_scnrio (
+      mrkt_id, veh_id, scnrio_id, scnrio_desc_txt, strt_perd_id, end_perd_id,
+      creat_user_id, creat_ts, shr_ind, enbl_scnrio_ind) 
+    VALUES (
+      p_mrkt_id, p_veh_id, l_scnrio_id, p_scnrio_desc_txt, p_strt_perd_id, p_end_perd_id,
+      p_user_nm, SYSDATE, 'Y', 'Y');
+  END add_scenario;
+
+  PROCEDURE add_offr_to_scenario(p_mrkt_id   IN NUMBER,
+                                 p_veh_id    IN NUMBER,
+                                 p_scnrio_id IN NUMBER,
+                                 p_offr_id   IN NUMBER) IS
+    l_tran_id NUMBER;
+  BEGIN
+    SELECT seq.nextval INTO l_tran_id FROM dual;
+
+    INSERT INTO what_if_tran (
+      mrkt_id, veh_id, scnrio_id, tran_id, tran_typ, offr_id)
+    VALUES (
+      p_mrkt_id, p_veh_id, p_scnrio_id, l_tran_id, 'WIF', p_offr_id);
+  END add_offr_to_scenario;
+
+/*
+declare
+  l_new_offr_id number;
+begin  
+  l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => 246954494,
+                                           par_newmarketid    => 50,
+                                           par_newofferperiod => 20180301,
+                                           par_newvehid       => 11,
+                                           par_newoffrdesc    => 'proba',
+                                           par_zerounits      => FALSE,
+                                           par_whatif         => TRUE,
+                                           par_paginationcopy => TRUE,
+                                           par_user           => 'csvarady');
+  dbms_output.put_line(l_new_offr_id);
+end;
+*/
 END PA_MAPS_EDIT_OFFR;
 /
