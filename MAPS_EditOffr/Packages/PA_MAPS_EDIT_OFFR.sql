@@ -105,9 +105,9 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                                 p_status             OUT NUMBER,
                                 p_edit_offr_table    OUT obj_edit_offr_table);
 
-  FUNCTION get_scenario(p_mrkt_id IN NUMBER,
-                        p_offr_perd_id IN NUMBER,
-                        p_veh_id IN NUMBER) RETURN obj_scenario_table PIPELINED;
+  FUNCTION get_scenario_list(p_mrkt_id IN NUMBER,
+                             p_offr_perd_id IN NUMBER,
+                             p_veh_id IN NUMBER) RETURN obj_scenario_table PIPELINED;
 
   PROCEDURE add_scenario(p_mrkt_id         IN NUMBER,
                          p_veh_id          IN NUMBER,

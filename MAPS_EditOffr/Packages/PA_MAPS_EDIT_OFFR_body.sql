@@ -4932,9 +4932,9 @@ frcst AS
       ROLLBACK;
   END copy_prcpts_to_offr;
 
-  FUNCTION get_scenario(p_mrkt_id      IN NUMBER,
-                        p_offr_perd_id IN NUMBER,
-                        p_veh_id       IN NUMBER) RETURN obj_scenario_table PIPELINED IS
+  FUNCTION get_scenario_list(p_mrkt_id      IN NUMBER,
+                             p_offr_perd_id IN NUMBER,
+                             p_veh_id       IN NUMBER) RETURN obj_scenario_table PIPELINED IS
   BEGIN
     FOR rec IN (
       SELECT scnrio_id, scnrio_desc_txt
@@ -4950,7 +4950,7 @@ frcst AS
       PIPE ROW (obj_scenario_line(rec.scnrio_id, rec.scnrio_desc_txt));
     END LOOP;
 
-  END get_scenario;
+  END get_scenario_list;
 
   PROCEDURE add_scenario(p_mrkt_id         IN NUMBER,
                          p_veh_id          IN NUMBER,
@@ -4985,21 +4985,51 @@ frcst AS
       p_mrkt_id, p_veh_id, p_scnrio_id, l_tran_id, 'WIF', p_offr_id);
   END add_offr_to_scenario;
 
-/*
-declare
-  l_new_offr_id number;
-begin  
-  l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => 246954494,
-                                           par_newmarketid    => 50,
-                                           par_newofferperiod => 20180301,
-                                           par_newvehid       => 11,
-                                           par_newoffrdesc    => 'proba',
-                                           par_zerounits      => FALSE,
-                                           par_whatif         => TRUE,
-                                           par_paginationcopy => TRUE,
-                                           par_user           => 'csvarady');
-  dbms_output.put_line(l_new_offr_id);
-end;
-*/
+  PROCEDURE copy_cmp_to_wif(p_mvps_id      IN NUMBER,
+                            p_pg_nr        IN NUMBER,
+                            p_mrkt_id      IN NUMBER,
+                            p_offr_perd_id IN NUMBER,
+                            p_veh_id       IN NUMBER,
+                            p_user_nm      IN VARCHAR2) IS
+
+    l_new_offr_id  offr.offr_id%TYPE;
+    l_scnrio_id    what_if_scnrio.scnrio_id%TYPE;
+  BEGIN
+    -- determine l_scnrio_id !!!
+
+    FOR offr_rec IN (
+      SELECT o.offr_id, o.offr_desc_txt
+        FROM offr o
+       WHERE NOT EXISTS (
+               SELECT 1
+                 FROM offr o2
+                WHERE o2.offr_id = o.offr_link_id
+                  AND o2.offr_typ = 'CMP')
+         AND o.mrkt_veh_perd_sctn_id = p_mvps_id
+         AND o.sctn_page_ofs_nr      = p_pg_nr
+         AND o.mrkt_id               = p_mrkt_id
+         AND o.offr_perd_id          = p_offr_perd_id
+         AND o.veh_id                = p_veh_id
+    )
+    LOOP
+      
+      l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => offr_rec.offr_id,
+                                               par_newmarketid    => p_mrkt_id,
+                                               par_newofferperiod => p_offr_perd_id,
+                                               par_newvehid       => p_veh_id,
+                                               par_newoffrdesc    => offr_rec.offr_desc_txt,
+                                               par_zerounits      => FALSE,
+                                               par_whatif         => TRUE,
+                                               par_paginationcopy => TRUE,
+                                               par_user           => p_user_nm);
+      --dbms_output.put_line(l_new_offr_id);
+      add_offr_to_scenario(p_mrkt_id   => p_mrkt_id,
+                           p_veh_id    => p_veh_id,
+                           p_scnrio_id => l_scnrio_id,
+                           p_offr_id   => l_new_offr_id);
+
+    END LOOP;
+  END copy_cmp_to_wif;
+
 END PA_MAPS_EDIT_OFFR;
 /
