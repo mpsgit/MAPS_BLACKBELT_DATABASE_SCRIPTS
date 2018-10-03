@@ -869,50 +869,9 @@ BEGIN
   END LOOP;
   app_plsql_log.info(l_log || ' finished');
 
-  l_log := 'offr_sku_set';
-  MERGE INTO offr_sku_set s
-  USING (SELECT DISTINCT
-                CASE
-                  WHEN MIN(oss.set_prc_amt) <> SUM(l.sls_prc_amt * l.cmpnt_qty) THEN
-                    3
-                  ELSE
-                    MIN(oss.set_prc_typ_id)
-                END AS set_prc_typ_id
-               ,CASE
-                  WHEN MIN(oss.set_prc_amt) <> SUM(l.sls_prc_amt * l.cmpnt_qty) THEN
-                    SUM(l.sls_prc_amt * l.cmpnt_qty)
-                  ELSE
-                    MIN(oss.set_prc_amt)
-                END AS sum_prc_amt
-               ,l.offr_sku_set_nm
-               ,l.offr_sku_set_id
-               ,'2' AS concept_featrd_side_cd
-               ,l.offr_lock_user
-           FROM offr_sku_line osl
-               ,offr_sku_set oss
-               ,TABLE(p_data_line) l
-          WHERE osl.offr_sku_line_id = l.offr_sku_line_id
-            AND osl.offr_sku_set_id  = oss.offr_sku_set_id
-            AND l.intrnl_offr_id     = p_offr_id
-            AND l.sls_typ            = p_sls_typ
-         GROUP BY l.offr_sku_set_id
-                 ,l.offr_sku_set_id
-                 ,l.offr_sku_set_nm
-                 ,l.offr_lock_user) dl
-  ON (s.offr_sku_set_id = dl.offr_sku_set_id)
-  WHEN MATCHED THEN UPDATE
-  SET s.set_prc_amt       = dl.sum_prc_amt
-     ,s.set_prc_typ_id    = dl.set_prc_typ_id
-     ,s.offr_sku_set_nm   = dl.offr_sku_set_nm
-     ,s.featrd_side_cd    = dl.concept_featrd_side_cd
-     ,s.last_updt_user_id = dl.offr_lock_user;
-
-  l_rowcount := SQL%ROWCOUNT;
-  app_plsql_log.info(l_log || ' finished, merge rowcount: ' || l_rowcount);
-
   l_log := 'offr_sls_cls_sku';
   FOR rec IN (
-    SELECT osl.pg_ofs_nr
+    SELECT l.pp_ofs_nr
           ,l.sku_id
           ,l.wsl_ind
           ,l.concept_featrd_side_cd
@@ -922,9 +881,7 @@ BEGIN
           ,l.micr_ncpsltn_ind
           ,l.offr_lock_user
       FROM TABLE(p_data_line) l
-          ,offr_sku_line osl
-     WHERE osl.offr_sku_line_id = l.offr_sku_line_id
-       AND l.intrnl_offr_id     = p_offr_id
+     WHERE l.intrnl_offr_id     = p_offr_id
        AND l.sls_typ            = p_sls_typ
   )
   LOOP
@@ -936,7 +893,7 @@ BEGIN
        WHERE s.offr_id        = rec.intrnl_offr_id
          AND s.sls_cls_cd     = rec.sls_cls_cd
          AND s.prfl_cd        = rec.prfl_cd
-         AND s.pg_ofs_nr      = rec.pg_ofs_nr
+         AND s.pg_ofs_nr      = rec.pp_ofs_nr
          AND s.featrd_side_cd = rec.concept_featrd_side_cd
          AND s.sku_id         = rec.sku_id;
     EXCEPTION
@@ -1079,16 +1036,62 @@ BEGIN
             AND sls_typ        = p_sls_typ) dl
   ON (osl.offr_sku_line_id = dl.offr_sku_line_id)
   WHEN MATCHED THEN UPDATE
-  SET osl.featrd_side_cd = dl.concept_featrd_side_cd
-     ,osl.set_cmpnt_qty = DECODE(dl.dltd_ind, 'Y', 0, dl.cmpnt_qty)
-     ,osl.set_cmpnt_ind = DECODE(dl.dltd_ind, 'Y', 'N', osl.set_cmpnt_ind)
-     ,osl.dltd_ind = dl.dltd_ind
-     ,osl.sls_prc_amt = dl.sls_prc_amt
-     ,osl.offr_sku_set_id = DECODE(dl.dltd_ind, 'Y', NULL, dl.offr_sku_set_id)
+  SET osl.featrd_side_cd    = dl.concept_featrd_side_cd
+     ,osl.pg_ofs_nr         = dl.pp_ofs_nr
+     ,osl.set_cmpnt_qty     = DECODE(dl.dltd_ind, 'Y', 0, dl.cmpnt_qty)
+     ,osl.set_cmpnt_ind     = DECODE(dl.dltd_ind, 'Y', 'N', osl.set_cmpnt_ind)
+     ,osl.dltd_ind          = dl.dltd_ind
+     ,osl.sls_prc_amt       = dl.sls_prc_amt
+     ,osl.offr_sku_set_id   = DECODE(dl.dltd_ind, 'Y', NULL, dl.offr_sku_set_id)
      ,osl.last_updt_user_id = dl.offr_lock_user;
 
   l_rowcount := SQL%ROWCOUNT;
   app_plsql_log.info(l_log || ' finished, merge rowcount: ' || l_rowcount);
+
+  l_log := 'offr_sku_set';
+  MERGE INTO offr_sku_set s
+  USING (SELECT DISTINCT
+                CASE
+                  WHEN MIN(oss.set_prc_amt) <> SUM(l.sls_prc_amt * l.cmpnt_qty) THEN
+                    3
+                  ELSE
+                    MIN(oss.set_prc_typ_id)
+                END AS set_prc_typ_id
+               ,CASE
+                  WHEN MIN(oss.set_prc_amt) <> SUM(l.sls_prc_amt * l.cmpnt_qty) THEN
+                    SUM(l.sls_prc_amt * l.cmpnt_qty)
+                  ELSE
+                    MIN(oss.set_prc_amt)
+                END AS sum_prc_amt
+               ,l.offr_sku_set_nm
+               ,l.offr_sku_set_id
+               ,'2' AS concept_featrd_side_cd
+               ,l.offr_lock_user
+           FROM offr_sku_line osl
+               ,offr_sku_set oss
+               ,TABLE(p_data_line) l
+          WHERE osl.offr_sku_line_id = l.offr_sku_line_id
+            AND osl.offr_sku_set_id  = oss.offr_sku_set_id
+            AND l.intrnl_offr_id     = p_offr_id
+            AND l.sls_typ            = p_sls_typ
+         GROUP BY l.offr_sku_set_id
+                 ,l.offr_sku_set_id
+                 ,l.offr_sku_set_nm
+                 ,l.offr_lock_user) dl
+  ON (s.offr_sku_set_id = dl.offr_sku_set_id)
+  WHEN MATCHED THEN UPDATE
+  SET s.set_prc_amt       = dl.sum_prc_amt
+     ,s.set_prc_typ_id    = dl.set_prc_typ_id
+     ,s.offr_sku_set_nm   = dl.offr_sku_set_nm
+     ,s.featrd_side_cd    = dl.concept_featrd_side_cd
+     ,s.last_updt_user_id = dl.offr_lock_user;
+
+  l_rowcount := SQL%ROWCOUNT;
+  app_plsql_log.info(l_log || ' finished, merge rowcount: ' || l_rowcount);
+
+  l_log := 'call app_ms_public.populate_ms_key';
+  app_ms_public.populate_ms_key(p_offr_id);
+  app_plsql_log.info(l_log || ' finished');
 
   l_log := 'offr';
   MERGE INTO offr o
@@ -4962,7 +4965,7 @@ frcst AS
   
     INSERT INTO what_if_scnrio (
       mrkt_id, veh_id, scnrio_id, scnrio_desc_txt, strt_perd_id, end_perd_id,
-      creat_user_id, creat_ts, shr_ind, enbl_scnrio_ind) 
+      creat_user_id, creat_ts, shr_ind, enbl_scnrio_ind)
     VALUES (
       p_mrkt_id, p_veh_id, l_scnrio_id, p_scnrio_desc_txt, p_strt_perd_id, p_end_perd_id,
       p_user_nm, SYSDATE, 'Y', 'Y');
