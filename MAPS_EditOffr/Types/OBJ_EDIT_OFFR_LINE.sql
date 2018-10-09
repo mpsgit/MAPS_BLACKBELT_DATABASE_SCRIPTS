@@ -102,6 +102,7 @@ CREATE OR REPLACE TYPE obj_edit_offr_line FORCE AS OBJECT
   incntv_id              NUMBER,
   intrdctn_perd_id       NUMBER,
   on_stus_perd_id        NUMBER,
-  dspostn_perd_id        NUMBER
+  dspostn_perd_id        NUMBER,
+  scnrio_id              NUMBER
 );
 /

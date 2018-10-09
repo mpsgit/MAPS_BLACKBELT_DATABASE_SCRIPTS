@@ -1490,7 +1490,8 @@ BEGIN
                               incntv_id,
                               intrdctn_perd_id,
                               on_stus_perd_id,
-                              dspostn_perd_id
+                              dspostn_perd_id,
+                              scnrio_id
     )
     BULK COLLECT INTO l_get_offr_table
     FROM TABLE(pa_maps_edit_offr.get_offr(l_offr_table, p_pagination));
@@ -1915,6 +1916,7 @@ FUNCTION get_offr_pivot(p_get_offr   IN obj_get_offr_table)
       ,NULL AS intrdctn_perd_id
       ,NULL AS on_stus_perd_id
       ,NULL AS dspostn_perd_id
+      ,NULL AS scnrio_id
 --
   FROM (SELECT *
            FROM offr
@@ -2151,7 +2153,8 @@ FUNCTION get_offr_pivot(p_get_offr   IN obj_get_offr_table)
                                   rec.incntv_id,
                                   rec.intrdctn_perd_id,
                                   rec.on_stus_perd_id,
-                                  rec.dspostn_perd_id
+                                  rec.dspostn_perd_id,
+                                  rec.scnrio_id
                                   ));
     END LOOP;
     app_plsql_log.info(l_module_name || ' stop');
@@ -2462,7 +2465,8 @@ IF p_pagination <> 'P' THEN
                 rec.incntv_id,
                 rec.intrdctn_perd_id,
                 rec.on_stus_perd_id,
-                rec.dspostn_perd_id
+                rec.dspostn_perd_id,
+                rec.scnrio_id
                 );
 
                 IF l_row_count > row_limit THEN EXIT; END IF;
@@ -2568,7 +2572,8 @@ IF p_pagination <> 'P' THEN
                 rec.incntv_id,
                 rec.intrdctn_perd_id,
                 rec.on_stus_perd_id,
-                rec.dspostn_perd_id
+                rec.dspostn_perd_id,
+                rec.scnrio_id
                 ));
 
                 l_row_count := l_row_count+1;
@@ -2681,7 +2686,8 @@ ELSE
                 rec.incntv_id,
                 rec.intrdctn_perd_id,
                 rec.on_stus_perd_id,
-                rec.dspostn_perd_id
+                rec.dspostn_perd_id,
+                rec.scnrio_id
                 );
 
                 IF l_row_count > row_limit THEN EXIT; END IF;
@@ -2787,7 +2793,8 @@ ELSE
                 rec.incntv_id,
                 rec.intrdctn_perd_id,
                 rec.on_stus_perd_id,
-                rec.dspostn_perd_id
+                rec.dspostn_perd_id,
+                rec.scnrio_id
                 ));
 
                 l_row_count := l_row_count+1;
@@ -3362,6 +3369,7 @@ frcst AS
       ,mrkt_sku.intrdctn_perd_id
       ,mrkt_sku.on_stus_perd_id
       ,mrkt_sku.dspostn_perd_id
+      ,wit.scnrio_id
 --
   FROM (SELECT *
            FROM offr
@@ -3580,6 +3588,7 @@ frcst AS
                                      'SP' AS sp)) mps) mpsp
      ) pricing
       ,mrkt_sku
+      ,what_if_tran wit
  WHERE
 --mrkt_tmp_fsc and master
      osl_current.sku_id = mrkt_tmp_fsc_master.sku_id(+)
@@ -3646,6 +3655,9 @@ frcst AS
  --mrkt_sku
  AND mrkt_sku.mrkt_id(+) = l_mrkt_id
  AND mrkt_sku.sku_id(+) = osl_current.sku_id
+ --what_if_tran
+ AND wit.offr_id(+) = o.offr_id
+ AND wit.tran_typ(+) = 'WIF'
    )
      LOOP
       PIPE ROW(obj_edit_offr_line(rec.status,
@@ -3750,7 +3762,8 @@ frcst AS
                                   rec.incntv_id,
                                   rec.intrdctn_perd_id,
                                   rec.on_stus_perd_id,
-                                  rec.dspostn_perd_id
+                                  rec.dspostn_perd_id,
+                                  rec.scnrio_id
                                   ));
     END LOOP;
     app_plsql_log.info(l_module_name || ' stop');
@@ -3894,7 +3907,8 @@ frcst AS
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
                 pg_wght, pp_pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
-                fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id
+                fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id,
+                scnrio_id
 )
       BULK COLLECT
       INTO l_edit_offr_table
@@ -3921,7 +3935,8 @@ frcst AS
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
                 pg_wght, pp_pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
-                fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id)
+                fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id,
+                scnrio_id)
       BULK COLLECT
       INTO l_edit_offr_table
       FROM TABLE(get_offr(p_get_offr_table, p_pagination));
@@ -4828,7 +4843,8 @@ frcst AS
                 prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit,
                 pg_wght, pp_pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
-                fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id)
+                fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id,
+                scnrio_id)
       BULK COLLECT INTO p_edit_offr_table
       FROM TABLE(get_offr(l_offr_table, p_pagination));
 
@@ -4961,7 +4977,7 @@ frcst AS
                               osl_rec.offr_ofs_nr, osl_rec.pp_ofs_nr, osl_rec.impct_catgry_id, osl_rec.hero_ind, osl_rec.smplg_ind, osl_rec.mltpl_ind,
                               osl_rec.cmltv_ind,  osl_rec.use_instrctns_ind,  osl_rec.pg_typ_id,  osl_rec.featrd_prfl_ind,  osl_rec.fxd_pg_wght_ind,
                               osl_rec.prod_endrsmt_id, osl_rec.frc_mtch_mthd_id, osl_rec.wghtd_avg_cost_amt, osl_rec.incntv_id,
-                              osl_rec.intrdctn_perd_id, osl_rec.on_stus_perd_id, osl_rec.dspostn_perd_id);
+                              osl_rec.intrdctn_perd_id, osl_rec.on_stus_perd_id, osl_rec.dspostn_perd_id, osl_rec.scnrio_id);
     END LOOP;
   END add_to_edit_offr_table;
 
