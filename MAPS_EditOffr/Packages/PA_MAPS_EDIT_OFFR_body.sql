@@ -1724,6 +1724,444 @@ END LOOP;
        app_plsql_log.info('Error in getting offer history ' || SQLERRM(SQLCODE));
 END get_history;
 
+FUNCTION get_offr_pivot(p_get_offr   IN obj_get_offr_table)
+    RETURN obj_edit_offr_table
+    PIPELINED AS
+    -- local variables
+
+    l_offr_perd_id offr.offr_perd_id%TYPE;
+    l_mrkt_id      offr.mrkt_id%TYPE;
+    l_ver_id       offr.ver_id%TYPE;
+    l_sls_typ      dstrbtd_mrkt_sls.sls_typ_id%TYPE;
+    l_veh_ids      number_array;
+    -- for LOG
+    l_run_id  NUMBER := app_plsql_output.generate_new_run_id;
+    l_user_id VARCHAR(35) := USER();
+    --
+    l_module_name VARCHAR2(30) := 'GET_OFFR_PIVOT';
+
+    l_min_mrkt_id      offr.mrkt_id%TYPE;
+    l_min_offr_perd_id offr.offr_perd_id%TYPE;
+    l_min_ver_id       offr.ver_id%TYPE;
+    l_min_sls_typ      dstrbtd_mrkt_sls.sls_typ_id%TYPE;
+
+  BEGIN
+    app_plsql_log.register(g_package_name || '.' || l_module_name);
+    app_plsql_output.set_run_id(l_run_id);
+    app_plsql_log.set_context(l_user_id, g_package_name, l_run_id);
+    app_plsql_log.info(l_module_name || ' start');
+
+    SELECT MAX(NVL(p_sls_typ, -1)) INTO l_sls_typ FROM TABLE(p_get_offr);
+    SELECT MAX(o.mrkt_id)
+      INTO l_mrkt_id
+      FROM TABLE(p_get_offr) poi
+      JOIN offr o
+        ON o.offr_id = poi.p_offr_id;
+    SELECT MAX(o.ver_id)
+      INTO l_ver_id
+      FROM TABLE(p_get_offr) poi
+      JOIN offr o
+        ON o.offr_id = poi.p_offr_id;
+    SELECT MAX(o.offr_perd_id)
+      INTO l_offr_perd_id
+      FROM TABLE(p_get_offr) poi
+      JOIN offr o
+        ON o.offr_id = poi.p_offr_id;
+    SELECT DISTINCT (o.veh_id)
+      BULK COLLECT
+      INTO l_veh_ids
+      FROM TABLE(p_get_offr) poi
+      JOIN offr o
+        ON o.offr_id = poi.p_offr_id;
+    SELECT MIN(NVL(p_sls_typ, -1)) INTO l_min_sls_typ FROM TABLE(p_get_offr);
+    SELECT MIN(o.mrkt_id)
+      INTO l_min_mrkt_id
+      FROM TABLE(p_get_offr) poi
+      JOIN offr o
+        ON o.offr_id = poi.p_offr_id;
+    SELECT MIN(o.ver_id)
+      INTO l_min_ver_id
+      FROM TABLE(p_get_offr) poi
+      JOIN offr o
+        ON o.offr_id = poi.p_offr_id;
+    SELECT MIN(o.offr_perd_id)
+      INTO l_min_offr_perd_id
+      FROM TABLE(p_get_offr) poi
+      JOIN offr o
+        ON o.offr_id = poi.p_offr_id;
+    IF l_min_sls_typ <> l_sls_typ OR l_min_mrkt_id <> l_mrkt_id OR   l_min_ver_id <> l_ver_id OR  l_min_offr_perd_id <> l_offr_perd_id
+    THEN
+      RAISE_APPLICATION_ERROR(-20100, 'market, campaign, version and sales type must be the same to use this function');
+    END IF;
+
+    IF l_sls_typ = -1 THEN
+      l_sls_typ := NULL;      
+    END IF;
+
+    dbms_output.put_line(l_sls_typ || l_mrkt_id || l_ver_id ||
+                         l_offr_perd_id);
+
+    FOR rec IN (
+
+  SELECT NULL AS intrnl_offr_id
+      --,l_sls_typ AS sls_typ
+      ,NVL(osl_current.sales_type, (SELECT MAX(mps_sls_typ_id)
+                                          FROM mrkt_veh_perd_ver mvpv
+                                         WHERE mvpv.mrkt_id = l_mrkt_id
+                                           AND mvpv.offr_perd_id = l_offr_perd_id
+                                           AND mvpv.ver_id = l_ver_id
+                                           AND mvpv.veh_id = o.veh_id)) AS sls_typ
+       --latest version calculations
+      ,NULL AS lv_nta
+      ,NULL AS lv_sp
+      ,NULL AS lv_rp
+      ,NULL AS lv_discount
+      ,NULL AS lv_units
+      ,NULL AS lv_total_cost
+      ,NULL AS lv_gross_sales
+      ,NULL lv_dp_cash
+      ,NULL lv_dp_percent
+       --/latest version calculations
+      ,0 AS status
+      ,o.mrkt_id AS mrkt_id
+      ,o.offr_perd_id AS offr_perd_id
+      ,NULL AS offr_lock
+      ,NULL AS offr_lock_user
+      ,osl_current.offr_sku_line_id AS offr_sku_line_id
+      ,o.veh_id AS veh_id
+      ,NULL AS brchr_plcmnt_id
+      ,NULL AS brchr_sctn_nm
+      ,NULL AS enrgy_chrt_postn_id
+      ,NULL AS pg_nr
+      ,prfl.catgry_id AS ctgry_id
+      ,brnd_grp.brnd_fmly_id AS brnd_id
+      ,prfl.sgmt_id AS sgmt_id
+      ,NULL AS form_id
+      ,NULL AS form_grp_id
+      ,offr_prfl_prc_point.prfl_cd AS prfl_cd
+      ,osl_current.sku_id AS sku_id
+      ,NULL AS fsc_cd
+      ,NULL AS prod_typ_id
+      ,NULL AS gender_id
+      ,NULL AS sls_cls_cd
+      ,NULL AS pp_sls_cls_cd
+      ,NULL AS offr_desc_txt
+      ,NULL AS offr_notes_txt
+      ,NULL AS offr_lyot_cmnts_txt
+      ,NULL AS featrd_side_cd
+      ,NULL AS concept_featrd_side_cd
+      ,NULL AS micr_ncpsltn_ind
+      ,NULL AS cnsmr_invstmt_bdgt_id
+      ,NULL AS pymt_typ
+      ,NULL AS promtn_id
+      ,NULL AS promtn_clm_id
+       --,1 AS cmbntn_offr_typ
+      ,'NEW_FEATURE' AS spndng_lvl
+      ,NULL AS tax_type_id
+      ,NULL AS wsl_ind
+      ,NULL AS comsn_typ
+      ,NULL AS offr_sku_set_id
+      ,NULL AS cmpnt_qty
+      ,offr_prfl_prc_point.nr_for_qty AS nr_for_qty
+      ,offr_prfl_prc_point.net_to_avon_fct AS nta_factor
+      ,osl_current.sku_cost_amt AS sku_cost
+      ,o.ver_id AS ver_id
+      ,offr_prfl_prc_point.sls_prc_amt AS sls_prc_amt
+      ,NULL AS reg_prc_amt --sku reg prcb?l
+      ,NULL AS line_nr
+      ,osl_current.sum_unit_qty AS unit_qty
+      ,osl_current.dltd_ind AS dltd_ind
+      ,NULL AS created_ts
+      ,NULL AS created_user_id
+      ,NULL AS last_updt_user_id
+      ,NULL AS last_updt_ts
+      ,NULL AS mrkt_veh_perd_sctn_id
+      ,prfl.prfl_nm AS prfl_nm
+      ,NULL AS sku_nm
+      ,NULL AS comsn_typ_desc_txt
+      ,NULL AS tax_typ_desc_txt
+      ,NULL AS offr_sku_set_nm
+       --pricing corridors
+      ,NULL AS pc_sp_py
+      ,NULL AS pc_rp
+      ,NULL AS pc_sp
+      ,NULL as pc_vsp
+      ,NULL AS pc_hit
+      ,NULL AS pg_wght
+      ,NULL AS pp_pg_wght
+      ,NULL AS sprd_nr
+      ,NULL AS offr_prfl_prcpt_id
+      ,NULL AS has_unit_qty
+      ,o.offr_typ
+      ,NULL AS forcasted_units
+      ,NULL AS forcasted_date
+      ,NULL AS offr_cls_id
+      ,NULL AS spcl_ordr_ind
+      ,NULL AS offr_ofs_nr
+      ,NULL AS pp_ofs_nr
+      ,NULL AS impct_catgry_id
+      ,NULL AS hero_ind
+      ,NULL AS smplg_ind
+      ,NULL AS mltpl_ind
+      ,NULL AS cmltv_ind
+      ,NULL AS use_instrctns_ind
+      ,NULL AS pg_typ_id
+      ,NULL AS featrd_prfl_ind
+      ,NULL AS fxd_pg_wght_ind
+      ,NULL AS prod_endrsmt_id
+      ,NULL AS frc_mtch_mthd_id
+      ,NULL AS wghtd_avg_cost_amt
+      ,NULL AS incntv_id
+      ,NULL AS intrdctn_perd_id
+      ,NULL AS on_stus_perd_id
+      ,NULL AS dspostn_perd_id
+--
+  FROM (SELECT *
+           FROM offr
+          WHERE offr_id IN (SELECT p_offr_id FROM table(p_get_offr))
+       AND offr.mrkt_id = l_mrkt_id
+       AND offr.offr_perd_id = l_offr_perd_id
+       AND offr.ver_id = l_ver_id) o
+      ,(SELECT offr_sku_line.offr_sku_line_id
+               ,offr_sku_line.sku_id
+               ,offr_sku_line.featrd_side_cd
+               ,offr_sku_line.pg_ofs_nr
+               ,offr_sku_line.prfl_cd
+               ,offr_sku_line.sls_cls_cd
+               ,offr_sku_line.offr_id
+               ,offr_sku_line.offr_sku_set_id
+               ,offr_sku_line.offr_prfl_prcpt_id
+               ,offr_sku_line.dltd_ind
+               ,offr_sku_line.line_nr
+               ,offr_sku_line.set_cmpnt_qty
+               ,offr_sku_line.mrkt_id
+               ,CASE
+                  WHEN actual_sku.wghtd_avg_cost_amt IS NOT NULL THEN
+                   actual_sku.wghtd_avg_cost_amt
+                  ELSE
+                   planned_sku.wghtd_avg_cost_amt
+                END sku_cost_amt
+               ,l_ver_id AS ver_id
+               ,sku_reg_prc.reg_prc_amt
+               ,sku.sku_nm
+               --,l_sls_typ AS sales_type
+               ,CASE WHEN l_sls_typ IS NULL THEN
+                   (SELECT MAX(mps_sls_typ_id)
+                      FROM mrkt_veh_perd_ver mvpv
+                     WHERE mvpv.mrkt_id = l_mrkt_id
+                       AND mvpv.offr_perd_id = l_offr_perd_id
+                       AND mvpv.ver_id = l_ver_id
+                       AND mvpv.veh_id = o.veh_id)
+                  ELSE
+                    l_sls_typ
+                  END AS sales_type
+               ,(SELECT MAX(sls_typ_id)
+                   FROM dstrbtd_mrkt_sls
+                  WHERE mrkt_id = l_mrkt_id
+                    AND offr_perd_id = l_offr_perd_id
+                    AND sls_perd_id = l_offr_perd_id
+                    AND veh_id = offr_sku_line.veh_id
+                    AND ver_id = l_ver_id) max_sales_type
+               ,(SELECT nvl(SUM(unit_qty), 0) AS sum_unit_qty
+                   FROM dstrbtd_mrkt_sls
+                  WHERE sls_typ_id = --l_sls_typ
+                                     (CASE WHEN l_sls_typ IS NULL THEN
+                                       (SELECT MAX(mps_sls_typ_id)
+                                          FROM mrkt_veh_perd_ver mvpv
+                                         WHERE mvpv.mrkt_id = l_mrkt_id
+                                           AND mvpv.offr_perd_id = l_offr_perd_id
+                                           AND mvpv.ver_id = l_ver_id
+                                           AND mvpv.veh_id = o.veh_id)
+                                      ELSE
+                                        l_sls_typ
+                                      END)
+                    AND mrkt_id = l_mrkt_id
+                    AND offr_perd_id = l_offr_perd_id
+                    AND sls_perd_id = l_offr_perd_id
+                    AND offr_sku_line_id = offr_sku_line.offr_sku_line_id
+                  GROUP BY offr_sku_line_id, sls_typ_id) sum_unit_qty
+               ,(SELECT nvl(SUM(cost_amt), 0) AS sum_cost_amt
+                   FROM dstrbtd_mrkt_sls
+                  WHERE sls_typ_id = --l_sls_typ
+                                     (CASE WHEN l_sls_typ IS NULL THEN
+                                       (SELECT MAX(mps_sls_typ_id)
+                                          FROM mrkt_veh_perd_ver mvpv
+                                         WHERE mvpv.mrkt_id = l_mrkt_id
+                                           AND mvpv.offr_perd_id = l_offr_perd_id
+                                           AND mvpv.ver_id = l_ver_id
+                                           AND mvpv.veh_id = o.veh_id)
+                                      ELSE
+                                        l_sls_typ
+                                      END)
+                    AND mrkt_id = l_mrkt_id
+                    AND offr_perd_id = l_offr_perd_id
+                    AND sls_perd_id = l_offr_perd_id
+                    AND offr_sku_line_id = offr_sku_line.offr_sku_line_id
+                  GROUP BY offr_sku_line_id, sls_typ_id) AS sum_cost_amt
+           FROM offr_sku_line
+               ,sku_cost    actual_sku
+               ,sku_cost    planned_sku
+               ,sku_reg_prc
+               ,sku
+               ,offr        o
+          WHERE
+           o.offr_id = offr_sku_line.offr_id
+       AND o.mrkt_id = l_mrkt_id
+       AND o.offr_perd_id = l_offr_perd_id
+       AND o.ver_id = l_ver_id
+       AND o.offr_id IN (SELECT p_offr_id FROM table(p_get_offr))
+
+       AND offr_sku_line.sku_id = actual_sku.sku_id(+)
+       AND actual_sku.cost_typ(+) = 'A'
+       AND actual_sku.mrkt_id(+) = l_mrkt_id
+       AND actual_sku.offr_perd_id(+) = l_offr_perd_id
+       AND offr_sku_line.sku_id = planned_sku.sku_id(+)
+       AND planned_sku.mrkt_id(+) = l_mrkt_id
+       AND planned_sku.offr_perd_id(+) = l_offr_perd_id
+       AND planned_sku.cost_typ(+) = 'P'
+       AND sku_reg_prc.mrkt_id(+) = l_mrkt_id
+       AND sku_reg_prc.offr_perd_id(+) = l_offr_perd_id
+       AND sku_reg_prc.sku_id(+) = offr_sku_line.sku_id
+       AND sku.sku_id(+) = offr_sku_line.sku_id) osl_current
+      ,offr_prfl_prc_point
+      ,prfl
+      ,form
+      ,brnd_grp
+      ,brnd
+      
+ WHERE
+--offr outer join on selected version
+  o.offr_id = osl_current.offr_id(+)
+ AND o.mrkt_id = l_mrkt_id
+ AND o.offr_perd_id = l_offr_perd_id
+ AND o.ver_id = l_ver_id
+ 
+ AND osl_current.dltd_ind = 'N'
+ AND osl_current.sum_unit_qty <> 0
+ 
+--offr prfl prc point
+ AND offr_prfl_prc_point.offr_prfl_prcpt_id(+) = osl_current.offr_prfl_prcpt_id
+--brnd
+ AND brnd.brnd_id(+) = prfl.brnd_id
+ AND brnd_grp.brnd_grp_id(+) = brnd.brnd_grp_id
+--new prfl and form table
+ AND prfl.prfl_cd(+) = offr_prfl_prc_point.prfl_cd
+ AND prfl.form_id = form.form_id(+)
+   )
+     LOOP
+      PIPE ROW(obj_edit_offr_line(rec.status,
+                                  rec.mrkt_id,
+                                  rec.offr_perd_id,
+                                  rec.offr_lock,
+                                  rec.offr_lock_user,
+                                  rec.offr_sku_line_id,
+                                  rec.veh_id,
+                                  rec.brchr_plcmnt_id,
+                                  rec.brchr_sctn_nm,
+                                  rec.enrgy_chrt_postn_id,
+                                  rec.pg_nr,
+                                  rec.ctgry_id,
+                                  rec.brnd_id,
+                                  rec.sgmt_id,
+                                  rec.form_id,
+                                  rec.form_grp_id,
+                                  rec.prfl_cd,
+                                  rec.sku_id,
+                                  rec.fsc_cd,
+                                  rec.prod_typ_id,
+                                  rec.gender_id,
+                                  rec.sls_cls_cd,
+                                  rec.pp_sls_cls_cd,
+                                  rec.offr_desc_txt,
+                                  rec.offr_notes_txt,
+                                  rec.offr_lyot_cmnts_txt,
+                                  rec.featrd_side_cd,
+                                  rec.concept_featrd_side_cd,
+                                  rec.micr_ncpsltn_ind,
+                                  rec.cnsmr_invstmt_bdgt_id,
+                                  rec.pymt_typ,
+                                  rec.promtn_id,
+                                  rec.promtn_clm_id,
+                                  -- rec.cmbntn_offr_typ,
+                                  rec.spndng_lvl,
+                                  rec.comsn_typ,
+                                  rec.tax_type_id,
+                                  rec.wsl_ind,
+                                  rec.offr_sku_set_id,
+                                  rec.cmpnt_qty,
+                                  rec.nr_for_qty,
+                                  rec.nta_factor,
+                                  rec.sku_cost,
+                                  rec.lv_nta,
+                                  rec.lv_sp,
+                                  rec.lv_rp,
+                                  rec.lv_discount,
+                                  rec.lv_units,
+                                  rec.lv_total_cost,
+                                  rec.lv_gross_sales,
+                                  rec.lv_dp_cash,
+                                  rec.lv_dp_percent,
+                                  rec.ver_id,
+                                  rec.sls_prc_amt,
+                                  rec.reg_prc_amt,
+                                  rec.line_nr,
+                                  rec.unit_qty,
+                                  rec.dltd_ind,
+                                  rec.created_ts,
+                                  rec.created_user_id,
+                                  rec.last_updt_ts,
+                                  rec.last_updt_user_id,
+                                  rec.intrnl_offr_id,
+                                  rec.mrkt_veh_perd_sctn_id,
+                                  rec.prfl_nm,
+                                  rec.sku_nm,
+                                  rec.comsn_typ_desc_txt,
+                                  rec.tax_typ_desc_txt,
+                                  rec.offr_sku_set_nm,
+                                  rec.sls_typ,
+                                  rec.pc_sp_py,
+                                  rec.pc_rp,
+                                  rec.pc_sp,
+                                  rec.pc_vsp,
+                                  rec.pc_hit,
+                                  rec.pg_wght,
+                                  rec.pp_pg_wght,
+                                  rec.sprd_nr,
+                                  rec.offr_prfl_prcpt_id,
+                                  rec.has_unit_qty,
+                                  rec.offr_typ,
+                                  rec.forcasted_units,
+                                  rec.forcasted_date,
+                                  rec.offr_cls_id,
+                                  rec.spcl_ordr_ind,
+                                  rec.offr_ofs_nr,
+                                  rec.pp_ofs_nr,
+                                  rec.impct_catgry_id,
+                                  rec.hero_ind,
+                                  rec.smplg_ind,
+                                  rec.mltpl_ind,
+                                  rec.cmltv_ind,
+                                  rec.use_instrctns_ind,
+                                  rec.pg_typ_id,
+                                  rec.featrd_prfl_ind,
+                                  rec.fxd_pg_wght_ind,
+                                  rec.prod_endrsmt_id,
+                                  rec.frc_mtch_mthd_id,
+                                  rec.wghtd_avg_cost_amt,
+                                  rec.incntv_id,
+                                  rec.intrdctn_perd_id,
+                                  rec.on_stus_perd_id,
+                                  rec.dspostn_perd_id
+                                  ));
+    END LOOP;
+    app_plsql_log.info(l_module_name || ' stop');
+  EXCEPTION
+    WHEN OTHERS THEN
+      app_plsql_log.info('Error in get offr pivot' || SQLERRM(SQLCODE));
+
+  END get_offr_pivot;
+
+
 function get_edit_offr_table( p_filters IN obj_edit_offr_filter_table,
                               p_pagination IN CHAR DEFAULT 'N'
                 )
@@ -1913,7 +2351,8 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
               l_get_offr_table.extend();
               l_get_offr_table(l_get_offr_table.last) := obj_get_offr_line(offrs.p_offr_id, offrs.p_sls_typ);
    END LOOP; --get valid offer id-s loop
-
+IF p_pagination <> 'P' THEN 
+  
   FOR rec IN (SELECT o.* FROM TABLE(get_offr(l_get_offr_table, p_pagination)) o,
                    mrkt_veh mv
              WHERE mv.mrkt_id(+) = o.mrkt_id
@@ -2136,9 +2575,230 @@ FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
      IF l_row_count > row_limit THEN EXIT; END IF;
 
                 END LOOP;--result loop
+ELSE
+  FOR rec IN (SELECT o.* FROM TABLE(get_offr_pivot(l_get_offr_table)) o)
+  LOOP --Result loop
+  l_obj_edit_offr_table.extend();
+  l_obj_edit_offr_table(l_obj_edit_offr_table.last) :=   OBJ_EDIT_OFFR_LINE(rec.status,
+                rec.mrkt_id,
+                rec.offr_perd_id,
+                rec.offr_lock,
+                rec.offr_lock_user,
+                rec.offr_sku_line_id,
+                rec.veh_id,
+                rec.brchr_plcmnt_id,
+                rec.brchr_sctn_nm,
+                rec.enrgy_chrt_postn_id,
+                rec.pg_nr,
+                rec.ctgry_id,
+                rec.brnd_id,
+                rec.sgmt_id,
+                rec.form_id,
+                rec.form_grp_id,
+                rec.prfl_cd,
+                rec.sku_id,
+                rec.fsc_cd,
+                rec.prod_typ_id,
+                rec.gender_id,
+                rec.sls_cls_cd,
+                rec.pp_sls_cls_cd,
+                rec.offr_desc_txt,
+                rec.offr_notes_txt,
+                rec.offr_lyot_cmnts_txt,
+                rec.featrd_side_cd,
+                rec.concept_featrd_side_cd,
+                rec.micr_ncpsltn_ind,
+                rec.cnsmr_invstmt_bdgt_id,
+                rec.pymt_typ,
+                rec.promtn_id,
+                rec.promtn_clm_id,
+                --rec.cmbntn_offr_typ,
+                rec.spndng_lvl,
+                rec.comsn_typ,
+                rec.tax_type_id,
+                rec.wsl_ind,
+                rec.offr_sku_set_id,
+                rec.cmpnt_qty,
+                rec.nr_for_qty,
+                rec.nta_factor,
+                rec.sku_cost,
+                rec.lv_nta,
+                rec.lv_sp,
+                rec.lv_rp,
+                rec.lv_discount,
+                rec.lv_units,
+                rec.lv_total_cost,
+                rec.lv_gross_sales,
+                rec.lv_dp_cash,
+                rec.lv_dp_percent,
+                rec.ver_id,
+                rec.sls_prc_amt,
+                rec.reg_prc_amt,
+                rec.line_nr,
+                rec.unit_qty,
+                rec.dltd_ind,
+                rec.created_ts,
+                rec.created_user_id,
+                rec.last_updt_ts,
+                rec.last_updt_user_id,
+                rec.intrnl_offr_id,
+                rec.mrkt_veh_perd_sctn_id,
+                rec.prfl_nm,
+                rec.sku_nm,
+                rec.comsn_typ_desc_txt,
+                rec.tax_typ_desc_txt,
+                rec.offr_sku_Set_nm,
+                rec.sls_typ,
+                rec.pc_sp_py,
+                rec.pc_rp,
+                rec.pc_sp,
+                rec.pc_vsp,
+                rec.pc_hit,
+                rec.pg_wght,
+                rec.pp_pg_wght,
+                rec.sprd_nr,
+                rec.offr_prfl_prcpt_id,
+                rec.has_unit_qty,
+                rec.offr_typ,
+                rec.forcasted_units,
+                rec.forcasted_date,
+                rec.offr_cls_id,
+                rec.spcl_ordr_ind,
+                rec.offr_ofs_nr,
+                rec.pp_ofs_nr,
+                rec.impct_catgry_id,
+                rec.hero_ind,
+                rec.smplg_ind,
+                rec.mltpl_ind,
+                rec.cmltv_ind,
+                rec.use_instrctns_ind,
+                rec.pg_typ_id,
+                rec.featrd_prfl_ind,
+                rec.fxd_pg_wght_ind,
+                rec.prod_endrsmt_id,
+                rec.frc_mtch_mthd_id,
+                rec.wghtd_avg_cost_amt,
+                rec.incntv_id,
+                rec.intrdctn_perd_id,
+                rec.on_stus_perd_id,
+                rec.dspostn_perd_id
+                );
 
                 IF l_row_count > row_limit THEN EXIT; END IF;
+    PIPE row(OBJ_EDIT_OFFR_LINE(rec.status,
+                rec.mrkt_id,
+                rec.offr_perd_id,
+                rec.offr_lock,
+                rec.offr_lock_user,
+                rec.offr_sku_line_id,
+                rec.veh_id,
+                rec.brchr_plcmnt_id,
+                rec.brchr_sctn_nm,
+                rec.enrgy_chrt_postn_id,
+                rec.pg_nr,
+                rec.ctgry_id,
+                rec.brnd_id,
+                rec.sgmt_id,
+                rec.form_id,
+                rec.form_grp_id,
+                rec.prfl_cd,
+                rec.sku_id,
+                rec.fsc_cd,
+                rec.prod_typ_id,
+                rec.gender_id,
+                rec.sls_cls_cd,
+                rec.pp_sls_cls_cd,
+                rec.offr_desc_txt,
+                rec.offr_notes_txt,
+                rec.offr_lyot_cmnts_txt,
+                rec.featrd_side_cd,
+                rec.concept_featrd_side_cd,
+                rec.micr_ncpsltn_ind,
+                rec.cnsmr_invstmt_bdgt_id,
+                rec.pymt_typ,
+                rec.promtn_id,
+                rec.promtn_clm_id,
+                --rec.cmbntn_offr_typ,
+                rec.spndng_lvl,
+                rec.comsn_typ,
+                rec.tax_type_id,
+                rec.wsl_ind,
+                rec.offr_sku_set_id,
+                rec.cmpnt_qty,
+                rec.nr_for_qty,
+                rec.nta_factor,
+                rec.sku_cost,
+                rec.lv_nta,
+                rec.lv_sp,
+                rec.lv_rp,
+                rec.lv_discount,
+                rec.lv_units,
+                rec.lv_total_cost,
+                rec.lv_gross_sales,
+                rec.lv_dp_cash,
+                rec.lv_dp_percent,
+                rec.ver_id,
+                rec.sls_prc_amt,
+                rec.reg_prc_amt,
+                rec.line_nr,
+                rec.unit_qty,
+                rec.dltd_ind,
+                rec.created_ts,
+                rec.created_user_id,
+                rec.last_updt_ts,
+                rec.last_updt_user_id,
+                rec.intrnl_offr_id,
+                rec.mrkt_veh_perd_sctn_id,
+                rec.prfl_nm,
+                rec.sku_nm,
+                rec.comsn_typ_desc_txt,
+                rec.tax_typ_desc_txt,
+                rec.offr_sku_Set_nm,
+                rec.sls_typ,
+                rec.pc_sp_py,
+                rec.pc_rp,
+                rec.pc_sp,
+                rec.pc_vsp,
+                rec.pc_hit,
+                rec.pg_wght,
+                rec.pp_pg_wght,
+                rec.sprd_nr,
+                rec.offr_prfl_prcpt_id,
+                rec.has_unit_qty,
+                rec.offr_typ,
+                rec.forcasted_units,
+                rec.forcasted_date,
+                rec.offr_cls_id,
+                rec.spcl_ordr_ind,
+                rec.offr_ofs_nr,
+                rec.pp_ofs_nr,
+                rec.impct_catgry_id,
+                rec.hero_ind,
+                rec.smplg_ind,
+                rec.mltpl_ind,
+                rec.cmltv_ind,
+                rec.use_instrctns_ind,
+                rec.pg_typ_id,
+                rec.featrd_prfl_ind,
+                rec.fxd_pg_wght_ind,
+                rec.prod_endrsmt_id,
+                rec.frc_mtch_mthd_id,
+                rec.wghtd_avg_cost_amt,
+                rec.incntv_id,
+                rec.intrdctn_perd_id,
+                rec.on_stus_perd_id,
+                rec.dspostn_perd_id
+                ));
+
+                l_row_count := l_row_count+1;
+     IF l_row_count > row_limit THEN EXIT; END IF;
+
+                END LOOP;
+END IF;
+                IF l_row_count > row_limit THEN EXIT; END IF;
                 l_get_offr_table.delete(); --empty the offer id-s for every filter line
+                
+                
 END LOOP;--Filters from the screen loop
         app_plsql_log.info(l_module_name || ' stop');
         BEGIN
@@ -5012,7 +5672,7 @@ frcst AS
          AND o.veh_id                = p_veh_id
     )
     LOOP
-      
+
       l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => offr_rec.offr_id,
                                                par_newmarketid    => p_mrkt_id,
                                                par_newofferperiod => p_offr_perd_id,

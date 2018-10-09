@@ -27,6 +27,10 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
     RETURN obj_edit_offr_table
     PIPELINED;
 
+  FUNCTION get_offr_pivot(p_get_offr   IN obj_get_offr_table)
+   RETURN obj_edit_offr_table
+   PIPELINED;
+
   FUNCTION get_history(p_get_offr IN obj_get_offr_table)
     RETURN obj_edit_offr_hist_table
     PIPELINED;
