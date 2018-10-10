@@ -53,6 +53,219 @@ AS
   e_oscs_dup_val           EXCEPTION;
   e_prcpnt_already_exists  EXCEPTION;
 
+  -- WIF scenario procedures and functions
+
+  FUNCTION get_scenario_list(p_mrkt_id      IN NUMBER,
+                             p_offr_perd_id IN NUMBER,
+                             p_veh_id       IN NUMBER) RETURN obj_scenario_table PIPELINED IS
+
+    l_module_name          VARCHAR2(30) := 'GET_SCENARIO_LIST';
+  BEGIN
+    app_plsql_log.info(l_module_name || ' start');
+
+    FOR rec IN (
+      SELECT scnrio_id, scnrio_desc_txt
+        FROM what_if_scnrio
+       WHERE mrkt_id = p_mrkt_id
+         AND strt_perd_id = p_offr_perd_id
+         AND end_perd_id = p_offr_perd_id
+         AND veh_id = p_veh_id
+         AND enbl_scnrio_ind = 'Y'
+         AND shr_ind = 'Y'
+    )
+    LOOP
+      PIPE ROW (obj_scenario_line(rec.scnrio_id, rec.scnrio_desc_txt));
+    END LOOP;
+
+    app_plsql_log.info(l_module_name || ' stop');
+  END get_scenario_list;
+
+  PROCEDURE add_scenario(p_mrkt_id         IN NUMBER,
+                         p_veh_id          IN NUMBER,
+                         p_scnrio_desc_txt IN VARCHAR2,
+                         p_strt_perd_id    IN NUMBER,
+                         p_end_perd_id     IN NUMBER,
+                         p_user_nm         IN VARCHAR2) IS
+
+    l_module_name          VARCHAR2(30) := 'ADD_SCENARIO';
+    l_scnrio_id            NUMBER;
+  BEGIN
+    app_plsql_log.info(l_module_name || ' start');
+
+    SELECT seq.nextval INTO l_scnrio_id FROM dual;
+  
+    INSERT INTO what_if_scnrio (
+      mrkt_id, veh_id, scnrio_id, scnrio_desc_txt, strt_perd_id, end_perd_id,
+      creat_user_id, creat_ts, shr_ind, enbl_scnrio_ind)
+    VALUES (
+      p_mrkt_id, p_veh_id, l_scnrio_id, p_scnrio_desc_txt, p_strt_perd_id, p_end_perd_id,
+      p_user_nm, SYSDATE, 'Y', 'Y');
+
+    app_plsql_log.info(l_module_name || ' stop');
+  END add_scenario;
+
+  PROCEDURE add_offr_to_scenario(p_mrkt_id   IN NUMBER,
+                                 p_veh_id    IN NUMBER,
+                                 p_scnrio_id IN NUMBER,
+                                 p_offr_id   IN NUMBER) IS
+
+    l_module_name          VARCHAR2(30) := 'ADD_OFFR_TO_SCENARIO';
+    l_tran_id              NUMBER;
+  BEGIN
+    app_plsql_log.info(l_module_name || ' start');
+
+    SELECT seq.nextval INTO l_tran_id FROM dual;
+
+    INSERT INTO what_if_tran (
+      mrkt_id, veh_id, scnrio_id, tran_id, tran_typ, offr_id)
+    VALUES (
+      p_mrkt_id, p_veh_id, p_scnrio_id, l_tran_id, 'WIF', p_offr_id);
+
+    app_plsql_log.info(l_module_name || ' stop');
+  END add_offr_to_scenario;
+
+  FUNCTION get_sprd_scenarios(p_mrkt_id      IN NUMBER,
+                              p_offr_perd_id IN NUMBER,
+                              p_veh_id       IN NUMBER,
+                              p_mvps_id      IN NUMBER,
+                              p_pg_nr        IN NUMBER,
+                              p_offr_id      IN NUMBER) RETURN number_array IS
+
+    l_module_name          VARCHAR2(30) := 'GET_SPRD_SCENARIOS';
+    l_scnrio_id_arr        number_array;
+  BEGIN
+    app_plsql_log.info(l_module_name || ' start');
+
+    SELECT scnrio_id
+      BULK COLLECT INTO l_scnrio_id_arr
+      FROM what_if_tran t
+     WHERE t.offr_id IN (SELECT o.offr_id
+                           FROM offr o
+                          WHERE o.mrkt_veh_perd_sctn_id = p_mvps_id
+                            AND o.sctn_page_ofs_nr = p_pg_nr
+                            AND o.mrkt_id = p_mrkt_id
+                            AND o.offr_perd_id = p_offr_perd_id
+                            AND o.veh_id = p_veh_id
+                            AND o.offr_id <> p_offr_id);
+    RETURN l_scnrio_id_arr;
+
+    app_plsql_log.info(l_module_name || ' stop');
+  END get_sprd_scenarios;
+
+  PROCEDURE create_wif_offrs(p_offr_id       IN NUMBER,
+                             p_user_nm       IN VARCHAR2, 
+                             p_mvps_id       IN offr.mrkt_veh_perd_sctn_id%TYPE,
+                             p_pg_nr         IN offr.sctn_page_ofs_nr%TYPE,
+                             p_mrkt_id       IN offr.mrkt_id%TYPE,
+                             p_offr_perd_id  IN offr.offr_perd_id%TYPE,
+                             p_veh_id        IN offr.veh_id%TYPE,
+                             p_scnrio_id     IN what_if_scnrio.scnrio_id%TYPE) IS
+
+    l_module_name          VARCHAR2(30) := 'CREATE_WIF_OFFRS';
+    
+    l_new_offr_id          offr.offr_id%TYPE;
+
+  BEGIN
+    app_plsql_log.info(l_module_name || ' start');
+
+    FOR offr_rec IN (
+      SELECT o.offr_id,
+             o.offr_desc_txt,
+             o.offr_typ
+        FROM offr o
+       WHERE NOT EXISTS (
+               SELECT 1
+                 FROM offr o2
+                WHERE o2.offr_id = o.offr_link_id
+                  AND o2.offr_typ = 'WIF')
+         AND o.mrkt_veh_perd_sctn_id = p_mvps_id
+         AND o.sctn_page_ofs_nr      = p_pg_nr
+         AND o.mrkt_id               = p_mrkt_id
+         AND o.offr_perd_id          = p_offr_perd_id
+         AND o.veh_id                = p_veh_id
+         AND o.offr_typ              = 'CMP'
+         AND o.offr_id              <> p_offr_id
+    )
+    LOOP
+      l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => offr_rec.offr_id,
+                                               par_newmarketid    => p_mrkt_id,
+                                               par_newofferperiod => p_offr_perd_id,
+                                               par_newvehid       => p_veh_id,
+                                               par_newoffrdesc    => offr_rec.offr_desc_txt,
+                                               par_zerounits      => FALSE,
+                                               par_whatif         => TRUE,
+                                               par_paginationcopy => TRUE,
+                                               par_user           => p_user_nm);
+    
+      add_offr_to_scenario(p_mrkt_id   => p_mrkt_id,
+                           p_veh_id    => p_veh_id,
+                           p_scnrio_id => p_scnrio_id,
+                           p_offr_id   => l_new_offr_id);
+
+    END LOOP;
+
+    app_plsql_log.info(l_module_name || ' stop');
+  END create_wif_offrs;
+
+  PROCEDURE manage_scenario(p_offr_id      IN NUMBER,
+                            p_user_nm      IN VARCHAR2) IS
+
+    l_module_name          VARCHAR2(30) := 'MANAGE_SCENARIO';
+
+    l_mvps_id              offr.mrkt_veh_perd_sctn_id%TYPE;
+    l_pg_nr                offr.sctn_page_ofs_nr%TYPE;
+    l_offr_typ             offr.offr_typ%TYPE;
+    l_mrkt_id              offr.mrkt_id%TYPE;
+    l_offr_perd_id         offr.offr_perd_id%TYPE;
+    l_veh_id               offr.veh_id%TYPE;
+    l_scnrio_id            what_if_tran.scnrio_id%TYPE;
+    l_scnrio_id_arr        number_array;
+
+  BEGIN
+    app_plsql_log.info(l_module_name || ' start');
+
+    SELECT o.mrkt_veh_perd_sctn_id,
+           o.sctn_page_ofs_nr,
+           o.offr_typ,
+           o.mrkt_id,
+           o.offr_perd_id,
+           o.veh_id,
+           t.scnrio_id
+      INTO l_mvps_id,
+           l_pg_nr,
+           l_offr_typ,
+           l_mrkt_id,
+           l_offr_perd_id,
+           l_veh_id,
+           l_scnrio_id
+      FROM offr o,
+           what_if_tran t
+     WHERE t.offr_id(+) = o.offr_id
+       AND t.tran_typ(+) = 'WIF'
+       AND o.offr_id = p_offr_id;
+
+    l_scnrio_id_arr := get_sprd_scenarios(l_mrkt_id, l_offr_perd_id, l_veh_id, l_mvps_id, l_pg_nr, p_offr_id);
+      
+    IF l_offr_typ = 'CMP' AND l_scnrio_id_arr.COUNT > 0 THEN
+
+      FOR scnr_ind IN l_scnrio_id_arr.FIRST .. l_scnrio_id_arr.LAST LOOP
+        create_wif_offrs(p_offr_id, p_user_nm, l_mvps_id, l_pg_nr, l_mrkt_id, l_offr_perd_id, l_veh_id, l_scnrio_id_arr(scnr_ind));
+      END LOOP;
+
+    ELSIF l_offr_typ = 'WIF' AND l_scnrio_id IS NOT NULL THEN
+
+      IF l_scnrio_id_arr.COUNT = 0 THEN
+        
+        create_wif_offrs(p_offr_id, p_user_nm, l_mvps_id, l_pg_nr, l_mrkt_id, l_offr_perd_id, l_veh_id, l_scnrio_id);
+        
+      END IF;
+    END IF;
+
+    app_plsql_log.info(l_module_name || ' stop');
+  END manage_scenario;
+
+  -- lock procedures and functions
+  
 FUNCTION  lock_offr_chk(p_offr_id IN NUMBER, p_user_nm IN VARCHAR2) RETURN NUMBER
   AS
     ln_status NUMBER;
@@ -1349,7 +1562,7 @@ EXCEPTION
                        ', sls_typ: ' || p_sls_typ || ', Error: ' || SQLERRM);
     RAISE;
 END save_edit_offr_lines;
-
+                            
 -----------------------SAVE_EDIT_OFFR_TABLE----------------------------------
 PROCEDURE save_edit_offr_table(p_data_line  IN obj_edit_offr_table,
                                p_result    OUT obj_edit_offr_save_table,
@@ -1583,6 +1796,9 @@ BEGIN
             l_result := 1;
             BEGIN
               save_edit_offr_lines(offr_sls.offr_id, offr_sls.sls_typ, p_data_line);
+              
+              manage_scenario(offr_sls.offr_id, l_offr_lock_user);
+
               COMMIT;  --save changes for the offer
             EXCEPTION
               WHEN OTHERS THEN
@@ -4466,6 +4682,7 @@ frcst AS
                       p_featrd_side_cd         IN VARCHAR2,
                       p_pg_wght                IN NUMBER,
                       p_offr_typ               IN VARCHAR2,
+                      p_scnrio_id              IN VARCHAR2,
                       p_prfl_cd_list           IN number_array,
                       p_user_nm                IN VARCHAR2,
                       p_clstr_id               IN NUMBER,
@@ -4559,6 +4776,15 @@ frcst AS
                     p_status);
       END LOOP;
     END IF; -- p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0
+
+    IF p_offr_typ = 'WIF' THEN
+      add_offr_to_scenario(p_mrkt_id   => p_mrkt_id,
+                           p_veh_id    => p_veh_id,
+                           p_scnrio_id => p_scnrio_id,
+                           p_offr_id   => l_offr_id);
+    END IF;
+
+    manage_scenario(l_offr_id, p_user_nm);
 
     lock_offr(l_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
 
@@ -5612,133 +5838,73 @@ frcst AS
       ROLLBACK;
   END copy_prcpts_to_offr;
 
-  -- WIF scenario procedures
+  FUNCTION get_sprd_data(p_mrkt_id IN NUMBER, p_offr_perd_id IN NUMBER, p_veh_id IN NUMBER, p_ver_id IN NUMBER, p_sprd_nr IN NUMBER)
+    RETURN CLOB AS
+      l_clob CLOB;
+    BEGIN
+    SELECT page_data
+      INTO l_clob
+      FROM mrkt_veh_perd_sprd
+     WHERE mrkt_id = p_mrkt_id
+       AND offr_perd_id = p_offr_perd_id
+       AND veh_id = p_veh_id
+       AND sprd_nr = p_sprd_nr
+       AND ver_id = p_ver_id;
+       
+      RETURN l_clob;
+    END get_sprd_data;
 
-  FUNCTION get_scenario_list(p_mrkt_id      IN NUMBER,
-                             p_offr_perd_id IN NUMBER,
-                             p_veh_id       IN NUMBER) RETURN obj_scenario_table PIPELINED IS
+  PROCEDURE set_sprd_data(p_mrkt_id      IN NUMBER,
+                          p_offr_perd_id IN NUMBER,
+                          p_veh_id       IN NUMBER,
+                          p_ver_id       IN NUMBER,
+                          p_sprd_nr      IN NUMBER,
+                          p_page_data    IN CLOB,
+                          p_status         OUT NUMBER,
+                          p_error_txt      OUT VARCHAR2) AS
+    l_exist NUMBER;  
   BEGIN
-    FOR rec IN (
-      SELECT scnrio_id, scnrio_desc_txt
-        FROM what_if_scnrio
+    dbms_output.put_line('setting page data for spread');
+    p_status := 1;
+    SELECT COUNT(*)
+      INTO l_exist
+      FROM mrkt_veh_perd_sprd
+     WHERE mrkt_id = p_mrkt_id
+       AND offr_perd_id = p_offr_perd_id
+       AND veh_id = p_veh_id
+       AND sprd_nr = p_sprd_nr
+       AND ver_id = p_ver_id;
+    IF l_exist = 0 THEN
+      INSERT INTO mrkt_veh_perd_sprd (mrkt_id,
+                                      offr_perd_id,
+                                      veh_id,
+                                      ver_id,
+                                      sprd_nr,
+                                      page_data)
+                                      VALUES (
+                                      p_mrkt_id,
+                                      p_offr_perd_id,
+                                      p_veh_id,
+                                      p_ver_id,
+                                      p_sprd_nr,
+                                      p_page_data
+                                      );
+    ELSE
+      UPDATE mrkt_veh_perd_sprd
+         SET page_data = p_page_data
        WHERE mrkt_id = p_mrkt_id
-         AND strt_perd_id = p_offr_perd_id
-         AND end_perd_id = p_offr_perd_id
+         AND offr_perd_id = p_offr_perd_id
          AND veh_id = p_veh_id
-         AND enbl_scnrio_ind = 'Y'
-         AND shr_ind = 'Y'
-    )
-    LOOP
-      PIPE ROW (obj_scenario_line(rec.scnrio_id, rec.scnrio_desc_txt));
-    END LOOP;
-
-  END get_scenario_list;
-
-  PROCEDURE add_scenario(p_mrkt_id         IN NUMBER,
-                         p_veh_id          IN NUMBER,
-                         p_scnrio_desc_txt IN VARCHAR2,
-                         p_strt_perd_id    IN NUMBER,
-                         p_end_perd_id     IN NUMBER,
-                         p_user_nm         IN VARCHAR2) IS
-
-    l_scnrio_id     NUMBER;
-  BEGIN
-    SELECT seq.nextval INTO l_scnrio_id FROM dual;
-  
-    INSERT INTO what_if_scnrio (
-      mrkt_id, veh_id, scnrio_id, scnrio_desc_txt, strt_perd_id, end_perd_id,
-      creat_user_id, creat_ts, shr_ind, enbl_scnrio_ind)
-    VALUES (
-      p_mrkt_id, p_veh_id, l_scnrio_id, p_scnrio_desc_txt, p_strt_perd_id, p_end_perd_id,
-      p_user_nm, SYSDATE, 'Y', 'Y');
-  END add_scenario;
-
-  PROCEDURE add_offr_to_scenario(p_mrkt_id   IN NUMBER,
-                                 p_veh_id    IN NUMBER,
-                                 p_scnrio_id IN NUMBER,
-                                 p_offr_id   IN NUMBER) IS
-    l_tran_id NUMBER;
-  BEGIN
-    SELECT seq.nextval INTO l_tran_id FROM dual;
-
-    INSERT INTO what_if_tran (
-      mrkt_id, veh_id, scnrio_id, tran_id, tran_typ, offr_id)
-    VALUES (
-      p_mrkt_id, p_veh_id, p_scnrio_id, l_tran_id, 'WIF', p_offr_id);
-  END add_offr_to_scenario;
-
-  FUNCTION get_sprd_scnrios(p_mrkt_id      IN NUMBER,
-                            p_offr_perd_id IN NUMBER,
-                            p_veh_id       IN NUMBER,
-                            p_mvps_id      IN NUMBER,
-                            p_pg_nr        IN NUMBER) RETURN number_array IS
-    l_scnrio_id_arr  number_array;
-  BEGIN
-    SELECT scnrio_id
-      BULK COLLECT INTO l_scnrio_id_arr
-      FROM what_if_tran t
-     WHERE t.offr_id IN (SELECT o.offr_id
-                           FROM offr o
-                          WHERE o.mrkt_veh_perd_sctn_id = p_mvps_id
-                            AND o.sctn_page_ofs_nr = p_pg_nr
-                            AND o.mrkt_id = p_mrkt_id
-                            AND o.offr_perd_id = p_offr_perd_id
-                            AND o.veh_id = p_veh_id);
-    RETURN l_scnrio_id_arr;
-  END get_sprd_scnrios;
-
-  PROCEDURE copy_cmp_to_wif(p_mvps_id      IN NUMBER,
-                            p_pg_nr        IN NUMBER,
-                            p_mrkt_id      IN NUMBER,
-                            p_offr_perd_id IN NUMBER,
-                            p_veh_id       IN NUMBER,
-                            p_user_nm      IN VARCHAR2) IS
-
-    l_new_offr_id    offr.offr_id%TYPE;
---    l_scnrio_id      what_if_scnrio.scnrio_id%TYPE;
-    l_scnrio_id_arr  number_array;
-  BEGIN
-    l_scnrio_id_arr := get_sprd_scnrios(p_mrkt_id, p_offr_perd_id, p_veh_id, p_mvps_id, p_pg_nr);
-
-    IF l_scnrio_id_arr.COUNT = 0 THEN
-      -- RAISE exception !!!
-      null;
+         AND sprd_nr = p_sprd_nr;
+         
     END IF;
 
-    FOR scnr_ind IN l_scnrio_id_arr.FIRST .. l_scnrio_id_arr.LAST LOOP
-      FOR offr_rec IN (
-        SELECT o.offr_id, o.offr_desc_txt
-          FROM offr o
-         WHERE NOT EXISTS (
-                 SELECT 1
-                   FROM offr o2
-                  WHERE o2.offr_id = o.offr_link_id
-                    AND o2.offr_typ = 'CMP')
-           AND o.mrkt_veh_perd_sctn_id = p_mvps_id
-           AND o.sctn_page_ofs_nr      = p_pg_nr
-           AND o.mrkt_id               = p_mrkt_id
-           AND o.offr_perd_id          = p_offr_perd_id
-           AND o.veh_id                = p_veh_id
-      )
-      LOOP
-        l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => offr_rec.offr_id,
-                                                 par_newmarketid    => p_mrkt_id,
-                                                 par_newofferperiod => p_offr_perd_id,
-                                                 par_newvehid       => p_veh_id,
-                                                 par_newoffrdesc    => offr_rec.offr_desc_txt,
-                                                 par_zerounits      => FALSE,
-                                                 par_whatif         => TRUE,
-                                                 par_paginationcopy => TRUE,
-                                                 par_user           => p_user_nm);
-        --dbms_output.put_line(l_new_offr_id);
-        add_offr_to_scenario(p_mrkt_id   => p_mrkt_id,
-                             p_veh_id    => p_veh_id,
-                             p_scnrio_id => l_scnrio_id_arr(scnr_ind),
-                             p_offr_id   => l_new_offr_id);
-
-      END LOOP;
-    END LOOP;
-  END copy_cmp_to_wif;
+    COMMIT;
+    EXCEPTION WHEN OTHERS THEN 
+      p_status := 0;
+      p_error_txt := SQLERRM(SQLCODE);
+      ROLLBACK;
+  END set_sprd_data;
 
 END PA_MAPS_EDIT_OFFR;
 /

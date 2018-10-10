@@ -63,6 +63,7 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                       p_featrd_side_cd         IN VARCHAR2,
                       p_pg_wght                IN NUMBER,
                       p_offr_typ               IN VARCHAR2,
+                      p_scnrio_id              IN VARCHAR2,
                       p_prfl_cd_list           IN number_array,
                       p_user_nm                IN VARCHAR2,
                       p_clstr_id               IN NUMBER,
@@ -124,6 +125,17 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                                  p_veh_id    IN NUMBER,
                                  p_scnrio_id IN NUMBER,
                                  p_offr_id   IN NUMBER);
+
+  FUNCTION get_sprd_data(p_mrkt_id IN NUMBER, p_offr_perd_id IN NUMBER, p_veh_id IN NUMBER, p_ver_id IN NUMBER, p_sprd_nr IN NUMBER) RETURN CLOB;
+
+  PROCEDURE set_sprd_data(p_mrkt_id      IN NUMBER,
+                          p_offr_perd_id IN NUMBER,
+                          p_veh_id       IN NUMBER,
+                          p_ver_id       IN NUMBER,
+                          p_sprd_nr      IN NUMBER,
+                          p_page_data    IN CLOB,
+                          p_status      OUT NUMBER,
+                          p_error_txt   OUT VARCHAR2);
 
 END pa_maps_edit_offr;
 /
