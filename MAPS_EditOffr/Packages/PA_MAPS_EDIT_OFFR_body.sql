@@ -245,7 +245,7 @@ AS
        AND o.offr_id = p_offr_id;
 
     l_scnrio_id_arr := get_sprd_scenarios(l_mrkt_id, l_offr_perd_id, l_veh_id, l_mvps_id, l_pg_nr, p_offr_id);
-      
+
     IF l_offr_typ = 'CMP' AND l_scnrio_id_arr.COUNT > 0 THEN
 
       FOR scnr_ind IN l_scnrio_id_arr.FIRST .. l_scnrio_id_arr.LAST LOOP
@@ -255,9 +255,9 @@ AS
     ELSIF l_offr_typ = 'WIF' AND l_scnrio_id IS NOT NULL THEN
 
       IF l_scnrio_id_arr.COUNT = 0 THEN
-        
+
         create_wif_offrs(p_offr_id, p_user_nm, l_mvps_id, l_pg_nr, l_mrkt_id, l_offr_perd_id, l_veh_id, l_scnrio_id);
-        
+
       END IF;
     END IF;
 
@@ -5859,6 +5859,7 @@ frcst AS
                           p_veh_id       IN NUMBER,
                           p_ver_id       IN NUMBER,
                           p_sprd_nr      IN NUMBER,
+                          p_user_id     VARCHAR2,
                           p_page_data    IN CLOB,
                           p_status         OUT NUMBER,
                           p_error_txt      OUT VARCHAR2) AS
@@ -5880,18 +5881,21 @@ frcst AS
                                       veh_id,
                                       ver_id,
                                       sprd_nr,
-                                      page_data)
+                                      page_data,
+                                      creat_user_id)
                                       VALUES (
                                       p_mrkt_id,
                                       p_offr_perd_id,
                                       p_veh_id,
                                       p_ver_id,
                                       p_sprd_nr,
-                                      p_page_data
+                                      p_page_data,
+                                      p_user_id
                                       );
     ELSE
       UPDATE mrkt_veh_perd_sprd
-         SET page_data = p_page_data
+         SET page_data = p_page_data,
+             last_updt_user_id = p_user_id
        WHERE mrkt_id = p_mrkt_id
          AND offr_perd_id = p_offr_perd_id
          AND veh_id = p_veh_id

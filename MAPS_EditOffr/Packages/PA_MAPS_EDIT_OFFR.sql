@@ -133,6 +133,7 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                           p_veh_id       IN NUMBER,
                           p_ver_id       IN NUMBER,
                           p_sprd_nr      IN NUMBER,
+                          p_user_id      IN VARCHAR2,
                           p_page_data    IN CLOB,
                           p_status      OUT NUMBER,
                           p_error_txt   OUT VARCHAR2);
