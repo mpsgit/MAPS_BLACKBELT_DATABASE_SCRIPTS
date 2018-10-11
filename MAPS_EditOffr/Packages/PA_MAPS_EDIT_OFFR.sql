@@ -17,6 +17,17 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
 
   SUBTYPE single_char IS CHAR(1);
 
+  FUNCTION get_scenario_list(p_mrkt_id IN NUMBER,
+                             p_offr_perd_id IN NUMBER,
+                             p_veh_id IN NUMBER) RETURN obj_scenario_table PIPELINED;
+
+  PROCEDURE add_scenario(p_mrkt_id         IN NUMBER,
+                         p_veh_id          IN NUMBER,
+                         p_scnrio_desc_txt IN VARCHAR2,
+                         p_strt_perd_id    IN NUMBER,
+                         p_end_perd_id     IN NUMBER,
+                         p_user_nm         IN VARCHAR2);
+
   FUNCTION get_edit_offr_table(p_filters IN obj_edit_offr_filter_table,
                                p_pagination IN CHAR DEFAULT 'N')
     RETURN obj_edit_offr_table
@@ -109,22 +120,6 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                                 p_move_ind            IN VARCHAR2,
                                 p_status             OUT NUMBER,
                                 p_edit_offr_table    OUT obj_edit_offr_table);
-
-  FUNCTION get_scenario_list(p_mrkt_id IN NUMBER,
-                             p_offr_perd_id IN NUMBER,
-                             p_veh_id IN NUMBER) RETURN obj_scenario_table PIPELINED;
-
-  PROCEDURE add_scenario(p_mrkt_id         IN NUMBER,
-                         p_veh_id          IN NUMBER,
-                         p_scnrio_desc_txt IN VARCHAR2,
-                         p_strt_perd_id    IN NUMBER,
-                         p_end_perd_id     IN NUMBER,
-                         p_user_nm         IN VARCHAR2);
-
-  PROCEDURE add_offr_to_scenario(p_mrkt_id   IN NUMBER,
-                                 p_veh_id    IN NUMBER,
-                                 p_scnrio_id IN NUMBER,
-                                 p_offr_id   IN NUMBER);
 
   FUNCTION get_sprd_data(p_mrkt_id IN NUMBER, p_offr_perd_id IN NUMBER, p_veh_id IN NUMBER, p_ver_id IN NUMBER, p_sprd_nr IN NUMBER) RETURN CLOB;
 
