@@ -190,9 +190,49 @@ AS
       RAISE;
   END get_sprd_scenarios;
 
-  PROCEDURE create_wif_offrs_wif(--p_offr_id       IN NUMBER,
---                                 p_offr_typ      IN VARCHAR2,
-                                 p_user_nm       IN VARCHAR2, 
+  PROCEDURE copy_offr_add_to_scnrio(p_offr_id       IN offr.offr_id%TYPE,
+                                    p_offr_desc_txt IN offr.offr_desc_txt%TYPE,
+                                    p_user_nm       IN VARCHAR2,
+                                    p_mrkt_id       IN offr.mrkt_id%TYPE, 
+                                    p_offr_perd_id  IN offr.offr_perd_id%TYPE, 
+                                    p_veh_id        IN offr.veh_id%TYPE, 
+                                    p_scnrio_id     IN what_if_scnrio.scnrio_id%TYPE) is
+
+    l_module_name          VARCHAR2(30) := 'COPY_OFFR_ADD_TO_SCNRIO';
+    l_log                  VARCHAR2(1000);
+
+    l_new_offr_id          offr.offr_id%TYPE;
+
+  BEGIN
+    l_log := 'Copying the offer';
+    l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => p_offr_id,
+                                             par_newmarketid    => p_mrkt_id,
+                                             par_newofferperiod => p_offr_perd_id,
+                                             par_newvehid       => p_veh_id,
+                                             par_newoffrdesc    => p_offr_desc_txt,
+                                             par_zerounits      => FALSE,
+                                             par_whatif         => TRUE,
+                                             par_paginationcopy => TRUE,
+                                             par_user           => p_user_nm);
+
+    l_log := 'Updating offr_desc_txt';
+    UPDATE offr o
+       SET o.offr_desc_txt = p_offr_desc_txt
+     WHERE o.offr_id = l_new_offr_id;
+
+    l_log := 'Adding offer to scenario';
+    add_offr_to_scenario(p_mrkt_id   => p_mrkt_id,
+                         p_veh_id    => p_veh_id,
+                         p_scnrio_id => p_scnrio_id,
+                         p_offr_id   => l_new_offr_id);
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      app_plsql_log.info(l_module_name || ' ' || l_log || ' ' || SQLERRM(SQLCODE));
+      RAISE;
+  END copy_offr_add_to_scnrio;
+
+  PROCEDURE create_wif_offrs_wif(p_user_nm       IN VARCHAR2,
                                  p_mvps_id       IN offr.mrkt_veh_perd_sctn_id%TYPE,
                                  p_pg_nr         IN offr.sctn_page_ofs_nr%TYPE,
                                  p_mrkt_id       IN offr.mrkt_id%TYPE,
@@ -202,8 +242,6 @@ AS
 
     l_module_name          VARCHAR2(30) := 'CREATE_WIF_OFFRS_WIF';
     l_log                  VARCHAR2(1000);
-
-    l_new_offr_id          offr.offr_id%TYPE;
 
   BEGIN
     app_plsql_log.info(l_module_name || ' start');
@@ -226,26 +264,9 @@ AS
          AND o.offr_perd_id          = p_offr_perd_id
          AND o.veh_id                = p_veh_id
          AND o.offr_typ              = 'CMP'
---         AND o.offr_id               <> p_offr_id
     )
     LOOP
-      l_log := 'Copying the offer';
-      l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => offr_rec.offr_id,
-                                               par_newmarketid    => p_mrkt_id,
-                                               par_newofferperiod => p_offr_perd_id,
-                                               par_newvehid       => p_veh_id,
-                                               par_newoffrdesc    => offr_rec.offr_desc_txt,
-                                               par_zerounits      => FALSE,
-                                               par_whatif         => TRUE,
-                                               par_paginationcopy => TRUE,
-                                               par_user           => p_user_nm);
-    
-      l_log := 'Adding offer to scenario';
-      add_offr_to_scenario(p_mrkt_id   => p_mrkt_id,
-                           p_veh_id    => p_veh_id,
-                           p_scnrio_id => p_scnrio_id,
-                           p_offr_id   => l_new_offr_id);
-
+      copy_offr_add_to_scnrio(offr_rec.offr_id, offr_rec.offr_desc_txt, p_user_nm, p_mrkt_id, p_offr_perd_id, p_veh_id, p_scnrio_id);
     END LOOP;
 
     app_plsql_log.info(l_module_name || ' stop');
@@ -257,10 +278,7 @@ AS
   END create_wif_offrs_wif;
 
   PROCEDURE create_wif_offrs_cmp(p_offr_id       IN NUMBER,
---                                 p_offr_typ      IN VARCHAR2,
-                                 p_user_nm       IN VARCHAR2, 
---                                 p_mvps_id       IN offr.mrkt_veh_perd_sctn_id%TYPE,
---                                 p_pg_nr         IN offr.sctn_page_ofs_nr%TYPE,
+                                 p_user_nm       IN VARCHAR2,
                                  p_mrkt_id       IN offr.mrkt_id%TYPE,
                                  p_offr_perd_id  IN offr.offr_perd_id%TYPE,
                                  p_veh_id        IN offr.veh_id%TYPE,
@@ -268,8 +286,6 @@ AS
 
     l_module_name          VARCHAR2(30) := 'CREATE_WIF_OFFRS_CMP';
     l_log                  VARCHAR2(1000);
-
-    l_new_offr_id          offr.offr_id%TYPE;
 
   BEGIN
     app_plsql_log.info(l_module_name || ' start');
@@ -286,30 +302,14 @@ AS
                       what_if_tran t
                 WHERE t.offr_id(+) = o2.offr_id
                   AND t.tran_typ(+) = 'WIF'
-                  AND t.scnrio_id(+) = p_scnrio_id
+                  AND t.scnrio_id = p_scnrio_id
                   AND o2.offr_id = o.offr_link_id
                   AND o2.offr_typ = 'WIF'
              )
          AND o.offr_id = p_offr_id
     )
     LOOP
-      l_log := 'Copying the offer';
-      l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => offr_rec.offr_id,
-                                               par_newmarketid    => p_mrkt_id,
-                                               par_newofferperiod => p_offr_perd_id,
-                                               par_newvehid       => p_veh_id,
-                                               par_newoffrdesc    => offr_rec.offr_desc_txt,
-                                               par_zerounits      => FALSE,
-                                               par_whatif         => TRUE,
-                                               par_paginationcopy => TRUE,
-                                               par_user           => p_user_nm);
-    
-      l_log := 'Adding offer to scenario';
-      add_offr_to_scenario(p_mrkt_id   => p_mrkt_id,
-                           p_veh_id    => p_veh_id,
-                           p_scnrio_id => p_scnrio_id,
-                           p_offr_id   => l_new_offr_id);
-
+      copy_offr_add_to_scnrio(offr_rec.offr_id, offr_rec.offr_desc_txt, p_user_nm, p_mrkt_id, p_offr_perd_id, p_veh_id, p_scnrio_id);
     END LOOP;
 
     app_plsql_log.info(l_module_name || ' stop');
@@ -366,7 +366,7 @@ AS
 
       l_log := 'Creating WIF offers for CMP offer';
       FOR scnr_ind IN l_scnrio_id_arr.FIRST .. l_scnrio_id_arr.LAST LOOP
-        create_wif_offrs_cmp(p_offr_id, /*l_offr_typ,*/ p_user_nm, /*l_mvps_id, l_pg_nr,*/ l_mrkt_id, l_offr_perd_id, l_veh_id, l_scnrio_id_arr(scnr_ind));
+        create_wif_offrs_cmp(p_offr_id, p_user_nm, l_mrkt_id, l_offr_perd_id, l_veh_id, l_scnrio_id_arr(scnr_ind));
       END LOOP;
 
     ELSIF l_offr_typ = 'WIF' AND l_scnrio_id IS NOT NULL THEN
@@ -374,7 +374,7 @@ AS
       l_log := 'Creating WIF offers for WIF offer';
       IF l_scnrio_id_arr.COUNT = 0 THEN
 
-        create_wif_offrs_wif(/*p_offr_id, l_offr_typ,*/ p_user_nm, l_mvps_id, l_pg_nr, l_mrkt_id, l_offr_perd_id, l_veh_id, l_scnrio_id);
+        create_wif_offrs_wif(p_user_nm, l_mvps_id, l_pg_nr, l_mrkt_id, l_offr_perd_id, l_veh_id, l_scnrio_id);
 
       ELSE
         app_plsql_log.info(l_module_name || ' no WIF offers created');
