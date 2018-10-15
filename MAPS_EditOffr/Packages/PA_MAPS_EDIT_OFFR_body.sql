@@ -2517,6 +2517,7 @@ function get_edit_offr_table( p_filters    IN obj_edit_offr_filter_table,
     l_get_offr_table      obj_get_offr_table;
     l_obj_edit_offr_table obj_edit_offr_table;
     l_pagination          CHAR(1);
+    l_scnrio_cnt          NUMBER;
 begin
     app_plsql_log.register(g_package_name || '.' || l_module_name);
     app_plsql_output.set_run_id(l_run_id);
@@ -2528,6 +2529,13 @@ begin
   l_pagination := NVL(p_pagination, 'N');
 
   FOR p_filter IN c_p_filter LOOP --Filters from the screen loop
+
+    IF p_filter.p_scnrio_id IS NOT NULL THEN
+      l_scnrio_cnt := p_filter.p_scnrio_id.COUNT;
+    ELSE
+      l_scnrio_cnt := 0;
+    END IF;
+
     FOR offrs IN (
         --Return every offer id where not every item is disabled.
     WITH
@@ -2576,10 +2584,15 @@ begin
                ,mrkt_tmp_fsc
                ,mrkt_tmp_fsc_master
                ,dstrbtd_mrkt_sls
+               ,what_if_tran
          WHERE --offr_sku_line join
                    o.offr_id = osl.offr_id(+)
                AND CASE
-                     WHEN p_filter.p_offr_typ IS NULL THEN
+                     WHEN what_if_tran.scnrio_id IN (SELECT * FROM TABLE(p_filter.p_scnrio_id)) THEN
+                       1
+                     WHEN l_scnrio_cnt = 0 AND p_filter.p_offr_typ IS NULL THEN
+                       1
+                     WHEN l_scnrio_cnt > 0 AND o.offr_id = 'CMP' THEN
                        1
                      WHEN o.offr_typ = p_filter.p_offr_typ THEN
                        1
@@ -2602,6 +2615,9 @@ begin
                --offr_prfl_prc_point
                AND offr_prfl_prc_point.offr_prfl_prcpt_id(+) = osl.offr_prfl_prcpt_id
                AND dstrbtd_mrkt_sls.offr_sku_line_id(+) = osl.offr_sku_line_id
+               --what_if_tran
+               AND what_if_tran.offr_id(+) = o.offr_id
+               AND what_if_tran.tran_typ(+) = 'WIF'
                --FILTERS
            AND dstrbtd_mrkt_sls.sls_typ_id (+) = p_filter.p_sls_typ
            AND CASE
@@ -3246,19 +3262,9 @@ FUNCTION get_offr(p_get_offr   IN obj_get_offr_table,
        WHERE mrkt_id = l_mrkt_id
          AND config_item_id = cfg_pricing_start_perd;
 
-/*
-      IF prc_enabled = 'Y'
-         AND prc_strt_perd_id IS NOT NULL
-         AND l_offr_perd_id >= prc_strt_perd_id THEN
-        pricing_used := 'Y';
-      END IF;
-*/
-
     EXCEPTION
       WHEN OTHERS THEN
         null;
-        --pricing_used := 'N';
-        --        app_plsql_log.info('Error in get offr' || SQLERRM(SQLCODE));
     END;
 
     FOR rec IN (
