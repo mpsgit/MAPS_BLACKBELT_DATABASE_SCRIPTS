@@ -2524,7 +2524,6 @@ function get_edit_offr_table( p_filters    IN obj_edit_offr_filter_table,
     l_get_offr_table      obj_get_offr_table;
     l_obj_edit_offr_table obj_edit_offr_table;
     l_pagination          CHAR(1);
-    l_row_count           NUMBER := 0;
 begin
     app_plsql_log.register(g_package_name || '.' || l_module_name);
     app_plsql_output.set_run_id(l_run_id);
@@ -2812,8 +2811,6 @@ begin
                   rec.dspostn_perd_id,
                   rec.scnrio_id
                   );
-
-       IF l_row_count > row_limit THEN EXIT; END IF;
        
        PIPE row(OBJ_EDIT_OFFR_LINE(rec.status,
                   rec.mrkt_id,
@@ -2920,9 +2917,6 @@ begin
                   rec.dspostn_perd_id,
                   rec.scnrio_id
                   ));
-
-       l_row_count := l_row_count+1;
-       IF l_row_count > row_limit THEN EXIT; END IF;
 
      END LOOP;--result loop
    ELSE
@@ -3035,8 +3029,6 @@ begin
                   rec.scnrio_id
                   );
 
-      IF l_row_count > row_limit THEN EXIT; END IF;
-
       PIPE row(OBJ_EDIT_OFFR_LINE(rec.status,
                   rec.mrkt_id,
                   rec.offr_perd_id,
@@ -3143,12 +3135,9 @@ begin
                   rec.scnrio_id
                   ));
 
-      l_row_count := l_row_count+1;
-      IF l_row_count > row_limit THEN EXIT; END IF;
-
     END LOOP;
   END IF;
-                IF l_row_count > row_limit THEN EXIT; END IF;
+
                 l_get_offr_table.delete(); --empty the offer id-s for every filter line
                 
                 
