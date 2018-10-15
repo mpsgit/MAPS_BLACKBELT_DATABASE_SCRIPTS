@@ -96,11 +96,10 @@ AS
                          p_scnrio_desc_txt IN VARCHAR2,
                          p_strt_perd_id    IN NUMBER,
                          p_end_perd_id     IN NUMBER,
-                         p_user_nm         IN VARCHAR2) IS
+                         p_user_nm         IN VARCHAR2,
+                         p_scnrio_id      OUT NUMBER) IS
 
     l_module_name          VARCHAR2(30) := 'ADD_SCENARIO';
-
-    l_scnrio_id            NUMBER;
 
   BEGIN
     g_run_id  := app_plsql_output.generate_new_run_id;
@@ -110,13 +109,13 @@ AS
     app_plsql_log.set_context(g_user_id, g_package_name, g_run_id);
     app_plsql_log.info(l_module_name || ' start');
 
-    SELECT seq.nextval INTO l_scnrio_id FROM dual;
+    SELECT seq.nextval INTO p_scnrio_id FROM dual;
   
     INSERT INTO what_if_scnrio (
       mrkt_id, veh_id, scnrio_id, scnrio_desc_txt, strt_perd_id, end_perd_id,
       creat_user_id, creat_ts, shr_ind, enbl_scnrio_ind)
     VALUES (
-      p_mrkt_id, p_veh_id, l_scnrio_id, p_scnrio_desc_txt, p_strt_perd_id, p_end_perd_id,
+      p_mrkt_id, p_veh_id, p_scnrio_id, p_scnrio_desc_txt, p_strt_perd_id, p_end_perd_id,
       p_user_nm, SYSDATE, 'Y', 'Y');
 
     app_plsql_log.info(l_module_name || ' stop');
@@ -210,7 +209,7 @@ AS
                                              par_newofferperiod => p_offr_perd_id,
                                              par_newvehid       => p_veh_id,
                                              par_newoffrdesc    => p_offr_desc_txt,
-                                             par_zerounits      => FALSE,
+                                             par_zerounits      => TRUE,
                                              par_whatif         => TRUE,
                                              par_paginationcopy => TRUE,
                                              par_user           => p_user_nm);
@@ -4828,6 +4827,7 @@ frcst AS
     l_lock_status            NUMBER;
     l_offr_cls_id            NUMBER;
     l_brchr_plcmt_id         offr.brchr_plcmt_id%TYPE;
+    l_scnrio_id              what_if_scnrio.scnrio_id%TYPE := p_scnrio_id;
 
   BEGIN
     g_run_id  := app_plsql_output.generate_new_run_id;
@@ -4906,9 +4906,18 @@ frcst AS
     END IF; -- p_prfl_cd_list IS NOT NULL AND p_prfl_cd_list.COUNT > 0
 
     IF p_offr_typ = 'WIF' THEN
+      IF l_scnrio_id IS NULL THEN
+        add_scenario(p_mrkt_id         => p_mrkt_id,
+                     p_veh_id          => p_veh_id,
+                     p_scnrio_desc_txt => p_scnrio_nm,
+                     p_strt_perd_id    => p_offr_perd_id,
+                     p_end_perd_id     => p_offr_perd_id,
+                     p_user_nm         => p_user_nm,
+                     p_scnrio_id       => l_scnrio_id);
+      END IF;
       add_offr_to_scenario(p_mrkt_id   => p_mrkt_id,
                            p_veh_id    => p_veh_id,
-                           p_scnrio_id => p_scnrio_id,
+                           p_scnrio_id => l_scnrio_id,
                            p_offr_id   => l_offr_id);
     END IF;
 
