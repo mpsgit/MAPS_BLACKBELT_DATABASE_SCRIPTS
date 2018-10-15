@@ -762,18 +762,11 @@ END set_history;
 PROCEDURE merge_history(p_get_offr IN OBJ_EDIT_OFFR_TABLE)
 IS
 PRAGMA AUTONOMOUS_TRANSACTION;
-l_rowcount NUMBER;
-l_last_offr_id NUMBER := 0;
-l_collection_size NUMBER;
+  l_rowcount NUMBER;
 BEGIN
 
-l_collection_size := p_get_offr.count();
-IF l_collection_size >= row_limit THEN
---SELECT intrnl_offr_id INTO l_last_offr_id FROM TABLE(p_Get_offr(p_get_offr.last));
-l_last_offr_id := p_get_offr(p_get_offr.last).intrnl_offr_id;
-END IF;
    MERGE INTO EDIT_OFFR_HIST hist
-   USING (SELECT * FROM table(p_get_offr) WHERE intrnl_offr_id <> l_last_offr_id) cur
+   USING (SELECT * FROM table(p_get_offr)) cur
    ON (
       nvl(hist.intrnl_offr_id         ,-1)  = nvl(cur.intrnl_offr_id             ,-1)
   AND nvl(hist.offr_sku_line_id       ,-1)  = nvl(cur.offr_sku_line_id           ,-1)
