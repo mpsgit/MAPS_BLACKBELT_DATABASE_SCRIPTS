@@ -2592,7 +2592,7 @@ begin
                        1
                      WHEN l_scnrio_cnt = 0 AND p_filter.p_offr_typ IS NULL THEN
                        1
-                     WHEN l_scnrio_cnt > 0 AND o.offr_id = 'CMP' THEN
+                     WHEN l_scnrio_cnt > 0 AND o.offr_typ = 'CMP' THEN
                        1
                      WHEN o.offr_typ = p_filter.p_offr_typ THEN
                        1
@@ -5963,12 +5963,21 @@ frcst AS
       ROLLBACK;
   END copy_prcpts_to_offr;
 
-  FUNCTION get_sprd_data(p_mrkt_id IN NUMBER, p_offr_perd_id IN NUMBER, p_veh_id IN NUMBER, p_ver_id IN NUMBER, p_sprd_nr IN NUMBER)
-    RETURN CLOB AS
+PROCEDURE get_sprd_data(p_mrkt_id IN NUMBER, 
+    p_offr_perd_id IN NUMBER, 
+    p_veh_id IN NUMBER, 
+    p_ver_id IN NUMBER, 
+    p_sprd_nr IN NUMBER,  
+    p_page_data OUT CLOB,  
+    p_img_url OUT VARCHAR2)
+ AS
       l_clob CLOB;
+      l_img_url VARCHAR2(4000);
+--      l_return_obj obj_edit_offr_pg_edit_line;
     BEGIN
-    SELECT page_data
-      INTO l_clob
+
+    SELECT page_data, img_url
+      INTO l_clob,l_img_url
       FROM mrkt_veh_perd_sprd
      WHERE mrkt_id = p_mrkt_id
        AND offr_perd_id = p_offr_perd_id
@@ -5976,7 +5985,9 @@ frcst AS
        AND sprd_nr = p_sprd_nr
        AND ver_id = p_ver_id;
        
-      RETURN l_clob;
+       p_page_data := l_clob;
+       p_img_url := l_img_url;
+
     END get_sprd_data;
 
   PROCEDURE set_sprd_data(p_mrkt_id      IN NUMBER,
@@ -5986,6 +5997,7 @@ frcst AS
                           p_sprd_nr      IN NUMBER,
                           p_user_id      IN VARCHAR2,
                           p_page_data    IN CLOB,
+                          p_img_url      IN VARCHAR2,
                           p_status         OUT NUMBER,
                           p_error_txt      OUT VARCHAR2) AS
     l_exist NUMBER;  
@@ -6007,6 +6019,7 @@ frcst AS
                                       ver_id,
                                       sprd_nr,
                                       page_data,
+                                      img_url,
                                       creat_user_id)
                                       VALUES (
                                       p_mrkt_id,
@@ -6015,11 +6028,13 @@ frcst AS
                                       p_ver_id,
                                       p_sprd_nr,
                                       p_page_data,
+                                      p_img_url,
                                       p_user_id
                                       );
     ELSE
       UPDATE mrkt_veh_perd_sprd
          SET page_data = p_page_data,
+             img_url = p_img_url,
              last_updt_user_id = p_user_id
        WHERE mrkt_id = p_mrkt_id
          AND offr_perd_id = p_offr_perd_id
