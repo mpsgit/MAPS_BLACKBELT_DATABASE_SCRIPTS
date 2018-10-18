@@ -7,6 +7,7 @@ CREATE TABLE mrkt_veh_perd_sprd
   ver_id            NUMBER,
   sprd_nr           NUMBER,
   page_data         CLOB NOT NULL,
+  img_url           VARCHAR2(4000),
   creat_user_id     VARCHAR2(35) DEFAULT USER NOT NULL,
   creat_ts          DATE DEFAULT SYSDATE NOT NULL,
   last_updt_user_id VARCHAR2(35),
