@@ -10,6 +10,7 @@ CREATE OR REPLACE TYPE obj_edit_offr_line FORCE AS OBJECT
   brchr_plcmnt_id        NUMBER,
   brchr_sctn_nm          VARCHAR2(100),
   enrgy_chrt_postn_id    NUMBER,
+  web_postn_id           NUMBER,
   pg_nr                  NUMBER,
   ctgry_id               NUMBER,
   brnd_id                NUMBER, --BRND_FMLY_ID
@@ -29,6 +30,7 @@ CREATE OR REPLACE TYPE obj_edit_offr_line FORCE AS OBJECT
   featrd_side_cd         VARCHAR2(5),
   concept_featrd_side_cd VARCHAR2(5),
   micr_ncpsltn_ind       CHAR(1),
+  scntd_pg_typ_id        NUMBER,
   cnsmr_invstmt_bdgt_id  NUMBER,
   pymt_typ               VARCHAR2(5),
   promtn_id              NUMBER,

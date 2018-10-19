@@ -1,4 +1,22 @@
 CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
+
+  /************************************************************************************************************
+  * Modification History
+  *
+  * Date         : 2018
+  * Developer    : Blackbelt
+  * Description  : Initial creation
+  *
+  * Date         : 25-Sep-2018
+  * Developer    : Fiona Lindsay
+  * Description  : Brazil Perfect Billing Phase 2
+  *                - added logic to handle new Web Position
+  *                - default new copy offer energy chart parameter to FALSE
+  *                - added logic for Scented Page type
+  *                - removed logic from Add Price Point where micro indicator was mistakely copied from Offer
+  * 
+  ************************************************************************************************************/
+
   g_package_name           CONSTANT VARCHAR2(30) := 'PA_MAPS_EDIT_OFFR';
 
   co_exec_status_success   CONSTANT NUMBER := 1;
