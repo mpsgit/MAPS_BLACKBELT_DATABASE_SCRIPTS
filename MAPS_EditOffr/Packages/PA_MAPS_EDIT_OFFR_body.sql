@@ -261,7 +261,7 @@ AS
                   AND o2.ver_id = o.ver_id
                   AND o2.mrkt_veh_perd_sctn_id = o.mrkt_veh_perd_sctn_id
                   AND o2.sctn_page_ofs_nr = o.sctn_page_ofs_nr
-                  AND o2.offr_desc_txt = o.offr_desc_txt
+                  AND REPLACE(o2.offr_desc_txt, ' (copy)') = REPLACE(o.offr_desc_txt, ' (copy)')
                   AND o2.offr_typ = 'WIF'
              )
          AND o.mrkt_veh_perd_sctn_id = p_mvps_id
