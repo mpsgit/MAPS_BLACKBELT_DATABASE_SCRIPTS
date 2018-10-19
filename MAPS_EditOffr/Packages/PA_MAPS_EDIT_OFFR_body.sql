@@ -5232,6 +5232,7 @@ app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page
     l_new_offr_id            offr.offr_id%TYPE;
     l_old_offr_id            offr.offr_id%TYPE;
     l_offr_desc_txt          offr.offr_desc_txt%TYPE;
+    l_scnrio_id              what_if_scnrio.scnrio_id%TYPE;
     l_whatif                 BOOLEAN;
 
     e_copy_offer_failed      EXCEPTION;
@@ -5278,6 +5279,26 @@ app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page
         IF l_new_offr_id = -1 THEN
           RAISE e_copy_offer_failed;
         END IF;
+        
+        l_location := 'Scenario management';
+        IF l_whatif THEN
+          l_scnrio_id := l_obj_copy_offr.trg_scnrio_id;
+          IF l_scnrio_id IS NULL THEN
+            add_scenario(p_mrkt_id         => l_obj_copy_offr.trg_mrkt_id,
+                         p_veh_id          => l_obj_copy_offr.trg_veh_id,
+                         p_scnrio_desc_txt => l_obj_copy_offr.trg_scnrio_nm,
+                         p_strt_perd_id    => l_obj_copy_offr.trg_offr_perd_id,
+                         p_end_perd_id     => l_obj_copy_offr.trg_offr_perd_id,
+                         p_user_nm         => p_user_nm,
+                         p_scnrio_id       => l_scnrio_id);
+          END IF;
+          add_offr_to_scenario(p_mrkt_id   => l_obj_copy_offr.trg_mrkt_id,
+                               p_veh_id    => l_obj_copy_offr.trg_veh_id,
+                               p_scnrio_id => l_scnrio_id,
+                               p_offr_id   => l_new_offr_id);
+        END IF;
+
+        manage_scenario(l_new_offr_id, p_user_nm, l_offr_table);
 
         l_offr_table.EXTEND;
         l_offr_table(l_offr_table.LAST) := obj_get_offr_line(l_new_offr_id, 1);
