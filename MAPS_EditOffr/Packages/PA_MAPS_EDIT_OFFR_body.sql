@@ -55,9 +55,9 @@ AS
 
   -- WIF scenario procedures and functions
 
-  FUNCTION get_scenario_list(p_mrkt_id      IN NUMBER,
-                             p_offr_perd_id IN NUMBER,
-                             p_veh_id       IN NUMBER) RETURN obj_scenario_table PIPELINED IS
+  FUNCTION get_scenario_list(p_mrkt_id      IN number_array,
+                             p_offr_perd_id IN number_array,
+                             p_veh_id       IN number_array) RETURN obj_scenario_table PIPELINED IS
 
     l_module_name          VARCHAR2(30) := 'GET_SCENARIO_LIST';
 
@@ -72,10 +72,10 @@ AS
     FOR rec IN (
       SELECT scnrio_id, scnrio_desc_txt
         FROM what_if_scnrio
-       WHERE mrkt_id = p_mrkt_id
-         AND strt_perd_id = p_offr_perd_id
-         AND end_perd_id = p_offr_perd_id
-         AND veh_id = p_veh_id
+       WHERE mrkt_id IN (SELECT * FROM TABLE(p_mrkt_id))
+         AND strt_perd_id IN (SELECT * FROM TABLE(p_offr_perd_id))
+         AND end_perd_id IN (SELECT * FROM TABLE(p_offr_perd_id))
+         AND veh_id IN (SELECT * FROM TABLE(p_veh_id))
          AND enbl_scnrio_ind = 'Y'
          AND shr_ind = 'Y'
     )
