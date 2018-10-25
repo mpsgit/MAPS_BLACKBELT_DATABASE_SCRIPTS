@@ -73,8 +73,9 @@ AS
       SELECT scnrio_id, scnrio_desc_txt
         FROM what_if_scnrio
        WHERE mrkt_id IN (SELECT * FROM TABLE(p_mrkt_id))
-         AND strt_perd_id IN (SELECT * FROM TABLE(p_offr_perd_id))
-         AND end_perd_id IN (SELECT * FROM TABLE(p_offr_perd_id))
+         AND (strt_perd_id IN (SELECT * FROM TABLE(p_offr_perd_id))
+           OR end_perd_id IN (SELECT * FROM TABLE(p_offr_perd_id))
+         )
          AND veh_id IN (SELECT * FROM TABLE(p_veh_id))
          AND enbl_scnrio_ind = 'Y'
          AND shr_ind = 'Y'
