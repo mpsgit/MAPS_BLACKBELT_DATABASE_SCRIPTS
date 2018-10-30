@@ -2032,7 +2032,15 @@ BEGIN
               
               manage_scenario(offr_sls.offr_id, l_offr_lock_user, l_scnrio_offrs);
 
+              IF l_scnrio_offrs.COUNT > 0 THEN              
+                FOR offr_idx IN l_scnrio_offrs.FIRST .. l_scnrio_offrs.LAST LOOP
+                  p_result.EXTEND;
+                  p_result(p_result.LAST) := obj_edit_offr_save_line(l_result, l_scnrio_offrs(offr_idx).p_offr_id, g_sls_typ_id);
+                END LOOP;
+              END IF;
+
               COMMIT;  --save changes for the offer
+
             EXCEPTION
               WHEN OTHERS THEN
                 ROLLBACK; --no changes saved for the offer
