@@ -106,13 +106,13 @@ AS
     app_plsql_log.info(l_module_name || ' start');
 
     SELECT seq.nextval INTO p_scnrio_id FROM dual;
-  
+
     INSERT INTO what_if_scnrio (
       mrkt_id, veh_id, scnrio_id, scnrio_desc_txt, strt_perd_id, end_perd_id,
-      creat_user_id, creat_ts, shr_ind, enbl_scnrio_ind)
+      creat_user_id, creat_ts, shr_ind, enbl_scnrio_ind, cpa_ind)
     VALUES (
       p_mrkt_id, p_veh_id, p_scnrio_id, p_scnrio_desc_txt, p_strt_perd_id, p_end_perd_id,
-      p_user_nm, SYSDATE, 'Y', 'Y');
+      p_user_nm, SYSDATE, 'Y', 'Y', 'Y');
 
     app_plsql_log.info(l_module_name || ' stop');
 
@@ -2029,10 +2029,10 @@ BEGIN
             l_result := 1;
             BEGIN
               save_edit_offr_lines(offr_sls.offr_id, offr_sls.sls_typ, p_data_line);
-              
+
               manage_scenario(offr_sls.offr_id, l_offr_lock_user, l_scnrio_offrs);
 
-              IF l_scnrio_offrs.COUNT > 0 THEN              
+              IF l_scnrio_offrs.COUNT > 0 THEN
                 FOR offr_idx IN l_scnrio_offrs.FIRST .. l_scnrio_offrs.LAST LOOP
                   p_result.EXTEND;
                   p_result(p_result.LAST) := obj_edit_offr_save_line(l_result, l_scnrio_offrs(offr_idx).p_offr_id, g_sls_typ_id);
