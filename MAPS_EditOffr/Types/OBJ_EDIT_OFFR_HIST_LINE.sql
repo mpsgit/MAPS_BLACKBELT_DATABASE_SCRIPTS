@@ -91,6 +91,7 @@ CREATE OR REPLACE TYPE obj_edit_offr_hist_line FORCE AS OBJECT
   hero_ind               CHAR(1),
   smplg_ind              CHAR(1),
   mltpl_ind              CHAR(1),
-  cmltv_ind              CHAR(1)
+  cmltv_ind              CHAR(1),
+  micr_ncpsltn_desc_txt  VARCHAR2(150)
 );  
 /

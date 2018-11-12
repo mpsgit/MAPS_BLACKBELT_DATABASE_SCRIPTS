@@ -76,7 +76,7 @@ AS
          AND (strt_perd_id IN (SELECT * FROM TABLE(p_offr_perd_id))
            OR end_perd_id IN (SELECT * FROM TABLE(p_offr_perd_id))
          )
-         AND veh_id IN (SELECT * FROM TABLE(p_veh_id))
+         --AND veh_id IN (SELECT * FROM TABLE(p_veh_id))
          AND enbl_scnrio_ind = 'Y'
          AND shr_ind = 'Y'
     )
@@ -277,7 +277,7 @@ AS
       copy_offr_add_to_scnrio(offr_rec.offr_id, offr_rec.offr_desc_txt, p_user_nm, p_mrkt_id, p_offr_perd_id, p_veh_id, p_scnrio_id, l_new_offr_id);
 
       p_get_offr_table.EXTEND();
-      p_get_offr_table(p_get_offr_table.LAST) := obj_get_offr_line(l_new_offr_id, g_sls_typ_id);
+      p_get_offr_table(p_get_offr_table.LAST) := obj_get_offr_line(l_new_offr_id, 1);
     END LOOP;
 
     app_plsql_log.info(l_module_name || ' stop');
@@ -328,7 +328,7 @@ AS
       copy_offr_add_to_scnrio(offr_rec.offr_id, offr_rec.offr_desc_txt, p_user_nm, p_mrkt_id, p_offr_perd_id, p_veh_id, p_scnrio_id, l_new_offr_id);
 
       p_get_offr_table.EXTEND();
-      p_get_offr_table(p_get_offr_table.LAST) := obj_get_offr_line(l_new_offr_id, g_sls_typ_id);
+      p_get_offr_table(p_get_offr_table.LAST) := obj_get_offr_line(l_new_offr_id, 1);
     END LOOP;
 
     app_plsql_log.info(l_module_name || ' stop');
@@ -706,6 +706,7 @@ BEGIN
   AND NVL(hist.smplg_ind              ,-1)  = NVL(cur.smplg_ind                  ,-1)
   AND NVL(hist.mltpl_ind              ,-1)  = NVL(cur.mltpl_ind                  ,-1)
   AND NVL(hist.cmltv_ind              ,-1)  = NVL(cur.cmltv_ind                  ,-1)
+  AND nvl(hist.micr_ncpsltn_desc_txt  ,-1)  = nvl(cur.micr_ncpsltn_desc_txt      ,-1)
    )
    WHEN NOT MATCHED THEN INSERT (hist_ts, intrnl_offr_id, offr_sku_line_id, status, mrkt_id, offr_perd_id, offr_lock, 
                                  offr_lock_user, veh_id, brchr_plcmnt_id, brchr_sctn_nm, enrgy_chrt_postn_id, web_postn_id, 
@@ -719,7 +720,7 @@ BEGIN
                                  mrkt_veh_perd_sctn_id, prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, 
                                  offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit, pg_wght, sprd_nr, 
                                  offr_prfl_prcpt_id, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind, 
-                                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, pp_sls_cls_cd)
+                                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, pp_sls_cls_cd,micr_ncpsltn_desc_txt)
      VALUES (
              sysdate
             ,cur.intrnl_offr_id
@@ -813,6 +814,7 @@ BEGIN
             ,cur.mltpl_ind
             ,cur.cmltv_ind
             ,cur.pp_sls_cls_cd
+            ,cur.micr_ncpsltn_desc_txt
      );
      l_rowcount:=SQL%ROWCOUNT;
      app_plsql_log.info('Edit offr history merge rows inserted: ' || to_char(l_rowcount));
@@ -928,6 +930,8 @@ BEGIN
   AND NVL(hist.smplg_ind              ,-1)  = NVL(cur.smplg_ind                  ,-1)
   AND NVL(hist.mltpl_ind              ,-1)  = NVL(cur.mltpl_ind                  ,-1)
   AND NVL(hist.cmltv_ind              ,-1)  = NVL(cur.cmltv_ind                  ,-1)
+  AND NVL(hist.micr_ncpsltn_desc_txt  ,-1)  = NVL(cur.micr_ncpsltn_desc_txt      ,-1)
+
    )
    WHEN NOT MATCHED THEN INSERT (hist_ts, intrnl_offr_id, offr_sku_line_id, status, mrkt_id, offr_perd_id, offr_lock, 
                                  offr_lock_user, veh_id, brchr_plcmnt_id, brchr_sctn_nm, enrgy_chrt_postn_id, web_postn_id, 
@@ -941,7 +945,7 @@ BEGIN
                                  mrkt_veh_perd_sctn_id, prfl_nm, sku_nm, comsn_typ_desc_txt, tax_typ_desc_txt, 
                                  offr_sku_set_nm, sls_typ, pc_sp_py, pc_rp, pc_sp, pc_vsp, pc_hit, pg_wght, sprd_nr, 
                                  offr_prfl_prcpt_id, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind, 
-                                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, pp_sls_cls_cd)
+                                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, pp_sls_cls_cd, micr_ncpsltn_desc_txt)
      VALUES (
              sysdate
             ,cur.intrnl_offr_id
@@ -1035,6 +1039,8 @@ BEGIN
             ,cur.mltpl_ind
             ,cur.cmltv_ind
             ,cur.pp_sls_cls_cd
+            ,cur.micr_ncpsltn_desc_txt
+            
      );
      l_rowcount:=SQL%ROWCOUNT;
      app_plsql_log.info('Edit offr history merge rows inserted: ' || to_char(l_rowcount));
@@ -1550,6 +1556,7 @@ BEGIN
                         ,offr_lock_user
                         ,spcl_ordr_ind
                         ,offr_ofs_nr
+                        ,micr_ncpsltn_desc_txt
            FROM TABLE(p_data_line)
           WHERE intrnl_offr_id = p_offr_id
             AND sls_typ        = p_sls_typ) dl
@@ -1562,29 +1569,7 @@ BEGIN
      ,o.offr_ntes_txt         = dl.offr_notes_txt
      ,o.offr_lyot_cmnts_txt   = dl.offr_lyot_cmnts_txt
      ,o.featrd_side_cd        = dl.featrd_side_cd
-     ,o.micr_ncpsltn_desc_txt = CASE
-                                  WHEN NVL(dl.micr_ncpsltn_ind, -1) <> NVL(o.micr_ncpsltn_ind, -1)
-                                   AND NVL(dl.micr_ncpsltn_ind, 'N') = 'Y' THEN
-                                    ( SELECT listagg(scntd_pg_typ_nm,',') within group (order by scntd_pg_typ_id) scented_page
-                                      FROM   scntd_pg_typ
-                                      WHERE  scntd_pg_typ_id in ( SELECT scntd_pg_typ_id
-                                                                  FROM   offr_sls_cls_sku oscs,
-                                                                         offr_sku_line osl
-                                                                   WHERE oscs.offr_id        = osl.offr_id
-                                                                     AND oscs.sls_cls_cd     = osl.sls_cls_cd
-                                                                     AND oscs.prfl_cd        = osl.prfl_cd
-                                                                     AND oscs.pg_ofs_nr      = osl.pg_ofs_nr
-                                                                     AND oscs.featrd_side_cd = osl.featrd_side_cd
-                                                                     AND oscs.sku_id         = osl.sku_id
-                                                                     AND oscs.offr_id        = dl.intrnl_offr_id 
-                                                                     AND nvl(osl.dltd_ind,'N') != 'Y')
-                                    )
-                                  WHEN NVL(dl.micr_ncpsltn_ind, -1) <> NVL(o.micr_ncpsltn_ind, -1)
-                                   AND NVL(dl.micr_ncpsltn_ind, 'N') = 'N' THEN
-                                    NULL
-                                  ELSE
-                                    o.micr_ncpsltn_desc_txt
-                                END
+     ,o.micr_ncpsltn_desc_txt = dl.micr_ncpsltn_desc_txt
      ,o.micr_ncpsltn_ind      = dl.micr_ncpsltn_ind
      ,o.pg_wght_pct           = dl.pg_wght
      ,o.offr_typ              = dl.offr_typ
@@ -1829,7 +1814,7 @@ BEGIN
          AND offr_perd_id = mrkt_prd_rec.offr_perd_id
        GROUP BY intrnl_offr_id, sls_typ) LOOP
       l_offr_table.extend;
-      l_offr_table(l_offr_table.last) := obj_get_offr_line(rec.intrnl_offr_id, rec.sls_typ);
+      l_offr_table(l_offr_table.last) := obj_get_offr_line(rec.intrnl_offr_id, nvl(rec.sls_typ,1));
     END LOOP;
 
     SELECT obj_edit_offr_line(status,
@@ -1937,7 +1922,9 @@ BEGIN
                               intrdctn_perd_id,
                               on_stus_perd_id,
                               dspostn_perd_id,
-                              scnrio_id
+                              scnrio_id,
+                              micr_ncpsltn_desc_txt,
+                              offr_link_id
     )
     BULK COLLECT INTO l_get_offr_table
     FROM TABLE(pa_maps_edit_offr.get_offr(l_offr_table, p_pagination));
@@ -2076,7 +2063,6 @@ END save_edit_offr_table;
 FUNCTION get_history(p_get_offr IN OBJ_GET_OFFR_TABLE
                              ) RETURN OBJ_EDIT_OFFR_HIST_TABLE PIPELINED
   AS
-
    CURSOR c_offr IS
       SELECT o.*
        FROM TABLE(p_get_offr) poi JOIN edit_offr_hist o ON o.intrnl_offr_id = poi.p_offr_id AND o.sls_typ = poi.p_sls_typ ORDER BY o.hist_ts DESC, o.offr_sku_line_id;
@@ -2177,6 +2163,7 @@ FOR offer IN c_offr LOOP
   ,offer.smplg_ind
   ,offer.mltpl_ind
   ,offer.cmltv_ind
+  ,offer.micr_ncpsltn_desc_txt
   ));
 END LOOP;
 
@@ -2379,6 +2366,8 @@ FUNCTION get_offr_pivot(p_get_offr   IN obj_get_offr_table)
       ,NULL AS on_stus_perd_id
       ,NULL AS dspostn_perd_id
       ,NULL AS scnrio_id
+      ,NULL AS micr_ncpsltn_desc_txt
+      ,NULL AS offr_link_id
 --
   FROM (SELECT *
            FROM offr
@@ -2619,7 +2608,9 @@ FUNCTION get_offr_pivot(p_get_offr   IN obj_get_offr_table)
                                   rec.intrdctn_perd_id,
                                   rec.on_stus_perd_id,
                                   rec.dspostn_perd_id,
-                                  rec.scnrio_id
+                                  rec.scnrio_id,
+                                  rec.micr_ncpsltn_desc_txt,
+                                  rec.offr_link_id
                                   ));
     END LOOP;
     app_plsql_log.info(l_module_name || ' stop');
@@ -2842,7 +2833,7 @@ begin
       ) LOOP --get valid offer id-s loop
 
               l_get_offr_table.extend();
-              l_get_offr_table(l_get_offr_table.last) := obj_get_offr_line(offrs.p_offr_id, offrs.p_sls_typ);
+              l_get_offr_table(l_get_offr_table.last) := obj_get_offr_line(offrs.p_offr_id, nvl(offrs.p_sls_typ,1));
    END LOOP; --get valid offer id-s loop
 
    IF l_pagination <> 'P' THEN
@@ -2960,10 +2951,12 @@ begin
                 rec.intrdctn_perd_id,
                 rec.on_stus_perd_id,
                 rec.dspostn_perd_id,
-                rec.scnrio_id
+                rec.scnrio_id,
+                rec.micr_ncpsltn_desc_txt,
+                rec.offr_link_id
               );
 
-    app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page='||rec.scntd_pg_typ_id);
+    --app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page='||rec.scntd_pg_typ_id);
 
     PIPE row(OBJ_EDIT_OFFR_LINE(rec.status,
                 rec.mrkt_id,
@@ -3070,7 +3063,9 @@ begin
                 rec.intrdctn_perd_id,
                 rec.on_stus_perd_id,
                 rec.dspostn_perd_id,
-                rec.scnrio_id
+                rec.scnrio_id,
+                rec.micr_ncpsltn_desc_txt,
+                rec.offr_link_id
               ));
 
      END LOOP;--result loop
@@ -3184,7 +3179,10 @@ begin
                   rec.intrdctn_perd_id,
                   rec.on_stus_perd_id,
                   rec.dspostn_perd_id,
-                  rec.scnrio_id
+                  rec.scnrio_id,
+                  rec.micr_ncpsltn_desc_txt,
+                  rec.offr_link_id
+                      
                   );
 
       PIPE row(OBJ_EDIT_OFFR_LINE(rec.status,
@@ -3293,7 +3291,9 @@ begin
                   rec.intrdctn_perd_id,
                   rec.on_stus_perd_id,
                   rec.dspostn_perd_id,
-                  rec.scnrio_id
+                  rec.scnrio_id,
+                  rec.micr_ncpsltn_desc_txt,
+                  rec.offr_link_id                                                                       
                   ));
 
     END LOOP;
@@ -3700,7 +3700,7 @@ frcst AS
       ,osl_current.dltd_ind AS dltd_ind
       ,o.creat_ts AS created_ts
       ,o.creat_user_id AS created_user_id
-      ,o.last_updt_user_id AS last_updt_user_id
+      ,os.log_ts AS last_updt_user_id
       ,o.last_updt_ts AS last_updt_ts
       ,mrkt_veh_perd_sctn.mrkt_veh_perd_sctn_id AS mrkt_veh_perd_sctn_id
       ,prfl.prfl_nm AS prfl_nm
@@ -3859,6 +3859,9 @@ frcst AS
       ,mrkt_sku.on_stus_perd_id
       ,mrkt_sku.dspostn_perd_id
       ,wit.scnrio_id
+      ,o.micr_ncpsltn_desc_txt
+      ,o.offr_link_id
+     
 --           
   FROM (SELECT *
            FROM offr
@@ -3866,7 +3869,8 @@ frcst AS
        AND offr.mrkt_id = l_mrkt_id
        AND offr.offr_perd_id = l_offr_perd_id
        AND offr.ver_id = l_ver_id) o
-      , (SELECT offr_sku_line.offr_sku_line_id
+       ,offr_summry_log os
+       ,(SELECT offr_sku_line.offr_sku_line_id
                ,offr_sku_line.sku_id
                ,offr_sku_line.featrd_side_cd
                ,offr_sku_line.pg_ofs_nr
@@ -4099,6 +4103,8 @@ frcst AS
  AND mrkt_veh_perd_sctn.veh_id(+) = o.veh_id
 --offr prfl prc point
  AND offr_prfl_prc_point.offr_prfl_prcpt_id(+) = osl_current.offr_prfl_prcpt_id
+--offr_summary_log
+ AND o.offr_id = os.offr_id (+)
 --brnd
  AND brnd.brnd_id(+) = prfl.brnd_id
  AND brnd_grp.brnd_grp_id(+) = brnd.brnd_grp_id
@@ -4149,7 +4155,7 @@ frcst AS
  AND wit.tran_typ(+) = 'WIF'
    )
      LOOP
-app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page='||rec.scntd_pg_typ_id);
+--app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page='||rec.scntd_pg_typ_id);
       PIPE ROW(obj_edit_offr_line(rec.status,
                                   rec.mrkt_id,
                                   rec.offr_perd_id,
@@ -4256,7 +4262,9 @@ app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page
                                   rec.intrdctn_perd_id,
                                   rec.on_stus_perd_id,
                                   rec.dspostn_perd_id,
-                                  rec.scnrio_id
+                                  rec.scnrio_id,
+                                  rec.micr_ncpsltn_desc_txt,
+                                  rec.offr_link_id                                                                      
                                   ));
     END LOOP;
     app_plsql_log.info(l_module_name || ' stop');
@@ -4379,7 +4387,7 @@ app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page
 
   END query_default_values;
 
-  FUNCTION get_offr_table(p_offr_id    IN NUMBER,
+    FUNCTION get_offr_table(p_offr_id    IN NUMBER,
                           p_sls_typ_id IN NUMBER DEFAULT 1,
                           p_pagination IN CHAR DEFAULT 'N') RETURN obj_edit_offr_table IS
 
@@ -4387,7 +4395,7 @@ app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page
     l_edit_offr_table        obj_edit_offr_table;
   BEGIN
     l_offr_table.extend;
-    l_offr_table(l_offr_table.last) := obj_get_offr_line(p_offr_id, p_sls_typ_id);
+    l_offr_table(l_offr_table.last) := obj_get_offr_line(p_offr_id, nvl(p_sls_typ_id,1));
 
     SELECT obj_edit_offr_line(
                 status, mrkt_id, offr_perd_id, offr_lock, offr_lock_user, offr_sku_line_id, veh_id, brchr_plcmnt_id, brchr_sctn_nm,
@@ -4401,8 +4409,7 @@ app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page
                 pg_wght, pp_pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
                 fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id,
-                scnrio_id
-)
+                scnrio_id,micr_ncpsltn_desc_txt,offr_link_id)
       BULK COLLECT
       INTO l_edit_offr_table
       FROM TABLE(get_offr(l_offr_table, p_pagination));
@@ -4429,13 +4436,18 @@ app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page
                 pg_wght, pp_pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
                 fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id,
-                scnrio_id)
+                scnrio_id, micr_ncpsltn_desc_txt, offr_link_id )
       BULK COLLECT
       INTO l_edit_offr_table
       FROM TABLE(get_offr(p_get_offr_table, p_pagination));
 
       RETURN l_edit_offr_table;
   END get_offr_table;
+
+
+
+
+
 
   PROCEDURE add_concept(p_offr_id               IN NUMBER,
                            p_mrkt_id          IN     NUMBER,
@@ -5076,7 +5088,7 @@ app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page
     lock_offr(l_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
 
     l_get_offr_table.EXTEND();
-    l_get_offr_table(l_get_offr_table.LAST) := obj_get_offr_line(l_offr_id, g_sls_typ_id);
+    l_get_offr_table(l_get_offr_table.LAST) := obj_get_offr_line(l_offr_id, 1); --KK null
 
     COMMIT;
 
@@ -5368,7 +5380,7 @@ app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page
         manage_scenario(l_new_offr_id, p_user_nm, l_offr_table);
 
         l_offr_table.EXTEND;
-        l_offr_table(l_offr_table.LAST) := obj_get_offr_line(l_new_offr_id, g_sls_typ_id);
+        l_offr_table(l_offr_table.LAST) := obj_get_offr_line(l_new_offr_id, 1);
 
       END LOOP;
     END LOOP;
@@ -5386,7 +5398,7 @@ app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page
                 pg_wght, pp_pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
                 fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id,
-                scnrio_id)
+                scnrio_id,micr_ncpsltn_desc_txt,offr_link_id)
       BULK COLLECT INTO p_edit_offr_table
       FROM TABLE(get_offr(l_offr_table, p_pagination));
 
@@ -5519,7 +5531,7 @@ app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page
                               osl_rec.offr_ofs_nr, osl_rec.pp_ofs_nr, osl_rec.impct_catgry_id, osl_rec.hero_ind, osl_rec.smplg_ind, osl_rec.mltpl_ind,
                               osl_rec.cmltv_ind,  osl_rec.use_instrctns_ind,  osl_rec.pg_typ_id,  osl_rec.featrd_prfl_ind,  osl_rec.fxd_pg_wght_ind,
                               osl_rec.prod_endrsmt_id, osl_rec.frc_mtch_mthd_id, osl_rec.wghtd_avg_cost_amt, osl_rec.incntv_id,
-                              osl_rec.intrdctn_perd_id, osl_rec.on_stus_perd_id, osl_rec.dspostn_perd_id, osl_rec.scnrio_id);
+                              osl_rec.intrdctn_perd_id, osl_rec.on_stus_perd_id, osl_rec.dspostn_perd_id, osl_rec.scnrio_id, osl_rec.micr_ncpsltn_desc_txt,osl_rec.offr_link_id);
     END LOOP;
   END add_to_edit_offr_table;
 
@@ -5785,7 +5797,7 @@ app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page
       END;
 
       l_get_offr_table.EXTEND;
-      l_get_offr_table(l_get_offr_table.LAST) := obj_get_offr_line(offr_rec.offr_id, g_sls_typ_id);
+      l_get_offr_table(l_get_offr_table.LAST) := obj_get_offr_line(offr_rec.offr_id, 1);
 
     END LOOP; -- offr_rec loop
 
