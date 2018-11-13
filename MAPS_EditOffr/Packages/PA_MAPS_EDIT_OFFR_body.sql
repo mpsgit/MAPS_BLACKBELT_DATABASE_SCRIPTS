@@ -5350,7 +5350,10 @@ frcst AS
                                                  par_newofferperiod => l_obj_copy_offr.trg_offr_perd_id,
                                                  par_newvehid       => l_obj_copy_offr.trg_veh_id,
                                                  par_newoffrdesc    => l_offr_desc_txt,
-                                                 par_zerounits      => FALSE,
+                                                 par_zerounits      => CASE WHEN l_obj_copy_offr.trg_zerounits = 1 THEN TRUE
+                                                                            WHEN l_obj_copy_offr.trg_zerounits = 0 THEN FALSE
+                                                                            ELSE FALSE
+                                                                       END,
                                                  par_whatif         => l_whatif,
                                                  par_enrgychrt      => FALSE,
                                                  par_paginationcopy => TRUE,
