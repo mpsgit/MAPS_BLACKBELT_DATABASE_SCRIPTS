@@ -45,7 +45,8 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
     PIPELINED;
 
   FUNCTION get_offr(p_get_offr   IN obj_get_offr_table,
-                    p_pagination IN CHAR DEFAULT 'N')
+                    p_pagination IN CHAR DEFAULT 'N',
+                    p_scnrio_id  IN NUMBER DEFAULT 0)
     RETURN obj_edit_offr_table
     PIPELINED;
 

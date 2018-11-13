@@ -2639,6 +2639,7 @@ function get_edit_offr_table( p_filters    IN obj_edit_offr_filter_table,
     l_obj_edit_offr_table obj_edit_offr_table;
     l_pagination          CHAR(1);
     l_scnrio_cnt          NUMBER;
+    l_scnrio_id           NUMBER := 0;
 begin
     app_plsql_log.register(g_package_name || '.' || l_module_name);
     app_plsql_output.set_run_id(l_run_id);
@@ -2653,6 +2654,7 @@ begin
 
     IF p_filter.p_scnrio_id IS NOT NULL THEN
       l_scnrio_cnt := p_filter.p_scnrio_id.COUNT;
+      l_scnrio_id := p_filter.p_scnrio_id(1);
     ELSE
       l_scnrio_cnt := 0;
     END IF;
@@ -2838,7 +2840,9 @@ begin
 
    IF l_pagination <> 'P' THEN
 
-     FOR rec IN (SELECT o.* FROM TABLE(get_offr(l_get_offr_table, l_pagination)) o,
+     FOR rec IN (SELECT o.* FROM TABLE(get_offr(l_get_offr_table,
+                                                l_pagination,
+                                                l_scnrio_id)) o,
                    mrkt_veh mv
              WHERE mv.mrkt_id(+) = o.mrkt_id
                AND mv.veh_id(+) = o.veh_id
@@ -3318,7 +3322,8 @@ end get_edit_offr_table;
 --Getting the data for edit offer based on offr_id
 --mrkt_id, offr_perd_id, ver_id, p_sls_typ must be equal in each row in p_get_offr parameter
 FUNCTION get_offr(p_get_offr   IN obj_get_offr_table,
-                  p_pagination IN CHAR DEFAULT 'N')
+                  p_pagination IN CHAR DEFAULT 'N',
+                  p_scnrio_id  IN NUMBER DEFAULT 0)
     RETURN obj_edit_offr_table
     PIPELINED AS
     -- local variables
@@ -3536,41 +3541,16 @@ mrkt_tmp_fsc AS
      AND l_offr_perd_id < to_strt_perd_id
    GROUP BY mrkt_id, sku_id),
 frcst AS
-  (SELECT offr_sku_line_id,
-          offr_prfl_prcpt_id,
-          SUM(ROUND(NVL(final_units, 0)*item_split/100*pp_split/100)) forcasted_units,
-          MAX(last_updt_ts) forcasted_date
-      FROM   ( SELECT osl.offr_sku_line_id,
-                      osl.offr_prfl_prcpt_id,
-                      bfs.ml_unit_splt_pct AS item_split,
-                      bfo.ml_avg_prc_unit_shr AS pp_split,
-                      bfo.last_updt_ts last_updt_ts,
-                      bf.ml_frcst_unit_qty AS final_units
-                                 FROM   offr_sku_line osl, fs_brchr_frcst bf, fs_brchr_frcst bfs, fs_brchr_frcst bfo
-                                 WHERE  bfo.mrkt_id           = osl.mrkt_id AND
-                                        bfo.offr_perd_id      = osl.offr_perd_id AND
-                                        bfo.frcst_stg_nr      = 1 AND
-                                        bfo.frcst_lvl_id      = co_osl_level AND
-                                        bfo.offr_sku_line_id  = osl.offr_sku_line_id AND
-                                        bfs.mrkt_id           = bfo.mrkt_id AND
-                                        bfs.offr_perd_id      = bfo.offr_perd_id AND
-                                        bfs.frcst_stg_nr      = bfo.frcst_stg_nr AND
-                                        bfs.frcst_lvl_id      = co_spread_sku_level AND
-                                        bfs.veh_id            = bfo.veh_id AND
-                                        bfs.sprd_nr           = bfo.sprd_nr AND
-                                        bfs.prfl_cd           = bfo.prfl_cd AND
-                                        bfs.sku_id            = bfo.sku_id AND
-                                        nvl(bfs.scnrio_id,-1 )= nvl(bfo.scnrio_id,-1) AND
-                                        bf.mrkt_id            = bfs.mrkt_id AND
-                                        bf.offr_perd_id       = bfs.offr_perd_id AND
-                                        bf.frcst_stg_nr       = bfs.frcst_stg_nr AND
-                                        bf.frcst_lvl_id       = co_spread_concept_level AND
-                                        bf.veh_id             = bfs.veh_id AND
-                                        bf.sprd_nr            = bfs.sprd_nr AND
-                                        bf.prfl_cd            = bfs.prfl_cd AND
-                                        nvl(bf.scnrio_id,-1 ) = nvl(bfs.scnrio_id,-1)
-            )
-      GROUP BY offr_sku_line_id, offr_prfl_prcpt_id
+  (SELECT ML_WHAT_IF_SCNRIO_OSL.offr_sku_line_id,
+          offr_sku_line.offr_prfl_prcpt_id,
+          ML_WHAT_IF_SCNRIO_OSL.ML_UNIT_QTY forcasted_units,
+          ML_WHAT_IF_SCNRIO_OSL.last_updt_ts forcasted_date
+     FROM offr_sku_line,
+          ML_WHAT_IF_SCNRIO_OSL
+    WHERE offr_sku_line.mrkt_id = ML_WHAT_IF_SCNRIO_OSL.mrkt_id
+      AND offr_sku_line.offr_perd_id = ML_WHAT_IF_SCNRIO_OSL.offr_perd_id
+      AND offr_sku_line.offr_sku_line_id = ML_WHAT_IF_SCNRIO_OSL.offr_sku_line_id
+      AND ML_WHAT_IF_SCNRIO_OSL.scnrio_id = p_scnrio_id
   )
 --
   SELECT o.offr_id  AS intrnl_offr_id
@@ -5355,7 +5335,10 @@ frcst AS
                                                                             ELSE FALSE
                                                                        END,
                                                  par_whatif         => l_whatif,
-                                                 par_enrgychrt      => FALSE,
+                                                 par_enrgychrt      => CASE WHEN l_obj_copy_offr.trg_enrgychrt = 1 THEN TRUE
+                                                                            WHEN l_obj_copy_offr.trg_enrgychrt = 0 THEN FALSE
+                                                                            ELSE FALSE
+                                                                       END,
                                                  par_paginationcopy => TRUE,
                                                  par_user           => p_user_nm);
         IF l_new_offr_id = -1 THEN

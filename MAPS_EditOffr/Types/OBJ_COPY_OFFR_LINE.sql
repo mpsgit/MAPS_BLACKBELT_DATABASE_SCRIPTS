@@ -6,6 +6,7 @@ CREATE OR REPLACE TYPE obj_copy_offr_line FORCE AS OBJECT (
   trg_offr_typ      VARCHAR2(5),
   trg_scnrio_id     NUMBER,
   trg_scnrio_nm     VARCHAR2(100),
-  trg_zerounits     NUMBER
+  trg_zerounits     NUMBER,
+  trg_enrgychrt     NUMBER
 );
 /
