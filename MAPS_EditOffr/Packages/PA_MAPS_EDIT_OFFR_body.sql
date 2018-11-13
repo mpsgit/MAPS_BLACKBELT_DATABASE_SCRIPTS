@@ -5535,7 +5535,7 @@ frcst AS
                               osl_rec.cmltv_ind,  osl_rec.use_instrctns_ind,  osl_rec.pg_typ_id,  osl_rec.featrd_prfl_ind,  osl_rec.fxd_pg_wght_ind,
                               osl_rec.prod_endrsmt_id, osl_rec.frc_mtch_mthd_id, osl_rec.wghtd_avg_cost_amt, osl_rec.incntv_id,
                               osl_rec.intrdctn_perd_id, osl_rec.on_stus_perd_id, osl_rec.dspostn_perd_id, osl_rec.scnrio_id,
-                              osl_rec.micr_ncpsltn_desc_txt,osl_rec.offr_link_id, profile_item_count);
+                              osl_rec.micr_ncpsltn_desc_txt,osl_rec.offr_link_id, osl_rec.profile_item_count);
     END LOOP;
   END add_to_edit_offr_table;
 
