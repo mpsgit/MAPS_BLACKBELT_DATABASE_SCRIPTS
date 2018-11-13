@@ -108,6 +108,7 @@ CREATE OR REPLACE TYPE obj_edit_offr_line FORCE AS OBJECT
   dspostn_perd_id        NUMBER,
   scnrio_id              NUMBER,
   micr_ncpsltn_desc_txt  VARCHAR2(150),
-  offr_link_id           NUMBER
+  offr_link_id           NUMBER,
+  profile_item_count     NUMBER
 );
 /
