@@ -41,10 +41,6 @@ AS
   co_sls_typ_estimate      CONSTANT sls_typ.sls_typ_id%TYPE := 1;
   co_sls_typ_op_estimate   CONSTANT sls_typ.sls_typ_id%TYPE := 2;
 
-  co_osl_level             CONSTANT NUMBER := 0;
-  co_spread_sku_level      CONSTANT NUMBER := 1;
-  co_spread_concept_level  CONSTANT NUMBER := 2;
-
   g_sls_typ_id             NUMBER := 1;
 
   g_run_id                 NUMBER := 0;
@@ -3687,8 +3683,8 @@ frcst AS
       ,osl_current.dltd_ind AS dltd_ind
       ,o.creat_ts AS created_ts
       ,o.creat_user_id AS created_user_id
-      ,os.log_user_id AS last_updt_user_id
-      ,o.last_updt_ts AS last_updt_ts
+      ,NVL(os.log_user_id, o.last_updt_user_id) AS last_updt_user_id
+      ,NVL(os.log_ts, o.last_updt_ts) AS last_updt_ts
       ,mrkt_veh_perd_sctn.mrkt_veh_perd_sctn_id AS mrkt_veh_perd_sctn_id
       ,prfl.prfl_nm AS prfl_nm
       ,osl_current.sku_nm AS sku_nm
