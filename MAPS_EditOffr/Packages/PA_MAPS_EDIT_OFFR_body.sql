@@ -223,7 +223,7 @@ AS
       RAISE;
   END copy_offr_add_to_scnrio;
 
-  PROCEDURE create_wif_offrs_wif(p_user_nm        IN VARCHAR2,
+PROCEDURE create_wif_offrs_wif(p_user_nm        IN VARCHAR2,
                                  p_mvps_id        IN offr.mrkt_veh_perd_sctn_id%TYPE,
                                  p_pg_nr          IN offr.sctn_page_ofs_nr%TYPE,
                                  p_mrkt_id        IN offr.mrkt_id%TYPE,
@@ -238,6 +238,16 @@ AS
     l_new_offr_id          offr.offr_id%TYPE;
   BEGIN
     app_plsql_log.info(l_module_name || ' start');
+
+     app_plsql_log.info('create_wif_offrs_wif start:'
+    || '-> '|| p_user_nm
+    || '-> '|| p_mvps_id
+    || '-> '|| p_pg_nr
+    || '-> '|| p_mrkt_id  
+    || '-> '|| p_offr_perd_id  
+    || '-> '|| p_veh_id        
+    || '-> '|| p_scnrio_id   
+    );
 
     l_log := 'Offer cursor';
     FOR offr_rec IN (
@@ -258,7 +268,8 @@ AS
                   AND o2.ver_id = o.ver_id
                   AND o2.mrkt_veh_perd_sctn_id = o.mrkt_veh_perd_sctn_id
                   AND o2.sctn_page_ofs_nr = o.sctn_page_ofs_nr
-                  AND REPLACE(o2.offr_desc_txt, ' (copy)') = REPLACE(o.offr_desc_txt, ' (copy)')
+                  AND o2.offr_link_id = o.offr_id --KK
+                  --AND REPLACE(o2.offr_desc_txt, ' (copy)') = REPLACE(o.offr_desc_txt, ' (copy)')
                   AND o2.offr_typ = 'WIF'
              )
          AND o.mrkt_veh_perd_sctn_id = p_mvps_id
@@ -270,6 +281,11 @@ AS
          AND o.offr_typ              = 'CMP'
     )
     LOOP
+        
+      app_plsql_log.info('create_wif_offrs_wif loop:'
+    || '-> '|| offr_rec.offr_id
+    || '-> '|| offr_rec.offr_desc_txt);  
+    
       copy_offr_add_to_scnrio(offr_rec.offr_id, offr_rec.offr_desc_txt, p_user_nm, p_mrkt_id, p_offr_perd_id, p_veh_id, p_scnrio_id, l_new_offr_id);
 
       p_get_offr_table.EXTEND();
@@ -300,6 +316,15 @@ AS
   BEGIN
     app_plsql_log.info(l_module_name || ' start');
 
+    app_plsql_log.info('create_wif_offrs_cmp start:'
+    || '-> '|| p_offr_id 
+    || '-> '|| p_user_nm
+    || '-> '|| p_mrkt_id  
+    || '-> '|| p_offr_perd_id  
+    || '-> '|| p_veh_id        
+    || '-> '|| p_scnrio_id   
+    );
+
     l_log := 'Offer cursor';
     FOR offr_rec IN (
       SELECT o.offr_id,
@@ -313,14 +338,20 @@ AS
                 WHERE t.offr_id(+) = o2.offr_id
                   AND t.tran_typ(+) = 'WIF'
                   AND t.scnrio_id = p_scnrio_id
-                  AND o2.offr_id = o.offr_link_id
+                  AND o2.offr_link_id = o.offr_id --KK AND o2.offr_id = o.offr_link_id
                   AND o2.offr_typ = 'WIF'
                   AND o2.ver_id = o.ver_id
              )
          AND o.offr_id = p_offr_id
          AND o.ver_id  = 0
+         AND o.offr_typ ='CMP'
     )
     LOOP
+    
+      app_plsql_log.info('create_wif_offrs_cmp loop:'
+    || '-> '|| offr_rec.offr_id
+    || '-> '|| offr_rec.offr_desc_txt);
+    
       copy_offr_add_to_scnrio(offr_rec.offr_id, offr_rec.offr_desc_txt, p_user_nm, p_mrkt_id, p_offr_perd_id, p_veh_id, p_scnrio_id, l_new_offr_id);
 
       p_get_offr_table.EXTEND();
