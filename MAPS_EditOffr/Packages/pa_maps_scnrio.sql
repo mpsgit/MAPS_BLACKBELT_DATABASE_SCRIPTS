@@ -1,3 +1,4 @@
+--scenario packaga initial creation for dashboard
 CREATE OR REPLACE PACKAGE pa_maps_scnrio AS
 
   g_package_name           CONSTANT VARCHAR2(30) := 'pa_maps_scnrio';
