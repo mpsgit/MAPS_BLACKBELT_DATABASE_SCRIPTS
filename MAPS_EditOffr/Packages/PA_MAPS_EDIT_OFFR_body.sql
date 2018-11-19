@@ -2045,7 +2045,7 @@ BEGIN
             BEGIN
               save_edit_offr_lines(offr_sls.offr_id, offr_sls.sls_typ, p_data_line);
 
-              manage_scenario(offr_sls.offr_id, l_offr_lock_user, l_scnrio_offrs);
+              --manage_scenario(offr_sls.offr_id, l_offr_lock_user, l_scnrio_offrs);
 
               IF l_scnrio_offrs.COUNT > 0 THEN
                 FOR offr_idx IN l_scnrio_offrs.FIRST .. l_scnrio_offrs.LAST LOOP
@@ -5107,7 +5107,7 @@ frcst AS
                            p_get_offr_table        => l_get_offr_table);
     END IF;
 
-    manage_scenario(l_offr_id, p_user_nm, l_get_offr_table);
+    --manage_scenario(l_offr_id, p_user_nm, l_get_offr_table);
 
     lock_offr(l_offr_id, p_user_nm, p_clstr_id, l_lock_user_nm, l_lock_status);
 
@@ -5407,7 +5407,7 @@ frcst AS
                                p_offr_id   => l_new_offr_id);
         END IF;
 
-        manage_scenario(l_new_offr_id, p_user_nm, l_offr_table);
+        --manage_scenario(l_new_offr_id, p_user_nm, l_offr_table);
 
         l_offr_table.EXTEND;
         l_offr_table(l_offr_table.LAST) := obj_get_offr_line(l_new_offr_id, 1);
