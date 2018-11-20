@@ -3714,8 +3714,10 @@ frcst AS
       ,osl_current.dltd_ind AS dltd_ind
       ,o.creat_ts AS created_ts
       ,o.creat_user_id AS created_user_id
-      ,MAX(NVL(os.log_user_id, o.last_updt_user_id)) KEEP (DENSE_RANK LAST ORDER BY greatest(NVL(os.log_ts, o.last_updt_ts), o.last_updt_ts)) AS last_updt_user_id
-      ,MAX(greatest(NVL(os.log_ts, o.last_updt_ts), o.last_updt_ts)) AS last_updt_ts
+      ,MAX(greatest(os.log_user_id, o.last_updt_user_id))
+        KEEP (DENSE_RANK FIRST ORDER BY greatest(NVL(os.log_ts, o.last_updt_ts), o.last_updt_ts)) 
+        OVER (PARTITION BY greatest(NVL(os.log_ts, o.last_updt_ts), o.last_updt_ts)) AS last_updt_user_id
+      ,greatest(NVL(os.log_ts, o.last_updt_ts), o.last_updt_ts) AS last_updt_ts
       ,mrkt_veh_perd_sctn.mrkt_veh_perd_sctn_id AS mrkt_veh_perd_sctn_id
       ,prfl.prfl_nm AS prfl_nm
       ,osl_current.sku_nm AS sku_nm
@@ -5771,7 +5773,7 @@ frcst AS
     l_location := 'offr_rec loop';
     FOR offr_rec IN (
       SELECT DISTINCT intrnl_offr_id offr_id,
-                      offr_lock_user
+                      offr_lock_user,last_updt_user_id
         FROM TABLE(p_osl_records)
     )
     LOOP
@@ -5807,7 +5809,7 @@ frcst AS
                o.prfl_cnt = (SELECT COUNT(1)
                                FROM offr_prfl_prc_point oppp
                               WHERE oppp.offr_id = offr_rec.offr_id),
-               o.last_updt_user_id = offr_rec.offr_lock_user
+               o.last_updt_user_id = offr_rec.last_updt_user_id
          WHERE o.offr_id = offr_rec.offr_id;
 
       EXCEPTION
