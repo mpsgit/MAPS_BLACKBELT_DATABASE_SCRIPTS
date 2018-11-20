@@ -22,6 +22,7 @@ CREATE OR REPLACE PACKAGE pa_maps_scnrio AS
 
 END pa_maps_scnrio;
 /
+
 CREATE OR REPLACE PACKAGE BODY pa_maps_scnrio
 AS
 
@@ -1573,6 +1574,7 @@ begin
           OR end_perd_id = p_filter.p_offr_perd_id)
          AND enbl_scnrio_ind = 'Y'
          AND shr_ind = 'Y'
+         AND cpa_ind = 'Y'
          AND what_if_Scnrio.scnrio_id IN (SELECT scnrio_id FROM scnrio_slct WHERE mrkt_id = p_filter.p_mrkt_id AND offr_perd_id = p_filter.p_offr_perd_id) 
       ) LOOP --every offer id in a scnrio loop
       --DELME
@@ -1743,7 +1745,7 @@ begin
                 AND o.mrkt_id = p_filter.p_mrkt_id
                 AND o.offr_perd_id = p_filter.p_offr_perd_id
                 AND o.ver_id = p_filter.p_ver_id
-                AND o.veh_id IN (SELECT * FROM TABLE(p_filter.p_veh_id))
+                --AND o.veh_id IN (SELECT * FROM TABLE(p_filter.p_veh_id))
       ) LOOP --get valid offer id-s loop
       --DELME
      -- DBMS_OUTPUT.PUT_LINE(OFFRS.P_OFFR_ID || ' OFFERS LOOP IN CMP');
@@ -1866,6 +1868,7 @@ begin
          AND enbl_scnrio_ind = 'Y'
          AND shr_ind = 'Y'
          AND what_if_Scnrio.scnrio_id IN (SELECT * FROM TABLE(p_filter.p_scnrio_id))
+         AND cpa_ind = 'Y'
       ) LOOP --every offer id in a scnrio loop
       --DELME
      -- DBMS_OUTPUT.PUT_LINE(SCNRIOS.SCNRIO_ID || ' SCENARIO LOOP');
