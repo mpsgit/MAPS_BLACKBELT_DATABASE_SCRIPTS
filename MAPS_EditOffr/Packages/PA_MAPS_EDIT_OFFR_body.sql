@@ -3714,8 +3714,8 @@ frcst AS
       ,osl_current.dltd_ind AS dltd_ind
       ,o.creat_ts AS created_ts
       ,o.creat_user_id AS created_user_id
-      ,NVL(os.log_user_id, o.last_updt_user_id) AS last_updt_user_id
-      ,NVL(os.log_ts, o.last_updt_ts) AS last_updt_ts
+      ,MAX(NVL(os.log_user_id, o.last_updt_user_id)) KEEP (DENSE_RANK LAST ORDER BY greatest(NVL(os.log_ts, o.last_updt_ts), o.last_updt_ts)) AS last_updt_user_id
+      ,MAX(greatest(NVL(os.log_ts, o.last_updt_ts), o.last_updt_ts)) AS last_updt_ts
       ,mrkt_veh_perd_sctn.mrkt_veh_perd_sctn_id AS mrkt_veh_perd_sctn_id
       ,prfl.prfl_nm AS prfl_nm
       ,osl_current.sku_nm AS sku_nm
