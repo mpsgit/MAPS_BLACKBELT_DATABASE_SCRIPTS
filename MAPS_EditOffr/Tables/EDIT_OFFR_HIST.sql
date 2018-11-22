@@ -35,7 +35,6 @@ CREATE TABLE edit_offr_hist (
   pymt_typ               VARCHAR2(5),
   promtn_id              NUMBER,
   promtn_clm_id          NUMBER,
---  cmbntn_offr_typ        NUMBER,       --delete
   spndng_lvl             VARCHAR2(20), --delete
   comsn_typ              VARCHAR2(5),
   tax_type_id            NUMBER,
@@ -90,7 +89,11 @@ CREATE TABLE edit_offr_hist (
   hero_ind               CHAR(1),
   smplg_ind              CHAR(1),
   mltpl_ind              CHAR(1),
-  cmltv_ind              CHAR(1)
+  cmltv_ind              CHAR(1),
+  pp_sls_cls_cd          VARCHAR2(5),
+  web_postn_id           NUMBER,
+  scntd_pg_typ_id        NUMBER,
+  micr_ncpsltn_desc_txt  VARCHAR2(150)
   );
 
 CREATE INDEX fk_offrslstyp_editoffrhist ON edit_offr_hist (intrnl_offr_id, sls_typ);
