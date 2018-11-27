@@ -5,3 +5,7 @@ CREATE OR REPLACE TYPE obj_edit_offr_mrkt_perd_line FORCE AS OBJECT
                     ver_id               NUMBER
 );
 /
+
+CREATE OR REPLACE TYPE obj_edit_offr_mrkt_perd_table FORCE 
+AS TABLE OF obj_edit_offr_mrkt_perd_line;
+/

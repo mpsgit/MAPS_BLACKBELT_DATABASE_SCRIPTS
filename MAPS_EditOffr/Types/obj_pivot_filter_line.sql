@@ -17,3 +17,7 @@ CREATE OR REPLACE TYPE obj_pivot_filter_line FORCE AS OBJECT
   p_scnrio_id      number_array
 );
 /
+
+CREATE OR REPLACE TYPE obj_pivot_filter_table force 
+AS TABLE OF obj_pivot_filter_line;
+/

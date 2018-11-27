@@ -17,3 +17,7 @@ CREATE OR REPLACE TYPE obj_scnrio_filter_line FORCE AS OBJECT
 --,p_scnrio_id      number_array
 );
 /
+
+CREATE OR REPLACE TYPE obj_scnrio_filter_table FORCE 
+AS TABLE OF obj_scnrio_filter_line;
+/

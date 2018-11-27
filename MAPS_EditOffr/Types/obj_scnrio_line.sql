@@ -99,3 +99,7 @@ CREATE OR REPLACE TYPE obj_scnrio_line force AS OBJECT
   offr_typ                VARCHAR2(5)
 );
 /
+
+CREATE OR REPLACE TYPE obj_scnrio_table FORCE
+AS TABLE OF obj_scnrio_line;
+/

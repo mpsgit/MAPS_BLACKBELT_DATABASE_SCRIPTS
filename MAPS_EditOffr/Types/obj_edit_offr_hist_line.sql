@@ -95,3 +95,7 @@ CREATE OR REPLACE TYPE obj_edit_offr_hist_line FORCE AS OBJECT
   micr_ncpsltn_desc_txt  VARCHAR2(150)
 );  
 /
+
+CREATE OR REPLACE TYPE obj_edit_offr_hist_table FORCE 
+AS TABLE OF obj_edit_offr_hist_line;
+/
