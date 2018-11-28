@@ -155,7 +155,6 @@ PROCEDURE get_sprd_data(p_mrkt_id      IN NUMBER,
 
 END pa_maps_edit_offr;
 /
-
 CREATE OR REPLACE PACKAGE BODY PA_MAPS_EDIT_OFFR
 AS
   TYPE t_str_array IS TABLE OF VARCHAR2(32767);
@@ -1345,6 +1344,58 @@ BEGIN
   END LOOP;
 END log_params;
 
+FUNCTION check_pricepoints(p_offr_id   IN NUMBER,
+                           p_data_line IN obj_edit_offr_table) RETURN BOOLEAN IS
+
+  l_module_name           VARCHAR2(30) := 'CHECK_PRICEPOINTS';
+
+  l_cnt                   NUMBER;
+
+BEGIN
+  -- Checking if pricepoints are distinct for certain values in an offer
+  SELECT COUNT(*)
+    INTO l_cnt
+    FROM (
+        SELECT l.prfl_cd,
+               l.sls_cls_cd,
+               l.sls_prc_amt,
+               l.nr_for_qty,
+               l.pp_ofs_nr,
+               l.pymt_typ,
+               l.comsn_typ,
+               l.tax_type_id,
+               l.promtn_id,
+               l.promtn_clm_id,
+               l.concept_featrd_side_cd,
+               COUNT(*) AS cnt
+          FROM TABLE(p_data_line) l
+         WHERE l.intrnl_offr_id = p_offr_id
+      GROUP BY l.prfl_cd,
+               l.sls_cls_cd,
+               l.sls_prc_amt,
+               l.nr_for_qty,
+               l.pp_ofs_nr,
+               l.pymt_typ,
+               l.comsn_typ,
+               l.tax_type_id,
+               l.promtn_id,
+               l.promtn_clm_id,
+               l.concept_featrd_side_cd)
+    WHERE cnt > 1;
+
+  IF l_cnt = 0 THEN
+    RETURN TRUE;
+  ELSE
+    RETURN FALSE;
+  END IF;
+
+EXCEPTION
+  WHEN OTHERS THEN
+    app_plsql_log.info(l_module_name || ' ' || SQLERRM);
+
+    RETURN FALSE;
+END check_pricepoints;
+
 PROCEDURE save_edit_offr_lines(p_offr_id   IN NUMBER,
                                p_sls_typ   IN NUMBER,
                                p_data_line IN obj_edit_offr_table) IS
@@ -2201,18 +2252,22 @@ BEGIN
           IF l_offr_lock = 0 OR lock_offr_chk(offr_sls.offr_id, l_offr_lock_user) <> 0 THEN
             l_result := 1;
             BEGIN
-              save_edit_offr_lines(offr_sls.offr_id, offr_sls.sls_typ, p_data_line);
+              IF check_pricepoints(offr_sls.offr_id, p_data_line) THEN
+                save_edit_offr_lines(offr_sls.offr_id, offr_sls.sls_typ, p_data_line);
 
-              --manage_scenario(offr_sls.offr_id, l_offr_lock_user, l_scnrio_offrs);
+                --manage_scenario(offr_sls.offr_id, l_offr_lock_user, l_scnrio_offrs);
 
-              IF l_scnrio_offrs.COUNT > 0 THEN
-                FOR offr_idx IN l_scnrio_offrs.FIRST .. l_scnrio_offrs.LAST LOOP
-                  p_result.EXTEND;
-                  p_result(p_result.LAST) := obj_edit_offr_save_line(l_result, l_scnrio_offrs(offr_idx).p_offr_id, g_sls_typ_id);
-                END LOOP;
+                IF l_scnrio_offrs.COUNT > 0 THEN
+                  FOR offr_idx IN l_scnrio_offrs.FIRST .. l_scnrio_offrs.LAST LOOP
+                    p_result.EXTEND;
+                    p_result(p_result.LAST) := obj_edit_offr_save_line(l_result, l_scnrio_offrs(offr_idx).p_offr_id, g_sls_typ_id);
+                  END LOOP;
+                END IF;
+
+                COMMIT;  --save changes for the offer
+              ELSE
+                l_result := 0;
               END IF;
-
-              COMMIT;  --save changes for the offer
 
             EXCEPTION
               WHEN OTHERS THEN
@@ -3872,10 +3927,8 @@ frcst AS
       ,osl_current.dltd_ind AS dltd_ind
       ,o.creat_ts AS created_ts
       ,o.creat_user_id AS created_user_id
-      ,MAX(greatest(os.log_user_id, o.last_updt_user_id))
-        KEEP (DENSE_RANK FIRST ORDER BY greatest(NVL(os.log_ts, o.last_updt_ts), o.last_updt_ts))
-        OVER (PARTITION BY greatest(NVL(os.log_ts, o.last_updt_ts), o.last_updt_ts)) AS last_updt_user_id
-      ,greatest(NVL(os.log_ts, o.last_updt_ts), o.last_updt_ts) AS last_updt_ts
+      ,NVL(os.log_user_id, o.last_updt_user_id) AS last_updt_user_id
+      ,NVL(os.log_ts, o.last_updt_ts) AS last_updt_ts
       ,mrkt_veh_perd_sctn.mrkt_veh_perd_sctn_id AS mrkt_veh_perd_sctn_id
       ,prfl.prfl_nm AS prfl_nm
       ,osl_current.sku_nm AS sku_nm
@@ -5931,7 +5984,7 @@ frcst AS
     l_location := 'offr_rec loop';
     FOR offr_rec IN (
       SELECT DISTINCT intrnl_offr_id offr_id,
-                      offr_lock_user,last_updt_user_id
+                      offr_lock_user
         FROM TABLE(p_osl_records)
     )
     LOOP
@@ -5967,7 +6020,7 @@ frcst AS
                o.prfl_cnt = (SELECT COUNT(1)
                                FROM offr_prfl_prc_point oppp
                               WHERE oppp.offr_id = offr_rec.offr_id),
-               o.last_updt_user_id = offr_rec.last_updt_user_id
+               o.last_updt_user_id = offr_rec.offr_lock_user
          WHERE o.offr_id = offr_rec.offr_id;
 
       EXCEPTION
