@@ -4651,6 +4651,8 @@ frcst AS
       INTO l_edit_offr_table
       FROM TABLE(get_offr(l_offr_table, p_pagination));
 
+      merge_history(l_edit_offr_table);
+
       RETURN l_edit_offr_table;
   END get_offr_table;
 
@@ -4678,23 +4680,20 @@ frcst AS
       INTO l_edit_offr_table
       FROM TABLE(get_offr(p_get_offr_table, p_pagination));
 
+      merge_history(l_edit_offr_table);
+
       RETURN l_edit_offr_table;
   END get_offr_table;
 
-
-
-
-
-
-  PROCEDURE add_concept(p_offr_id               IN NUMBER,
-                           p_mrkt_id          IN     NUMBER,
-                           p_offr_perd_id     IN     NUMBER,
-                           p_veh_id           IN     NUMBER,
-                           p_featrd_side_cd   IN     VARCHAR2,
-                           p_prfl_cd          IN     NUMBER,
-                           p_default_values   IN     t_default_values,
-                           p_user_nm          IN     VARCHAR2,
-                        p_status               OUT NUMBER) IS
+  PROCEDURE add_concept(p_offr_id          IN NUMBER,
+                        p_mrkt_id          IN NUMBER,
+                        p_offr_perd_id     IN NUMBER,
+                        p_veh_id           IN NUMBER,
+                        p_featrd_side_cd   IN VARCHAR2,
+                        p_prfl_cd          IN NUMBER,
+                        p_default_values   IN t_default_values,
+                        p_user_nm          IN VARCHAR2,
+                        p_status          OUT NUMBER) IS
 
     l_procedure_name         VARCHAR2(50) := 'ADD_CONCEPT';
     l_location               VARCHAR2(1000);
