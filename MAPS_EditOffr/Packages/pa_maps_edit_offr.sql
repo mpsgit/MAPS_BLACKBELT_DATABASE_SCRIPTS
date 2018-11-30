@@ -5532,6 +5532,14 @@ frcst AS
       ROLLBACK;
   END add_prcpoints_to_offr;
 
+  PROCEDURE save_pagination_data(p_offr_id               IN NUMBER,
+                                 p_mrkt_veh_perd_sctn_id IN NUMBER,
+                                 p_offr_ofs_nr           IN NUMBER,
+                                 p_featrd_side_cd        IN VARCHAR2) IS
+  BEGIN
+    null;
+  END save_pagination_data;
+
   PROCEDURE copy_offer(p_copy_offr_table   IN obj_copy_offr_table,
                        p_user_nm           IN VARCHAR2,
                        p_status           OUT NUMBER,
@@ -5601,6 +5609,11 @@ frcst AS
           RAISE e_copy_offer_failed;
         END IF;
 
+        save_pagination_data(l_new_offr_id,
+                             l_obj_copy_offr.trg_mrkt_veh_perd_sctn_id,
+                             l_obj_copy_offr.trg_offr_ofs_nr,
+                             l_obj_copy_offr.trg_featrd_side_cd);
+
         l_location := 'Scenario management';
         IF l_whatif THEN
           l_scnrio_id := l_obj_copy_offr.trg_scnrio_id;
@@ -5643,6 +5656,8 @@ frcst AS
                 scnrio_id,micr_ncpsltn_desc_txt,offr_link_id, profile_item_count)
       BULK COLLECT INTO p_edit_offr_table
       FROM TABLE(get_offr(l_offr_table, p_pagination));
+
+    merge_history(p_edit_offr_table);
 
     COMMIT;
 
