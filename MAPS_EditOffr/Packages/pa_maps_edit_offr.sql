@@ -5039,21 +5039,21 @@ frcst AS
           l_default_values.pg_typ_id, p_user_nm);
         END;
 
-        BEGIN
-      l_tax_amt := get_tax_rate(p_mrkt_id, l_default_values.tax_type_id, p_offr_perd_id);
-        EXCEPTION
-      WHEN OTHERS THEN
-                l_tax_amt := 0;
-        END;
+      BEGIN
+        l_tax_amt := get_tax_rate(p_mrkt_id, l_default_values.tax_type_id, p_offr_perd_id);
+      EXCEPTION
+        WHEN OTHERS THEN
+          l_tax_amt := 0;
+      END;
 
-        BEGIN
-      l_comsn_amt := get_comsn_pct(p_mrkt_id, p_offr_perd_id, l_default_values.comsn_typ);
-        EXCEPTION
-      WHEN OTHERS THEN
-                l_comsn_amt := 0;
-        END;
+      BEGIN
+        l_comsn_amt := get_comsn_pct(p_mrkt_id, p_offr_perd_id, l_default_values.comsn_typ);
+      EXCEPTION
+        WHEN OTHERS THEN
+          l_comsn_amt := 0;
+      END;
 
-    l_net_to_avon_fct := pa_maps_gta.get_gta_without_price_point(pa_maps_gta.pri_get_gta_method_id(p_mrkt_id,
+      l_net_to_avon_fct := pa_maps_gta.get_gta_without_price_point(pa_maps_gta.pri_get_gta_method_id(p_mrkt_id,
                                                                                                    p_offr_perd_id),
                                                                  p_pp_rec.sls_prc_amt, l_default_values.chrty_amt,
                                                                  l_default_values.awrd_sls_prc_amt, l_comsn_amt, l_tax_amt, 0);
@@ -5536,8 +5536,42 @@ frcst AS
                                  p_mrkt_veh_perd_sctn_id IN NUMBER,
                                  p_offr_ofs_nr           IN NUMBER,
                                  p_featrd_side_cd        IN VARCHAR2) IS
+
+    l_procedure_name         VARCHAR2(50) := 'SAVE_PAGINATION_DATA';
+    l_location               VARCHAR2(1000);
+                                 
+    l_pg_wght_pct            offr.pg_wght_pct%TYPE;
+
   BEGIN
-    null;
+    l_location := 'Offr update';
+    -- Update pagination info in offr
+    UPDATE offr o
+       SET o.mrkt_veh_perd_sctn_id = p_mrkt_veh_perd_sctn_id,
+           o.sctn_page_ofs_nr      = p_offr_ofs_nr,
+           o.featrd_side_cd        = p_featrd_side_cd
+     WHERE o.offr_id = p_offr_id;
+
+    l_location := 'Pricepoint update';
+    SELECT o.pg_wght_pct
+      INTO l_pg_wght_pct
+      FROM offr o
+     WHERE o.offr_id = p_offr_id;
+
+    IF p_featrd_side_cd IN (0, 1) AND l_pg_wght_pct <= 100 THEN
+      -- Update pagination info in offr_prfl_prc_point
+      -- if featured_side left or right and pg_wght <=100, update the pp featured side to the offr featured side
+      UPDATE offr_prfl_prc_point p
+         SET p.featrd_side_cd = p_featrd_side_cd
+       WHERE p.offr_id = p_offr_id;
+    END IF;
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      app_plsql_log.info(l_procedure_name || ': Pagination update failed at ' || l_location || ', offr_id: ' || p_offr_id);
+      app_plsql_log.info(l_procedure_name || ': ' || SQLERRM(SQLCODE));
+
+      RAISE;
+
   END save_pagination_data;
 
   PROCEDURE copy_offer(p_copy_offr_table   IN obj_copy_offr_table,
@@ -5609,6 +5643,7 @@ frcst AS
           RAISE e_copy_offer_failed;
         END IF;
 
+        l_location := 'Pagination info save';
         save_pagination_data(l_new_offr_id,
                              l_obj_copy_offr.trg_mrkt_veh_perd_sctn_id,
                              l_obj_copy_offr.trg_offr_ofs_nr,
