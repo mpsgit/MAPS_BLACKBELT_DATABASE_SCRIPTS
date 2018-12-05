@@ -5543,6 +5543,13 @@ frcst AS
     l_pg_wght_pct            offr.pg_wght_pct%TYPE;
 
   BEGIN
+    IF p_mrkt_veh_perd_sctn_id IS NULL OR
+       p_offr_ofs_nr IS NULL OR
+       p_featrd_side_cd IS NULL
+    THEN
+      RETURN;
+    END IF;
+       
     l_location := 'Offr update';
     -- Update pagination info in offr
     UPDATE offr o
