@@ -1370,6 +1370,7 @@ BEGIN
                COUNT(*) AS cnt
           FROM TABLE(p_data_line) l
          WHERE l.intrnl_offr_id = p_offr_id
+           AND l.dltd_ind = 'N'
       GROUP BY l.prfl_cd,
                l.sls_cls_cd,
                l.sls_prc_amt,
@@ -2024,7 +2025,7 @@ PROCEDURE save_edit_offr_table(p_data_line IN obj_edit_offr_table,
   l_module_name    VARCHAR2(30) := 'SAVE_EDIT_OFFR_TABLE';
   l_rowcount       NUMBER;
   l_offr_table     obj_get_offr_table := obj_get_offr_table();
-  l_scnrio_offrs   obj_get_offr_table := obj_get_offr_table();
+--  l_scnrio_offrs   obj_get_offr_table := obj_get_offr_table();
   l_get_offr_table obj_edit_offr_table;
   l_offr_lock_user VARCHAR2(35);
   l_offr_lock      NUMBER;
@@ -2257,20 +2258,22 @@ BEGIN
 
                 --manage_scenario(offr_sls.offr_id, l_offr_lock_user, l_scnrio_offrs);
 
-                IF l_scnrio_offrs.COUNT > 0 THEN
+                /*IF l_scnrio_offrs.COUNT > 0 THEN
                   FOR offr_idx IN l_scnrio_offrs.FIRST .. l_scnrio_offrs.LAST LOOP
                     p_result.EXTEND;
                     p_result(p_result.LAST) := obj_edit_offr_save_line(l_result, l_scnrio_offrs(offr_idx).p_offr_id, g_sls_typ_id);
                   END LOOP;
-                END IF;
+                END IF;*/
 
                 COMMIT;  --save changes for the offer
               ELSE
+                app_plsql_log.info(l_module_name || ', ' || 'Error: Duplicated pricepoints. offr_id: ' || offr_sls.offr_id);
                 l_result := 0;
               END IF;
 
             EXCEPTION
               WHEN OTHERS THEN
+                app_plsql_log.info(l_module_name || ', ' || 'Error: ' || SQLERRM);
                 ROLLBACK; --no changes saved for the offer
                 l_result := 0;
             END;
