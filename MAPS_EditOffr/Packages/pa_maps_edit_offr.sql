@@ -5548,7 +5548,7 @@ frcst AS
     l_old_offr_id            offr.offr_id%TYPE;
     l_offr_desc_txt          offr.offr_desc_txt%TYPE;
     l_scnrio_id              what_if_scnrio.scnrio_id%TYPE;
-    l_whatif                 BOOLEAN;
+    l_whatif                 NUMBER;
 
     e_copy_offer_failed      EXCEPTION;
   BEGIN
@@ -5575,34 +5575,28 @@ frcst AS
           FROM offr o
          WHERE o.offr_id = l_old_offr_id;
 
-        l_whatif := FALSE;
+        l_whatif := 0;
         IF l_obj_copy_offr.trg_offr_typ = 'WIF' THEN
-          l_whatif := TRUE;
+          l_whatif := 1;
         END IF;
 
         l_location := 'Calling pa_maps_copy.copy_offer';
-        l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => l_old_offr_id,
-                                                 par_newmarketid    => l_obj_copy_offr.trg_mrkt_id,
-                                                 par_newofferperiod => l_obj_copy_offr.trg_offr_perd_id,
-                                                 par_newvehid       => l_obj_copy_offr.trg_veh_id,
-                                                 par_newoffrdesc    => l_offr_desc_txt,
-                                                 par_zerounits      => CASE WHEN l_obj_copy_offr.trg_zerounits = 1 THEN TRUE
-                                                                            WHEN l_obj_copy_offr.trg_zerounits = 0 THEN FALSE
-                                                                            ELSE FALSE
-                                                                       END,
-                                                 par_whatif         => l_whatif,
-                                                 par_enrgychrt      => CASE WHEN l_obj_copy_offr.trg_enrgychrt = 1 THEN TRUE
-                                                                            WHEN l_obj_copy_offr.trg_enrgychrt = 0 THEN FALSE
-                                                                            ELSE FALSE
-                                                                       END,
-                                                 par_paginationcopy => TRUE,
-                                                 par_user           => p_user_nm);
+        l_new_offr_id := pa_maps_copy.copy_offer_java(par_offerid        => l_old_offr_id,
+                                                      par_newmarketid    => l_obj_copy_offr.trg_mrkt_id,
+                                                      par_newofferperiod => l_obj_copy_offr.trg_offr_perd_id,
+                                                      par_newvehid       => l_obj_copy_offr.trg_veh_id,
+                                                      par_newoffrdesc    => l_offr_desc_txt,
+                                                      par_zerounits      => l_obj_copy_offr.trg_zerounits,
+                                                      par_whatif         => l_whatif,
+                                                      par_enrgychrt      => l_obj_copy_offr.trg_enrgychrt,
+                                                      par_paginationcopy => 1,
+                                                      par_user           => p_user_nm);
         IF l_new_offr_id = -1 THEN
           RAISE e_copy_offer_failed;
         END IF;
 
         l_location := 'Scenario management';
-        IF l_whatif THEN
+        IF l_whatif = 1 THEN
           l_scnrio_id := l_obj_copy_offr.trg_scnrio_id;
           IF l_scnrio_id IS NULL THEN
             add_scenario(p_mrkt_id         => l_obj_copy_offr.trg_mrkt_id,
