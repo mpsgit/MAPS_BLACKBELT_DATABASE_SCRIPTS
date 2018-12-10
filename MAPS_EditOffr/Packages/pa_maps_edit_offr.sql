@@ -352,16 +352,16 @@ AS
 
   BEGIN
     l_log := 'Copying the offer';
-    p_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => p_offr_id,
-                                             par_newmarketid    => p_mrkt_id,
-                                             par_newofferperiod => p_offr_perd_id,
-                                             par_newvehid       => p_veh_id,
-                                             par_newoffrdesc    => p_offr_desc_txt,
-                                             par_zerounits      => TRUE,
-                                             par_whatif         => TRUE,
-                                             par_paginationcopy => TRUE,
-                                             par_enrgychrt      => FALSE,
-                                             par_user           => p_user_nm);
+    p_new_offr_id := pa_maps_copy.copy_offer_java(par_offerid        => p_offr_id,
+                                                  par_newmarketid    => p_mrkt_id,
+                                                  par_newofferperiod => p_offr_perd_id,
+                                                  par_newvehid       => p_veh_id,
+                                                  par_newoffrdesc    => p_offr_desc_txt,
+                                                  par_zerounits      => 1,
+                                                  par_whatif         => 1,
+                                                  par_paginationcopy => 1,
+                                                  par_enrgychrt      => 0,
+                                                  par_user           => p_user_nm);
 
     l_log := 'Updating offr_desc_txt';
     UPDATE offr o
