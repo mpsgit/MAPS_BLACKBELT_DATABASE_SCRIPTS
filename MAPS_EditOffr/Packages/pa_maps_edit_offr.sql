@@ -352,16 +352,16 @@ AS
 
   BEGIN
     l_log := 'Copying the offer';
-    p_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => p_offr_id,
-                                             par_newmarketid    => p_mrkt_id,
-                                             par_newofferperiod => p_offr_perd_id,
-                                             par_newvehid       => p_veh_id,
-                                             par_newoffrdesc    => p_offr_desc_txt,
-                                             par_zerounits      => TRUE,
-                                             par_whatif         => TRUE,
-                                             par_paginationcopy => TRUE,
-                                             par_enrgychrt      => FALSE,
-                                             par_user           => p_user_nm);
+    p_new_offr_id := pa_maps_copy.copy_offer_java(par_offerid        => p_offr_id,
+                                                  par_newmarketid    => p_mrkt_id,
+                                                  par_newofferperiod => p_offr_perd_id,
+                                                  par_newvehid       => p_veh_id,
+                                                  par_newoffrdesc    => p_offr_desc_txt,
+                                                  par_zerounits      => 1,
+                                                  par_whatif         => 1,
+                                                  par_paginationcopy => 1,
+                                                  par_enrgychrt      => 0,
+                                                  par_user           => p_user_nm);
 
     l_log := 'Updating offr_desc_txt';
     UPDATE offr o
@@ -1368,8 +1368,22 @@ BEGIN
                l.promtn_clm_id,
                l.concept_featrd_side_cd,
                COUNT(*) AS cnt
-          FROM TABLE(p_data_line) l
-         WHERE l.intrnl_offr_id = p_offr_id
+          FROM (
+                 SELECT offr_prfl_prcpt_id,
+                        MAX(prfl_cd) AS prfl_cd,
+                        MAX(sls_cls_cd) AS sls_cls_cd,
+                        MAX(sls_prc_amt) AS sls_prc_amt,
+                        MAX(nr_for_qty) AS nr_for_qty,
+                        MAX(pp_ofs_nr) AS pp_ofs_nr,
+                        MAX(pymt_typ) AS pymt_typ,
+                        MAX(comsn_typ) AS comsn_typ,
+                        MAX(tax_type_id) AS tax_type_id,
+                        MAX(promtn_id) AS promtn_id,
+                        MAX(promtn_clm_id) AS promtn_clm_id,
+                        MAX(concept_featrd_side_cd) AS concept_featrd_side_cd
+                   FROM TABLE(p_data_line)
+                  WHERE intrnl_offr_id = p_offr_id
+                 GROUP BY offr_prfl_prcpt_id) l
       GROUP BY l.prfl_cd,
                l.sls_cls_cd,
                l.sls_prc_amt,
@@ -2024,7 +2038,7 @@ PROCEDURE save_edit_offr_table(p_data_line IN obj_edit_offr_table,
   l_module_name    VARCHAR2(30) := 'SAVE_EDIT_OFFR_TABLE';
   l_rowcount       NUMBER;
   l_offr_table     obj_get_offr_table := obj_get_offr_table();
-  l_scnrio_offrs   obj_get_offr_table := obj_get_offr_table();
+--  l_scnrio_offrs   obj_get_offr_table := obj_get_offr_table();
   l_get_offr_table obj_edit_offr_table;
   l_offr_lock_user VARCHAR2(35);
   l_offr_lock      NUMBER;
@@ -2257,20 +2271,22 @@ BEGIN
 
                 --manage_scenario(offr_sls.offr_id, l_offr_lock_user, l_scnrio_offrs);
 
-                IF l_scnrio_offrs.COUNT > 0 THEN
+                /*IF l_scnrio_offrs.COUNT > 0 THEN
                   FOR offr_idx IN l_scnrio_offrs.FIRST .. l_scnrio_offrs.LAST LOOP
                     p_result.EXTEND;
                     p_result(p_result.LAST) := obj_edit_offr_save_line(l_result, l_scnrio_offrs(offr_idx).p_offr_id, g_sls_typ_id);
                   END LOOP;
-                END IF;
+                END IF;*/
 
                 COMMIT;  --save changes for the offer
               ELSE
+                app_plsql_log.info(l_module_name || ', ' || 'Error: Duplicated pricepoints. offr_id: ' || offr_sls.offr_id);
                 l_result := 0;
               END IF;
 
             EXCEPTION
               WHEN OTHERS THEN
+                app_plsql_log.info(l_module_name || ', ' || 'Error: ' || SQLERRM);
                 ROLLBACK; --no changes saved for the offer
                 l_result := 0;
             END;
@@ -5597,7 +5613,7 @@ frcst AS
     l_old_offr_id            offr.offr_id%TYPE;
     l_offr_desc_txt          offr.offr_desc_txt%TYPE;
     l_scnrio_id              what_if_scnrio.scnrio_id%TYPE;
-    l_whatif                 BOOLEAN;
+    l_whatif                 NUMBER;
 
     e_copy_offer_failed      EXCEPTION;
   BEGIN
@@ -5624,28 +5640,22 @@ frcst AS
           FROM offr o
          WHERE o.offr_id = l_old_offr_id;
 
-        l_whatif := FALSE;
+        l_whatif := 0;
         IF l_obj_copy_offr.trg_offr_typ = 'WIF' THEN
-          l_whatif := TRUE;
+          l_whatif := 1;
         END IF;
 
         l_location := 'Calling pa_maps_copy.copy_offer';
-        l_new_offr_id := pa_maps_copy.copy_offer(par_offerid        => l_old_offr_id,
-                                                 par_newmarketid    => l_obj_copy_offr.trg_mrkt_id,
-                                                 par_newofferperiod => l_obj_copy_offr.trg_offr_perd_id,
-                                                 par_newvehid       => l_obj_copy_offr.trg_veh_id,
-                                                 par_newoffrdesc    => l_offr_desc_txt,
-                                                 par_zerounits      => CASE WHEN l_obj_copy_offr.trg_zerounits = 1 THEN TRUE
-                                                                            WHEN l_obj_copy_offr.trg_zerounits = 0 THEN FALSE
-                                                                            ELSE FALSE
-                                                                       END,
-                                                 par_whatif         => l_whatif,
-                                                 par_enrgychrt      => CASE WHEN l_obj_copy_offr.trg_enrgychrt = 1 THEN TRUE
-                                                                            WHEN l_obj_copy_offr.trg_enrgychrt = 0 THEN FALSE
-                                                                            ELSE FALSE
-                                                                       END,
-                                                 par_paginationcopy => TRUE,
-                                                 par_user           => p_user_nm);
+        l_new_offr_id := pa_maps_copy.copy_offer_java(par_offerid        => l_old_offr_id,
+                                                      par_newmarketid    => l_obj_copy_offr.trg_mrkt_id,
+                                                      par_newofferperiod => l_obj_copy_offr.trg_offr_perd_id,
+                                                      par_newvehid       => l_obj_copy_offr.trg_veh_id,
+                                                      par_newoffrdesc    => l_offr_desc_txt,
+                                                      par_zerounits      => l_obj_copy_offr.trg_zerounits,
+                                                      par_whatif         => l_whatif,
+                                                      par_enrgychrt      => l_obj_copy_offr.trg_enrgychrt,
+                                                      par_paginationcopy => 1,
+                                                      par_user           => p_user_nm);
         IF l_new_offr_id = -1 THEN
           RAISE e_copy_offer_failed;
         END IF;
@@ -5657,7 +5667,7 @@ frcst AS
                              l_obj_copy_offr.trg_featrd_side_cd);
 
         l_location := 'Scenario management';
-        IF l_whatif THEN
+        IF l_whatif = 1 THEN
           l_scnrio_id := l_obj_copy_offr.trg_scnrio_id;
           IF l_scnrio_id IS NULL THEN
             add_scenario(p_mrkt_id         => l_obj_copy_offr.trg_mrkt_id,
