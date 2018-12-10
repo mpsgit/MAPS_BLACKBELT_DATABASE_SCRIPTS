@@ -1368,9 +1368,22 @@ BEGIN
                l.promtn_clm_id,
                l.concept_featrd_side_cd,
                COUNT(*) AS cnt
-          FROM TABLE(p_data_line) l
-         WHERE l.intrnl_offr_id = p_offr_id
-           AND l.dltd_ind = 'N'
+          FROM (
+                 SELECT offr_prfl_prcpt_id,
+                        MAX(prfl_cd) AS prfl_cd,
+                        MAX(sls_cls_cd) AS sls_cls_cd,
+                        MAX(sls_prc_amt) AS sls_prc_amt,
+                        MAX(nr_for_qty) AS nr_for_qty,
+                        MAX(pp_ofs_nr) AS pp_ofs_nr,
+                        MAX(pymt_typ) AS pymt_typ,
+                        MAX(comsn_typ) AS comsn_typ,
+                        MAX(tax_type_id) AS tax_type_id,
+                        MAX(promtn_id) AS promtn_id,
+                        MAX(promtn_clm_id) AS promtn_clm_id,
+                        MAX(concept_featrd_side_cd) AS concept_featrd_side_cd
+                   FROM TABLE(p_data_line)
+                  WHERE intrnl_offr_id = p_offr_id
+                 GROUP BY offr_prfl_prcpt_id) l
       GROUP BY l.prfl_cd,
                l.sls_cls_cd,
                l.sls_prc_amt,
