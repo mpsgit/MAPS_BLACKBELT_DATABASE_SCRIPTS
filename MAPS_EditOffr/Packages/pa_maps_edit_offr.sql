@@ -5593,7 +5593,7 @@ frcst AS
       -- if featured_side left or right and pg_wght <=100, update the pp featured side to the offr featured side
 
       l_location := 'insert offr_prfl_sls_cls_plcmt';
-      FOR rec IN (
+      FOR oppp_rec IN (
         SELECT oppp.*,
                oppp.pg_ofs_nr AS pp_ofs_nr,
                oppp.featrd_side_cd AS concept_featrd_side_cd,
@@ -5613,15 +5613,15 @@ frcst AS
           INTO l_sku_cnt
           FROM offr_sku_line osl
          WHERE osl.offr_id = p_offr_id
-           AND osl.prfl_cd = rec.prfl_cd;
+           AND osl.prfl_cd = oppp_rec.prfl_cd;
 
         SELECT COUNT(*)
           INTO l_cnt
           FROM offr_prfl_sls_cls_plcmt p
-         WHERE p.offr_id        = rec.offr_id
-           AND p.sls_cls_cd     = rec.pp_sls_cls_cd
-           AND p.prfl_cd        = rec.prfl_cd
-           AND p.pg_ofs_nr      = rec.pp_ofs_nr
+         WHERE p.offr_id        = oppp_rec.offr_id
+           AND p.sls_cls_cd     = oppp_rec.pp_sls_cls_cd
+           AND p.prfl_cd        = oppp_rec.prfl_cd
+           AND p.pg_ofs_nr      = oppp_rec.pp_ofs_nr
            AND p.featrd_side_cd = p_featrd_side_cd;
 
         IF l_cnt = 0 THEN
@@ -5632,16 +5632,16 @@ frcst AS
           )
           VALUES
           (
-            rec.offr_id, rec.pp_sls_cls_cd, rec.prfl_cd, rec.pp_ofs_nr, p_featrd_side_cd, rec.mrkt_id,
-            rec.veh_id, rec.offr_perd_id, l_sku_cnt, rec.pp_pg_wght, 0, 1, p_user_nm, p_user_nm
+            oppp_rec.offr_id, oppp_rec.pp_sls_cls_cd, oppp_rec.prfl_cd, oppp_rec.pp_ofs_nr, p_featrd_side_cd, oppp_rec.mrkt_id,
+            oppp_rec.veh_id, oppp_rec.offr_perd_id, l_sku_cnt, oppp_rec.pp_pg_wght, 0, 1, p_user_nm, p_user_nm
           );
         ELSE
           UPDATE offr_prfl_sls_cls_plcmt p
-             SET p.pg_wght_pct    = rec.pp_pg_wght
-           WHERE p.offr_id        = rec.offr_id
-             AND p.sls_cls_cd     = rec.pp_sls_cls_cd
-             AND p.prfl_cd        = rec.prfl_cd
-             AND p.pg_ofs_nr      = rec.pp_ofs_nr
+             SET p.pg_wght_pct    = oppp_rec.pp_pg_wght
+           WHERE p.offr_id        = oppp_rec.offr_id
+             AND p.sls_cls_cd     = oppp_rec.pp_sls_cls_cd
+             AND p.prfl_cd        = oppp_rec.prfl_cd
+             AND p.pg_ofs_nr      = oppp_rec.pp_ofs_nr
              AND p.featrd_side_cd = p_featrd_side_cd;
         END IF;
 
@@ -5659,7 +5659,7 @@ frcst AS
              AND oscs.pg_ofs_nr      = osl.pg_ofs_nr
              AND oscs.featrd_side_cd = osl.featrd_side_cd
              AND oscs.sku_id         = osl.sku_id
-             AND osl.offr_id         = rec.offr_prfl_prcpt_id
+             AND osl.offr_id         = oppp_rec.offr_prfl_prcpt_id
         )
         LOOP  
           SELECT COUNT(*)
@@ -5668,7 +5668,7 @@ frcst AS
            WHERE s.offr_id        = osl_rec.offr_id
              AND s.sls_cls_cd     = osl_rec.sls_cls_cd
              AND s.prfl_cd        = osl_rec.prfl_cd
-             AND s.pg_ofs_nr      = rec.pp_ofs_nr
+             AND s.pg_ofs_nr      = oppp_rec.pp_ofs_nr
              AND s.featrd_side_cd = p_featrd_side_cd
              AND s.sku_id         = osl_rec.sku_id;
 
@@ -5681,7 +5681,7 @@ frcst AS
             )
             VALUES
             (
-              osl_rec.offr_id, osl_rec.sls_cls_cd, osl_rec.prfl_cd, rec.pp_ofs_nr, p_featrd_side_cd, osl_rec.sku_id,
+              osl_rec.offr_id, osl_rec.sls_cls_cd, osl_rec.prfl_cd, oppp_rec.pp_ofs_nr, p_featrd_side_cd, osl_rec.sku_id,
               osl_rec.mrkt_id, 'N', 'N', decode(osl_rec.scntd_pg_typ_id, NULL, 'N', 'Y'), osl_rec.scntd_pg_typ_id, osl_rec.reg_prc_amt,
               NULL, NULL, 'N', 'N', osl_rec.wsl_ind, p_user_nm, p_user_nm
             );
