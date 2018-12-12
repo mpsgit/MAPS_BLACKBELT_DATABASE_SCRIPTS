@@ -2175,7 +2175,9 @@ BEGIN
                               scnrio_id,
                               micr_ncpsltn_desc_txt,
                               offr_link_id,
-                              profile_item_count
+                              profile_item_count,
+                              off_schedule_unit_qty,
+                              trend_setter_unit_qty
     )
     BULK COLLECT INTO l_get_offr_table
     FROM TABLE(pa_maps_edit_offr.get_offr(l_offr_table, p_pagination));
@@ -2626,6 +2628,8 @@ FUNCTION get_offr_pivot(p_get_offr   IN obj_get_offr_table)
       ,NULL AS micr_ncpsltn_desc_txt
       ,NULL AS offr_link_id
       ,NULL AS profile_item_count
+      ,NULL AS off_schedule_unit_qty
+      ,NULL AS trend_setter_unit_qty
 --
   FROM (SELECT *
            FROM offr
@@ -2869,7 +2873,9 @@ FUNCTION get_offr_pivot(p_get_offr   IN obj_get_offr_table)
                                   rec.scnrio_id,
                                   rec.micr_ncpsltn_desc_txt,
                                   rec.offr_link_id,
-                                  rec.profile_item_count
+                                  rec.profile_item_count,
+                                  rec.off_schedule_unit_qty,
+                                  rec.trend_setter_unit_qty
                                   ));
     END LOOP;
     app_plsql_log.info(l_module_name || ' stop');
@@ -3217,7 +3223,9 @@ begin
                 rec.scnrio_id,
                 rec.micr_ncpsltn_desc_txt,
                 rec.offr_link_id,
-                rec.profile_item_count
+                rec.profile_item_count,
+                rec.off_schedule_unit_qty,
+                rec.trend_setter_unit_qty
               );
 
     --app_plsql_log.info(l_module_name||' osl '||rec.offr_sku_line_id||', scented page='||rec.scntd_pg_typ_id);
@@ -3330,7 +3338,9 @@ begin
                 rec.scnrio_id,
                 rec.micr_ncpsltn_desc_txt,
                 rec.offr_link_id,
-                rec.profile_item_count
+                rec.profile_item_count,
+                rec.off_schedule_unit_qty,
+                rec.trend_setter_unit_qty
               ));
 
      END LOOP;--result loop
@@ -3447,8 +3457,9 @@ begin
                   rec.scnrio_id,
                   rec.micr_ncpsltn_desc_txt,
                   rec.offr_link_id,
-                  rec.profile_item_count
-
+                  rec.profile_item_count,
+                  rec.off_schedule_unit_qty,
+                  rec.trend_setter_unit_qty
                   );
 
       PIPE row(OBJ_EDIT_OFFR_LINE(rec.status,
@@ -3560,7 +3571,9 @@ begin
                   rec.scnrio_id,
                   rec.micr_ncpsltn_desc_txt,
                   rec.offr_link_id,
-                  rec.profile_item_count
+                  rec.profile_item_count,
+                  rec.off_schedule_unit_qty,
+                  rec.trend_setter_unit_qty
                   ));
 
     END LOOP;
@@ -4114,8 +4127,8 @@ frcst AS
            AND mp.dltd_ind = 'N'
            AND mp.mrkt_id = o.mrkt_id
            AND mp.prfl_cd = prfl.prfl_cd) AS profile_item_count
-      --,osl_current.off_schedule_unit_qty
-      --,osl_current.trend_setter_unit_qty
+      ,osl_current.off_schedule_unit_qty
+      ,osl_current.trend_setter_unit_qty
 --
   FROM (SELECT *
            FROM offr
@@ -4523,7 +4536,9 @@ frcst AS
                                   rec.scnrio_id,
                                   rec.micr_ncpsltn_desc_txt,
                                   rec.offr_link_id,
-                                  rec.profile_item_count
+                                  rec.profile_item_count,
+                                  rec.off_schedule_unit_qty,
+                                  rec.trend_setter_unit_qty
                                   ));
     END LOOP;
     app_plsql_log.info(l_module_name || ' stop');
@@ -4668,7 +4683,7 @@ frcst AS
                 pg_wght, pp_pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
                 fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id,
-                scnrio_id,micr_ncpsltn_desc_txt,offr_link_id, profile_item_count)
+                scnrio_id,micr_ncpsltn_desc_txt,offr_link_id, profile_item_count, off_schedule_unit_qty, trend_setter_unit_qty)
       BULK COLLECT
       INTO l_edit_offr_table
       FROM TABLE(get_offr(l_offr_table, p_pagination));
@@ -4697,7 +4712,7 @@ frcst AS
                 pg_wght, pp_pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
                 fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id,
-                scnrio_id, micr_ncpsltn_desc_txt, offr_link_id, profile_item_count )
+                scnrio_id, micr_ncpsltn_desc_txt, offr_link_id, profile_item_count, off_schedule_unit_qty, trend_setter_unit_qty)
       BULK COLLECT
       INTO l_edit_offr_table
       FROM TABLE(get_offr(p_get_offr_table, p_pagination));
@@ -5820,7 +5835,7 @@ frcst AS
                 pg_wght, pp_pg_wght, sprd_nr, offr_prfl_prcpt_id, has_unit_qty, offr_typ, forcasted_units, forcasted_date, offr_cls_id, spcl_ordr_ind,
                 offr_ofs_nr, pp_ofs_nr, impct_catgry_id, hero_ind, smplg_ind, mltpl_ind, cmltv_ind, use_instrctns_ind, pg_typ_id, featrd_prfl_ind,
                 fxd_pg_wght_ind, prod_endrsmt_id, frc_mtch_mthd_id, wghtd_avg_cost_amt, incntv_id, intrdctn_perd_id, on_stus_perd_id, dspostn_perd_id,
-                scnrio_id,micr_ncpsltn_desc_txt,offr_link_id, profile_item_count)
+                scnrio_id,micr_ncpsltn_desc_txt,offr_link_id, profile_item_count, off_schedule_unit_qty, trend_setter_unit_qty)
       BULK COLLECT INTO p_edit_offr_table
       FROM TABLE(get_offr(l_offr_table, p_pagination));
 
@@ -5956,7 +5971,7 @@ frcst AS
                               osl_rec.cmltv_ind,  osl_rec.use_instrctns_ind,  osl_rec.pg_typ_id,  osl_rec.featrd_prfl_ind,  osl_rec.fxd_pg_wght_ind,
                               osl_rec.prod_endrsmt_id, osl_rec.frc_mtch_mthd_id, osl_rec.wghtd_avg_cost_amt, osl_rec.incntv_id,
                               osl_rec.intrdctn_perd_id, osl_rec.on_stus_perd_id, osl_rec.dspostn_perd_id, osl_rec.scnrio_id,
-                              osl_rec.micr_ncpsltn_desc_txt,osl_rec.offr_link_id, osl_rec.profile_item_count);
+                              osl_rec.micr_ncpsltn_desc_txt,osl_rec.offr_link_id, osl_rec.profile_item_count, osl_rec.off_schedule_unit_qty, osl_rec.trend_setter_unit_qty);
     END LOOP;
   END add_to_edit_offr_table;
 
