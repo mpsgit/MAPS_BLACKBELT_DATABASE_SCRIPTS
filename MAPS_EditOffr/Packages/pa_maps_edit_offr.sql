@@ -5579,6 +5579,13 @@ frcst AS
     -- Update pagination info in offr
     UPDATE offr o
        SET o.mrkt_veh_perd_sctn_id = p_mrkt_veh_perd_sctn_id,
+           o.brchr_plcmt_id = (SELECT brchr_plcmt_id
+                                 FROM mrkt_veh_perd_sctn
+                                WHERE mrkt_id = o.mrkt_id
+                                  AND offr_perd_id = o.offr_perd_id
+                                  AND ver_id = o.ver_id
+                                  AND veh_id = o.veh_id
+                                  AND mrkt_veh_perd_sctn_id = p_mrkt_veh_perd_sctn_id),
            o.sctn_page_ofs_nr      = p_offr_ofs_nr,
            o.featrd_side_cd        = p_featrd_side_cd
      WHERE o.offr_id = p_offr_id;
