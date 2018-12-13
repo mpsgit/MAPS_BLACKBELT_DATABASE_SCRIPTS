@@ -6052,10 +6052,29 @@ frcst AS
     l_procedure_name         VARCHAR2(50) := 'DEL_PRCPT_WITH_DEPS';
     l_location               VARCHAR2(1000);
 
-    l_cnt                    INTEGER;
+    l_offr_id                offr_prfl_prc_point.offr_id%TYPE;
+    l_pp_sls_cls_cd          offr_prfl_prc_point.sls_cls_cd%TYPE;
+    l_prfl_cd                offr_prfl_prc_point.prfl_cd%TYPE;
+    l_pp_pg_ofs_nr           offr_prfl_prc_point.pg_ofs_nr%TYPE;
+    l_pp_featrd_side_cd      offr_prfl_prc_point.featrd_side_cd%TYPE;
+    
 
   BEGIN
     SAVEPOINT del_prcpt;
+
+    l_location := 'querying offr_prfl_prc_point';
+    SELECT offr_id,
+           sls_cls_cd,
+           prfl_cd,
+           pg_ofs_nr,
+           featrd_side_cd
+      INTO l_offr_id,
+           l_pp_sls_cls_cd,
+           l_prfl_cd,
+           l_pp_pg_ofs_nr,
+           l_pp_featrd_side_cd
+      FROM offr_prfl_prc_point p
+     WHERE p.offr_prfl_prcpt_id = p_prcpt_id;
 
     l_location := 'deleting dstrbtd_mrkt_sls';
     DELETE FROM dstrbtd_mrkt_sls dms
@@ -6066,80 +6085,51 @@ frcst AS
        );
 
     l_location := 'deleting offr_sku_line';
-    DELETE FROM offr_sku_line osl
-     WHERE osl.offr_prfl_prcpt_id = p_prcpt_id;
+    FOR rec IN (
+      SELECT *
+        FROM offr_sku_line
+       WHERE offr_prfl_prcpt_id = p_prcpt_id
+    )
+    LOOP
+      DELETE FROM offr_sku_line osl
+       WHERE osl.offr_sku_line_id = rec.offr_sku_line_id;
+
+      l_location := 'delete offr_sls_cls_sku';
+      DELETE FROM offr_sls_cls_sku s
+       WHERE NOT EXISTS (SELECT *
+                         FROM offr_sku_line osl
+                        WHERE osl.offr_id        = s.offr_id
+                          AND osl.sls_cls_cd     = s.sls_cls_cd
+                          AND osl.prfl_cd        = s.prfl_cd
+                          AND osl.pg_ofs_nr      = s.pg_ofs_nr
+                          AND osl.featrd_side_cd = s.featrd_side_cd
+                          AND osl.sku_id         = s.sku_id)
+         AND s.offr_id        = l_offr_id
+         AND s.sls_cls_cd     = rec.sls_cls_cd
+         AND s.prfl_cd        = l_prfl_cd
+         AND s.pg_ofs_nr      = l_pp_pg_ofs_nr
+         AND s.featrd_side_cd = l_pp_featrd_side_cd
+         AND s.sku_id         = rec.sku_id;
+    END LOOP;
 
     l_location := 'deleting offr_prfl_prc_point';
     DELETE FROM offr_prfl_prc_point p
      WHERE p.offr_prfl_prcpt_id = p_prcpt_id;
 
-    l_location := 'delete offr_sls_cls_sku and offr_prfl_sls_cls_plcmt';
-    FOR rec IN (
-      SELECT *
-        FROM offr_sku_line osl
-       WHERE osl.offr_prfl_prcpt_id = p_prcpt_id
-    )
-    LOOP
-      SELECT COUNT(*)
-        INTO l_cnt
-        FROM offr_sls_cls_sku s
-       WHERE NOT EXISTS (SELECT *
-                           FROM offr_sku_line osl
-                          WHERE osl.offr_id        = s.offr_id
-                            AND osl.sls_cls_cd     = s.sls_cls_cd
-                            AND osl.prfl_cd        = s.prfl_cd
-                            AND osl.pg_ofs_nr      = s.pg_ofs_nr
-                            AND osl.featrd_side_cd = s.featrd_side_cd
-                            AND osl.sku_id         = s.sku_id)
-         AND s.offr_id        = rec.offr_id
-         AND s.sls_cls_cd     = rec.sls_cls_cd
-         AND s.prfl_cd        = rec.prfl_cd
-         AND s.pg_ofs_nr      = rec.pg_ofs_nr
-         AND s.featrd_side_cd = rec.featrd_side_cd
-         AND s.sku_id         = rec.sku_id;
-
-      IF l_cnt > 0 THEN
-        DELETE FROM offr_sls_cls_sku s
-         WHERE s.offr_id        = rec.offr_id
-           AND s.sls_cls_cd     = rec.sls_cls_cd
-           AND s.prfl_cd        = rec.prfl_cd
-           AND s.pg_ofs_nr      = rec.pg_ofs_nr
-           AND s.featrd_side_cd = rec.featrd_side_cd
-           AND s.sku_id         = rec.sku_id;
-      END IF;
-
-      SELECT COUNT(*)
-        INTO l_cnt
-        FROM offr_prfl_sls_cls_plcmt p
-       WHERE NOT EXISTS (SELECT *
-                           FROM offr_prfl_prc_point s
-                          WHERE s.offr_id        = p.offr_id
-                            AND s.sls_cls_cd     = p.sls_cls_cd
-                            AND s.prfl_cd        = p.prfl_cd
-                            AND s.pg_ofs_nr      = p.pg_ofs_nr
-                            AND s.featrd_side_cd = p.featrd_side_cd)
-         AND NOT EXISTS (SELECT *
-                           FROM offr_sls_cls_sku s
-                          WHERE s.offr_id        = p.offr_id
-                            AND s.sls_cls_cd     = p.sls_cls_cd
-                            AND s.prfl_cd        = p.prfl_cd
-                            AND s.pg_ofs_nr      = p.pg_ofs_nr
-                            AND s.featrd_side_cd = p.featrd_side_cd)
-         AND p.offr_id        = rec.offr_id
-         AND p.sls_cls_cd     = rec.sls_cls_cd
-         AND p.prfl_cd        = rec.prfl_cd
-         AND p.pg_ofs_nr      = rec.pg_ofs_nr
-         AND p.featrd_side_cd = rec.featrd_side_cd;
-
-      IF l_cnt > 0 THEN
-        DELETE FROM offr_prfl_sls_cls_plcmt p
-         WHERE p.offr_id        = rec.offr_id
-           AND p.sls_cls_cd     = rec.sls_cls_cd
-           AND p.prfl_cd        = rec.prfl_cd
-           AND p.pg_ofs_nr      = rec.pg_ofs_nr
-           AND p.featrd_side_cd = rec.featrd_side_cd;
-      END IF;
-    END LOOP;
+    l_location :=  'delete offr_prfl_sls_cls_plcmt';
+    DELETE FROM offr_prfl_sls_cls_plcmt plc
+     WHERE NOT EXISTS (SELECT *
+                         FROM offr_prfl_prc_point pp
+                        WHERE pp.offr_id        = plc.offr_id
+                          AND pp.sls_cls_cd     = plc.sls_cls_cd
+                          AND pp.prfl_cd        = plc.prfl_cd
+                          AND pp.pg_ofs_nr      = plc.pg_ofs_nr
+                          AND pp.featrd_side_cd = plc.featrd_side_cd)
+       AND plc.offr_id        = l_offr_id
+       AND plc.sls_cls_cd     = l_pp_sls_cls_cd
+       AND plc.prfl_cd        = l_prfl_cd
+       AND plc.pg_ofs_nr      = l_pp_pg_ofs_nr
+       AND plc.featrd_side_cd = l_pp_featrd_side_cd;
 
   EXCEPTION
     WHEN OTHERS THEN
