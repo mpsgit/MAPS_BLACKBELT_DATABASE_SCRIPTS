@@ -111,6 +111,18 @@ CREATE OR REPLACE PACKAGE pa_maps_edit_offr AS
                                   p_edit_offr_table         OUT obj_edit_offr_table,
                                   p_pagination               IN CHAR DEFAULT 'N');
 
+  PROCEDURE replace_offer(par_offerId        IN NUMBER,
+                          par_newOffrId      IN NUMBER,
+                          par_newMarketId    IN NUMBER,
+                          par_newOfferPeriod IN NUMBER,
+                          par_newVehId       IN NUMBER,
+                          par_zeroUnits      IN NUMBER,
+                          par_whatIf         IN NUMBER,
+                          par_enrgyChrt      IN NUMBER,
+                          par_retainDest     IN NUMBER,
+                          par_user           IN VARCHAR2,
+                          par_retOffrId     OUT NUMBER);
+
   PROCEDURE copy_offer(p_copy_offr_table   IN obj_copy_offr_table,
                        p_user_nm           IN VARCHAR2,
                        p_status           OUT NUMBER,
@@ -5725,6 +5737,30 @@ frcst AS
       RAISE;
 
   END save_pagination_data;
+
+  PROCEDURE replace_offer(par_offerId        IN NUMBER,
+                          par_newOffrId      IN NUMBER,
+                          par_newMarketId    IN NUMBER,
+                          par_newOfferPeriod IN NUMBER,
+                          par_newVehId       IN NUMBER,
+                          par_zeroUnits      IN NUMBER,
+                          par_whatIf         IN NUMBER,
+                          par_enrgyChrt      IN NUMBER,
+                          par_retainDest     IN NUMBER,
+                          par_user           IN VARCHAR2,
+                          par_retOffrId     OUT NUMBER) IS
+  BEGIN
+    par_retOffrId := pa_maps_replace.replace_offer_java(par_offerId => par_offerId,
+                                                        par_newOffrId => par_newOffrId,
+                                                        par_newMarketId => par_newMarketId,
+                                                        par_newOfferPeriod => par_newOfferPeriod,
+                                                        par_newVehId => par_newVehId,
+                                                        par_zeroUnits => par_zeroUnits,
+                                                        par_whatIf => par_whatIf,
+                                                        par_enrgyChrt => par_enrgyChrt,
+                                                        par_retainDest => par_retainDest,
+                                                        par_user => par_user);
+  END replace_offer;
 
   PROCEDURE copy_offer(p_copy_offr_table   IN obj_copy_offr_table,
                        p_user_nm           IN VARCHAR2,
