@@ -4208,8 +4208,6 @@ frcst AS
           FROM (SELECT SUM(unit_qty) AS sum_unit_qty
                       ,offr_sku_line_id
                       ,SUM(cost_amt) AS cost_amt
-                       --,sls_perd_id
-                      ,MAX(net_to_avon_fct) AS actual_nta
                       ,CASE
                          WHEN sls_perd_id > offr_perd_id THEN
                           'offschdl'
@@ -4222,6 +4220,7 @@ frcst AS
                  WHERE sls_typ_id = l_sls_typ
                    AND mrkt_id = l_mrkt_id
                    AND offr_perd_id = l_offr_perd_id
+                   AND ver_id = l_ver_id
                  GROUP BY offr_sku_line_id
                          ,sls_typ_id
                          ,CASE
